@@ -1,13 +1,13 @@
 # RUNEHEIR: Echoes of Fimbul — Phase 2 Setup Guide
-### Core Mechanics & 2.5D Isometric Prototype (Unity 6 URP)
+### Core Mechanics & 2.5D Isometric Prototype (Unity 6.3 LTS · URP 17.3)
 
-This guide takes you from an empty Unity project to a playable prototype loop:
+This guide takes you from a fresh clone to a playable prototype loop:
 
 **Login → Realm select → Character select / create → Whisperwood Plains → click-to-move, click-to-attack, F1–F10 skills & items, level up to Base 255 / Job 120.**
 
 | GDD Phase 2 step | Where it lives |
 |---|---|
-| Step 1 — Unity URP project `Runeheir_EchoesOfFimbul` | §1 below |
+| Step 1 — Unity URP project `Runeheir_EchoesOfFimbul` | This folder is the project (§1) |
 | Step 2 — 2.5D isometric camera (Pitch −45°, Yaw 45°) | `Scripts/Runtime/Cameras/IsometricCameraRig.cs` |
 | Step 3 — NavMesh click-to-move controller | `Scripts/Runtime/Player/ClickToMoveController.cs` + `Movement/NavMotor.cs` |
 | Step 4 — Stat engine (STR..LUK, Base 255 / Job 120, ASPD, 150 DEX) | `Scripts/Core/Stats/*`, `Scripts/Core/Characters/*` |
@@ -15,7 +15,7 @@ This guide takes you from an empty Unity project to a playable prototype loop:
 | XileRO-style click-to-attack | `Scripts/Runtime/Combat/AutoAttacker.cs` |
 | F1–F10 assignable skills / items | `Scripts/Runtime/Player/HotkeyController.cs`, `UI/Hud/HotkeyBarView.cs` |
 | Login, realm & character select / create | `Scripts/Runtime/FrontEnd/*` |
-| Step 5 — Cel-shaded toon material | *Not in this drop (see "What's next")* |
+| Step 5 — Cel-shaded toon material with ink outlines | `Resources/RuneheirToon.shader` + `Visuals/RuntimeMaterials.cs` (§10) |
 
 ---
 
@@ -23,30 +23,28 @@ This guide takes you from an empty Unity project to a playable prototype loop:
 
 | | |
 |---|---|
-| Unity | **Unity 6 LTS** (6000.0 or newer) via Unity Hub |
-| Template | **Universal 3D** (URP) |
-| Packages | **Input System** (included in Unity 6 templates), **Unity UI (uGUI)** (included), **Test Framework** (included). Optional: **AI Navigation** for editor-baked NavMeshes. |
+| Unity | **Unity 6.3 LTS**. The project pins `6000.3.25f1` (`ProjectSettings/ProjectVersion.txt`); any 6000.3.x patch opens it. |
+| Render pipeline | **URP 17.3**, already configured (PC and Mobile quality assets from the official Universal 3D template) |
+| Packages | Pinned in `Packages/manifest.json`: Input System, Unity UI (uGUI), AI Navigation, Test Framework, Timeline. Unity installs them on first open. |
 | Hardware | The ASUS TUF F15 (i5-11400H / RTX 3060 6 GB) is plenty. The prototype uses primitives only. |
 
 No other assets are needed. All UI, icons and placeholder characters are generated in code.
 
 ---
 
-## 1. Create the project and add the code
+## 1. Open the project
 
-### Option A — fastest (copy the code into a new project)
-1. Unity Hub → **New project** → **Universal 3D** → name it `Runeheir_EchoesOfFimbul` → **Create**.
-2. Close Unity. Copy the folder **`Runeheir_EchoesOfFimbul/Assets/_Runeheir`** from this repo into your new project's `Assets/` folder.
-3. Re-open the project. Unity imports the scripts and compiles four assemblies:
-   `Runeheir.Core` (pure C# rules), `Runeheir.Runtime`, `Runeheir.Editor`, `Runeheir.Tests.EditMode`.
+`Runeheir_EchoesOfFimbul/` is a complete Unity project (`Assets/`, `Packages/`, `ProjectSettings/`), set up from the official Unity 6.3 **Universal 3D** template.
 
-### Option B — keep the whole Unity project in this repo (recommended for the team)
-1. Create the URP project in a temporary folder exactly like Option A (step 1).
-2. Close Unity and move the generated **`Assets/`** content (Scenes, Settings, etc.), **`Packages/`** and **`ProjectSettings/`** into this repo's `Runeheir_EchoesOfFimbul/` folder. Keep the existing `Assets/_Runeheir`.
-3. Unity Hub → **Add** → **Add project from disk** → pick `Runeheir_EchoesOfFimbul/`.
-4. Commit `Assets/`, `Packages/`, `ProjectSettings/` and the generated **`.meta`** files. The `.gitignore` in that folder already excludes `Library/`, `Temp/`, `Logs/`, `UserSettings/` and IDE files.
+1. Clone the repo (branch `claude/runeheir-core-mechanics-piezc9`).
+2. Unity Hub → **Add** → **Add project from disk** → pick the `Runeheir_EchoesOfFimbul/` folder → open it with Unity **6000.3.x**.
+3. The first import takes a few minutes. Unity resolves the packages and compiles six assemblies:
+   `Runeheir.Core` (pure C# rules), `Runeheir.Runtime`, `Runeheir.Editor`, and the tests `Runeheir.Tests.EditMode`, `Runeheir.Tests.Editor`, `Runeheir.Tests.PlayMode`.
+4. Commit the `.meta` files Unity generates for the scripts. The `.gitignore` in that folder already excludes `Library/`, `Temp/`, `Logs/`, `UserSettings/`, `Builds/` and IDE files.
 
-> **Input backend:** Unity 6 templates use the new Input System ("Active Input Handling = Input System Package"). The code supports that and the legacy Input Manager, chosen at compile time in `Controls/GameInput.cs`. Either setting works.
+**Adding the code to another project instead:** copy `Assets/_Runeheir` into any Unity 6.3 **Universal 3D** project. The toon shader needs URP 17.1 or newer (Unity 6.1+).
+
+> **Input backend:** the project uses the new Input System (Player Settings ▸ Active Input Handling = **Input System Package**), as Unity 6 templates do. The code also supports the legacy Input Manager, chosen at compile time in `Controls/GameInput.cs`.
 
 ---
 
@@ -54,7 +52,7 @@ No other assets are needed. All UI, icons and placeholder characters are generat
 
 Menu bar → **Runeheir ▸ Setup ▸ Build Prototype Scenes**
 
-This generates two scenes and adds them to Build Settings / Build Profiles:
+This generates two scenes and their materials (`Assets/_Runeheir/Materials`, toon-shaded under URP) and adds both scenes to Build Profiles. Re-run it any time; it rebuilds them from code. Command-line and CI builds call the same generator (`RuneheirSetupWizard.GenerateScenes()`), so the scenes never need to be committed.
 
 | Scene | Contents |
 |---|---|
@@ -109,7 +107,7 @@ Manual setup in your own scene:
 
 ### NavMesh: two options
 - **Prototype (zero setup):** `RuntimeNavMeshBaker` on the environment root bakes every collider under it when the scene loads. Objects with a `NavBlocker` component (tree trunks, rocks, runestones) are carved out instead of becoming walkable islands.
-- **Hand-built maps (Phase 5):** Package Manager → install **AI Navigation** → add **NavMeshSurface** to your level root → **Bake**. Keep or remove the `RuntimeNavMeshBaker`; it does nothing when an editor-baked NavMesh already exists.
+- **Hand-built maps (Phase 5):** add a **NavMeshSurface** (AI Navigation, already installed) to your level root → **Bake**. Keep or remove the `RuntimeNavMeshBaker`; it checks in `Start` (after every NavMeshSurface has registered its data) and does nothing when an editor-baked NavMesh already exists.
 
 ### Your own player model
 `FieldBootstrap ▸ Player Visual Prefab` accepts any model (FBX from Blender). `EntityFactory.CreatePlayer` adds the rest: `NavMeshAgent`, `NavMotor`, `PlayerCharacter`, `AutoAttacker`, `SkillCaster`, `AspdAnimationScaler`, `ClickToMoveController`, `HotkeyController`. Leave it empty to use the procedural placeholder avatar (job-colored outfit, 8 hair styles, 9 hair colors, weapon by job).
@@ -182,7 +180,9 @@ Server rates (XileRO-style high rate) are on **FieldBootstrap**: Base ×50, Job 
 3. **Impact:** damage lands at 50% of the swing via `DamageCalculator` (HIT vs FLEE, crit, size table, 10-element table, hard/soft DEF, card bonuses).
 4. **Repeat** every `AttackInterval` until the target dies or you click the ground (continuous by default, like `/noctrl`).
 
-Monsters (`Combat/Monster.cs`) wander, aggro (aggressive types) or retaliate (passive types), leash home, and on death give EXP split by damage share and auto-loot their drops. The three **Training Dummies** next to spawn never die and post your DPS and **hits/s** to chat, which is the quickest way to verify ASPD.
+The swing schedule carries over from one swing to the next instead of restarting from the current frame, so the real attack rate matches the table above at any frame rate. A stun or freeze that lands mid-swing cancels the hit.
+
+Monsters (`Combat/Monster.cs`) wander, aggro (aggressive types) or retaliate (passive types), leash home, and on death give EXP split by damage share and auto-loot their drops. The three **Training Dummies** next to spawn never die. After 2.5 s without hits they post your DPS and **hits/s** to chat, measured from the first hit to the last, which is the quickest way to verify ASPD.
 
 Floating numbers: white = your damage, red = damage you take, yellow `1,234!` = critical, `Miss`, green `+heal`.
 
@@ -248,11 +248,76 @@ Menu **Runeheir ▸ Debug ▸ Reveal / Delete Local Account Database** to inspec
 
 Suggested ASPD check: `@job einherjar` → `@blvl 255` → `@agi 150` → hit a Training Dummy and read the hits/s in chat → cast **Two-Hand Surge** → hit again (higher) → **Rage of Thor** (locked at 195).
 
-**Unit tests:** Window → General → **Test Runner** → **EditMode** → Run All. There are 56 tests covering formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory and accounts.
+**Automated tests:** Window → General → **Test Runner**.
+
+| Tab | Tests | What they cover |
+|---|---|---|
+| **EditMode** | 56 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts |
+| **EditMode** | 2 editor tests | The scene generator builds playable scenes (spawners, NavMesh baker, wiring); the toon shader imports with no errors on the active graphics API |
+| **PlayMode** | 3 smoke tests | Walk on the NavMesh, auto-attack a dummy, Two-Hand Surge raises ASPD by 7, an F2 hotkey uses an item, level-up, death and respawn; a Forest Imp aggroes and dies for EXP; the login, realm, character select and create screens open, and passwords are never stored in plain text |
+
+Unity fails a test whenever an error or exception is logged, so the PlayMode tests also catch crashes in Update loops (HUD, AI, skills) while they run.
+
+The Core tests also run without Unity: `dotnet test Tools/CoreTests/Tests` (needs the .NET 8 SDK).
 
 ---
 
-## 10. Troubleshooting
+## 10. Step 5 — Cel-shaded toon shader (`Runeheir/Toon`)
+
+`Assets/_Runeheir/Resources/RuneheirToon.shader` is a hand-written URP shader for the "HD-XileRO" anime look. It sits in a `Resources` folder so every player build includes it.
+
+- **Cel shading:** one hard light/shadow band with a cool shadow tint, crisp received shadows, banded point and spot lights (Forward and Forward+), and ambient from light probes / the skybox.
+- **Anime highlights:** a banded specular spot and a rim light along silhouette edges, strongest on the lit side.
+- **Ink outline:** an inverted-hull pass with a **constant on-screen width** (pixels at 1080p), so outlines stay crisp at every zoom level.
+- **Production-ready passes:** shadow casting, depth and depth-normals (SSAO works), fog, GPU instancing, and SRP Batcher support.
+
+| Property | Default | Notes |
+|---|---|---|
+| Base Map / Base Color | white | Your Krita texture × tint |
+| Shadow Tint | (0.62, 0.66, 0.82) | Color of the shadow side (cool blue = Fimbulwinter) |
+| Light / Shadow Threshold | 0.52 | Where the band splits |
+| Band Edge Softness | 0.03 | 0.001 = razor-sharp, 0.5 = soft |
+| Received Shadow Strength | 1 | How dark cast shadows get |
+| Ambient Strength | 0.6 | Sky/probe fill light |
+| Specular Color (A = intensity) / Size | A 0.35 / 0.1 | Set A to 0 for matte cloth |
+| Rim Color (A = intensity) / Threshold | A 0.4 / 0.72 | Backlit edge glow |
+| Emission | black | HDR; the runestones and campfire use it |
+| Outline Color / Width | near-black / 2 px | 0 = no outline |
+
+**Where it's used:** `RuntimeMaterials.Lit(color, outlineWidth)` builds toon materials for the placeholder player, monsters and preview pedestals (2 px outline). The scene generator gives props a 1.5 px outline and the ground none. Without URP, or if the shader is unsupported on the GPU, both fall back to the pipeline's default lit shader automatically.
+
+**Outlines on hard-edged meshes:** the inverted hull pushes vertices along their normals, so meshes with split normals (the placeholder cubes) show small gaps at sharp corners. For Blender characters, export with smooth normals or keep the outline width small on hard-surface props. A smoothed-normal bake for the outline is planned with the Phase 3 models.
+
+---
+
+---
+
+## 11. Builds and CI
+
+**Local builds:** menu **Runeheir ▸ Build ▸ Windows Player** or **Linux Player**. Each regenerates the prototype scenes and builds to `Builds/`. From the command line:
+
+```
+Unity -batchmode -quit -projectPath Runeheir_EchoesOfFimbul -executeMethod Runeheir.EditorTools.RuneheirBuild.BuildWindows
+```
+
+**GitHub Actions** (`.github/workflows/unity-ci.yml`) runs on every push that touches this folder:
+
+| Job | Needs | What it does |
+|---|---|---|
+| Core rules (dotnet) | nothing | Builds `Runeheir.Core` at Unity's API level (.NET Standard 2.1, warnings as errors) and runs the 56 rule tests |
+| Unity 6.3 EditMode + PlayMode tests | Unity license secrets | Opens the project in real Unity 6000.3.25f1 (GameCI) and runs every test above |
+| Build StandaloneWindows64 / StandaloneLinux64 | Unity license secrets | Builds both players and uploads them as artifacts |
+
+To turn on the Unity jobs, add these repository secrets (GitHub → **Settings ▸ Secrets and variables ▸ Actions**):
+
+- `UNITY_EMAIL` and `UNITY_PASSWORD`: your Unity ID.
+- `UNITY_LICENSE`: the full contents of your `Unity_lic.ulf` (Personal licence; see the GameCI "activation" guide). Pro or Plus users set `UNITY_SERIAL` instead.
+
+Until then those jobs show as skipped, with a notice explaining why.
+
+---
+
+## 12. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -260,7 +325,8 @@ Suggested ASPD check: `@job einherjar` → `@blvl 255` → `@agi 150` → hit a 
 | Clicks do nothing / no NavMesh error in Console | The field needs `RuntimeNavMeshBaker` on the environment root, or a baked NavMeshSurface. |
 | `InvalidOperationException: You are trying to read Input using the UnityEngine.Input class…` | A scene contains an old `StandaloneInputModule`. Delete that EventSystem; the game creates the correct one. |
 | Assembly error mentioning `Unity.InputSystem` | Install **Input System** via Package Manager (it is preinstalled in Unity 6 templates). |
-| Pink objects | The project isn't using URP. Create it from the **Universal 3D** template, or assign a URP asset in Graphics settings. |
+| Pink objects | The project isn't using URP. This project ships with URP assigned; in another project, assign a URP asset in Project Settings ▸ Graphics. |
+| Outlines missing | Outline Width is 0 on that material, or the object doesn't use `Runeheir/Toon` (check `RuntimeMaterials.ToonAvailable`). |
 | UI text missing | Unity versions before 2022.2 use `Arial.ttf`; `UITheme.Font` falls back to an OS font automatically. |
 | Alt+key opens an editor menu | Use the plain keys **A / S / E** or the Basic Info buttons. |
 
@@ -275,7 +341,7 @@ These numbers weren't fixed by the GDD, so I picked Ragnarok-style defaults. Eac
 - **Status point curve** (classic RO).
 
 ## What's next
-- **Phase 2 Step 5:** cel-shaded toon material with ink outlines (URP Shader Graph + inverted-hull or Renderer Feature outline). Swap the shader in `RuntimeMaterials` / the generated materials.
+- **Phase 2 Step 5 polish:** smoothed-normal outline bake for imported Blender models; optional Shader Graph port for artists.
 - **Phase 3:** skill trees with skill points, real animations through `CharacterAnimationBridge`, more skills as ScriptableObjects.
 - **Phase 4:** the 10-slot equipment paperdoll, +10/+20 refining and 4-socket soul cards (`DamageBonuses` and `StatModifiers` are ready to receive card effects).
 - **Phase 6:** Mirror server authority (move `DamageCalculator` / `AccountStore` calls server-side) and a networked `IAccountService`.
