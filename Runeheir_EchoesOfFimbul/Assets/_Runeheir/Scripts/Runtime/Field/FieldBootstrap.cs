@@ -1,0 +1,135 @@
+using Runeheir.Cameras;
+using Runeheir.Characters;
+using Runeheir.Controls;
+using Runeheir.Movement;
+using Runeheir.Player;
+using Runeheir.Session;
+using Runeheir.UI;
+using UnityEngine;
+using UnityEngine.AI;
+
+namespace Runeheir.Field
+{
+    /// <summary>
+    /// Entry point of a field map: spawns the selected character at its saved spot (or the save point),
+    /// points the isometric camera at it, builds the HUD and autosaves.
+    /// Pressing Play directly in a field scene creates a temporary character for quick iteration.
+    /// </summary>
+    public sealed class FieldBootstrap : MonoBehaviour
+    {
+        [SerializeField] private string mapId = MapCatalog.StartingMapId;
+        [SerializeField] private Transform savePoint;
+        [SerializeField] private IsometricCameraRig cameraRig;
+
+        [Tooltip("Optional character model with an Animator. Empty = placeholder avatar.")]
+        [SerializeField] private GameObject playerVisualPrefab;
+
+        [Tooltip("Random-teleport area (Wind Rune Shard), centered on this object.")]
+        [SerializeField] private Vector3 mapSize = new Vector3(130f, 20f, 130f);
+
+        [Header("Server rates (XileRO-style high rate)")]
+        [SerializeField, Min(0f)] private float baseExpRate = 50f;
+        [SerializeField, Min(0f)] private float jobExpRate = 50f;
+        [SerializeField, Min(0f)] private float dropRate = 5f;
+
+        [SerializeField, Min(5f)] private float autosaveSeconds = 60f;
+
+        private PlayerCharacter _player;
+        private float _nextAutosave;
+
+        public PlayerCharacter Player => _player;
+
+        private void Start()
+        {
+            ServerRates.Current = new ServerRates { BaseExp = baseExpRate, JobExp = jobExpRate, Drop = dropRate };
+            EventSystemBootstrap.Ensure();
+
+            var map = MapCatalog.Get(mapId);
+            Vector3 save = savePoint != null ? savePoint.position : transform.position;
+            FieldContext.Set(mapId, map != null ? map.Name : mapId, save, new Bounds(transform.position, mapSize));
+
+            if (!RuntimeNavMeshBaker.HasAnyNavMesh)
+            {
+                Debug.LogError("[Runeheir] No NavMesh in this scene. Add a RuntimeNavMeshBaker to the environment root, " +
+                               "or bake a NavMeshSurface (AI Navigation package).");
+            }
+
+            var session = GameSession.Instance;
+            var record = session.ActiveCharacter ?? session.CreateTemporaryCharacter();
+
+            Vector3 spawn = save;
+            if (record.HasSavedPosition && record.MapId == mapId)
+            {
+                spawn = new Vector3(record.PosX, record.PosY, record.PosZ);
+            }
+
+            if (NavMesh.SamplePosition(spawn, out NavMeshHit hit, 10f, NavMesh.AllAreas))
+            {
+                spawn = hit.position;
+            }
+
+            _player = EntityFactory.CreatePlayer(record, spawn, playerVisualPrefab);
+
+            if (cameraRig == null && Camera.main != null)
+            {
+                // Explicit null checks: Unity's fake-null objects make "??" unreliable here.
+                cameraRig = Camera.main.GetComponent<IsometricCameraRig>();
+                if (cameraRig == null)
+                {
+                    cameraRig = Camera.main.gameObject.AddComponent<IsometricCameraRig>();
+                }
+            }
+
+            if (cameraRig != null)
+            {
+                cameraRig.SetTarget(_player.transform, snap: true);
+            }
+
+            WorldUiLayer.Create();
+            HudController.Create(_player, this);
+
+            ChatLog.System($"Welcome to {FieldContext.MapName}, {record.Name}! Midgard shivers under the Fimbulwinter.");
+            ChatLog.System("Left-click to move/attack · F1–F10 hotkeys · Alt+A status · Alt+S skills · Alt+E items · Enter to chat · @help");
+            if (session.IsTemporaryCharacter)
+            {
+                ChatLog.Notice("Temporary character (scene played directly). Start from RH_Login to use saved characters.");
+            }
+
+            _nextAutosave = Time.time + autosaveSeconds;
+        }
+
+        private void Update()
+        {
+            if (_player != null && Time.time >= _nextAutosave)
+            {
+                _nextAutosave = Time.time + autosaveSeconds;
+                _player.SaveNow();
+            }
+        }
+
+        /// <summary>Esc menu → "Character Select".</summary>
+        public void ReturnToCharacterSelect()
+        {
+            if (_player != null)
+            {
+                _player.WriteBackToRecord();
+            }
+
+            GameSession.Instance.ReturnToCharacterSelect();
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (_player != null)
+            {
+                _player.SaveNow();
+            }
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.color = new Color(1f, 0.85f, 0.3f, 0.4f);
+            Gizmos.DrawWireCube(transform.position, mapSize);
+        }
+    }
+}
