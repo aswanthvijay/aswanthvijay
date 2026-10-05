@@ -131,9 +131,13 @@ namespace Runeheir.Combat
             float interval = Mathf.Max(swing, _owner.AttackInterval);
             float now = Time.time;
 
-            _swingEndsAt = now + swing;
-            _impactAt = now + swing * StatFormulas.ImpactFrameFraction;
-            _nextSwingAt = now + interval;
+            // While attacking continuously, start from the scheduled time when it fell inside the last frame,
+            // so frame overshoot never accumulates and the real attack rate matches the ASPD table at any FPS.
+            float start = _nextSwingAt > 0f && now - _nextSwingAt <= Time.deltaTime ? _nextSwingAt : now;
+
+            _swingEndsAt = start + swing;
+            _impactAt = start + swing * StatFormulas.ImpactFrameFraction;
+            _nextSwingAt = start + interval;
             _impactPending = true;
             _impactTarget = Target;
 
@@ -148,7 +152,8 @@ namespace Runeheir.Combat
             _impactPending = false;
             var target = _impactTarget;
             _impactTarget = null;
-            if (target == null || target.IsDead || _owner.IsDead)
+            // A stun/freeze that lands mid-swing cancels the hit.
+            if (target == null || target.IsDead || _owner.IsDead || _owner.IsIncapacitated)
             {
                 return;
             }

@@ -17,11 +17,17 @@ namespace Runeheir.UI
             _caster = player.GetComponent<SkillCaster>();
 
             var frame = UIFactory.CreateFramedPanel(hud.Canvas.transform, "CastBar", UITheme.WindowBg);
-            frame.raycastTarget = false;
             _castRoot = frame.rectTransform;
             _castRoot.Anchor(new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 104f), new Vector2(360f, 30f));
             _bar = UIFactory.CreateBar(frame.transform, new Color(0.55f, 0.8f, 1f), 14);
             _bar.Root.Stretch(4f, 4f, 4f, 4f);
+
+            // Display only: clicks must reach monsters and ground behind the bar.
+            foreach (var graphic in frame.GetComponentsInChildren<Graphic>(true))
+            {
+                graphic.raycastTarget = false;
+            }
+
             _castRoot.gameObject.SetActive(false);
 
             _hint = UIFactory.CreateText(hud.Canvas.transform, string.Empty, 20, UITheme.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);

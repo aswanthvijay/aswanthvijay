@@ -41,7 +41,11 @@ namespace Runeheir.UI
                 return;
             }
 
-            bool accepted = DragDrop.Accepted;
+            // Released back over itself = cancelled, keep it. (The Input System UI module sends a click instead
+            // of a drop in that case, so no drop target ever accepts it.)
+            var over = eventData.pointerCurrentRaycast.gameObject;
+            bool overSelf = over != null && over.transform.IsChildOf(transform);
+            bool accepted = DragDrop.Accepted || overSelf;
             DragDrop.End();
             Ended?.Invoke(accepted);
         }

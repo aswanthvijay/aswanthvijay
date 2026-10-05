@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM && RUNEHEIR_INPUT_SYSTEM
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.UI;
 #endif
 
@@ -82,7 +83,7 @@ namespace Runeheir.Controls
                 case GameKey.Alt: return keyboard.leftAltKey.wasPressedThisFrame || keyboard.rightAltKey.wasPressedThisFrame;
                 case GameKey.Shift: return keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame;
                 case GameKey.Ctrl: return keyboard.leftCtrlKey.wasPressedThisFrame || keyboard.rightCtrlKey.wasPressedThisFrame;
-                default: return keyboard[ToKey(key)].wasPressedThisFrame;
+                default: return KeyFor(keyboard, key).wasPressedThisFrame;
             }
         }
 
@@ -100,8 +101,40 @@ namespace Runeheir.Controls
                 case GameKey.Alt: return keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
                 case GameKey.Shift: return keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
                 case GameKey.Ctrl: return keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed;
-                default: return keyboard[ToKey(key)].isPressed;
+                default: return KeyFor(keyboard, key).isPressed;
             }
+        }
+
+        private static readonly KeyControl[] LetterKeys = new KeyControl[4];
+        private static Keyboard s_letterKeyboard;
+        private static string s_letterLayout;
+
+        /// <summary>
+        /// Input System keys are physical (US positions). Letter shortcuts (A/S/E/Q) follow the active layout
+        /// instead, so "A" opens the Status window on AZERTY too; every other key stays positional.
+        /// </summary>
+        private static KeyControl KeyFor(Keyboard keyboard, GameKey key)
+        {
+            int letter = key == GameKey.A ? 0 : key == GameKey.E ? 1 : key == GameKey.S ? 2 : key == GameKey.Q ? 3 : -1;
+            if (letter < 0)
+            {
+                return keyboard[ToKey(key)];
+            }
+
+            if (keyboard != s_letterKeyboard || keyboard.keyboardLayout != s_letterLayout)
+            {
+                s_letterKeyboard = keyboard;
+                s_letterLayout = keyboard.keyboardLayout;
+                System.Array.Clear(LetterKeys, 0, LetterKeys.Length);
+            }
+
+            if (LetterKeys[letter] == null)
+            {
+                var byLayout = keyboard.FindKeyOnCurrentKeyboardLayout(key.ToString());
+                LetterKeys[letter] = byLayout != null ? byLayout : keyboard[ToKey(key)];
+            }
+
+            return LetterKeys[letter];
         }
 
         private static Key ToKey(GameKey key)
@@ -254,12 +287,19 @@ namespace Runeheir.Controls
     {
         public static void Ensure()
         {
-            if (Object.FindFirstObjectByType<EventSystem>() != null)
+            var existing = Object.FindFirstObjectByType<EventSystem>();
+            if (existing != null)
             {
+                existing.sendNavigationEvents = false;
                 return;
             }
 
             var go = new GameObject("EventSystem", typeof(EventSystem));
+
+            // The game owns every keyboard shortcut (Enter = chat/login, A/S/E = windows, arrows/WASD unused),
+            // so uGUI must not turn them into Submit/Navigate events on whatever was clicked last.
+            // Typing into InputFields is unaffected (that runs through updateSelected).
+            go.GetComponent<EventSystem>().sendNavigationEvents = false;
 #if ENABLE_INPUT_SYSTEM && RUNEHEIR_INPUT_SYSTEM
             var module = go.AddComponent<InputSystemUIInputModule>();
             if (module.actionsAsset == null)

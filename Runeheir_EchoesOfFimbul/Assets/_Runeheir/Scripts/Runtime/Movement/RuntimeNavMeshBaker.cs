@@ -30,9 +30,30 @@ namespace Runeheir.Movement
 
         public Bounds WorldBounds => new Bounds(transform.position, boundsSize);
 
-        private void Awake()
+        private bool _checked;
+
+        // Start, not Awake: NavMeshSurface registers its baked data in OnEnable, which may run after this
+        // component's Awake. Every OnEnable has run before any Start, and order -1000 still puts this ahead
+        // of the spawners and FieldBootstrap, which sample the NavMesh in their own Start.
+        private void Start()
         {
-            // Skip only when the NavMesh came from an editor bake (NavMeshSurface), not from another runtime bake.
+            EnsureBaked();
+        }
+
+        /// <summary>
+        /// Bakes once, unless an editor-baked NavMesh (NavMeshSurface) is already loaded. Safe to call
+        /// from other Start methods when the call order is not guaranteed (e.g. components added at runtime).
+        /// </summary>
+        public void EnsureBaked()
+        {
+            if (_checked)
+            {
+                return;
+            }
+
+            _checked = true;
+
+            // Skip only when the NavMesh came from an editor bake, not from another runtime bake.
             if (skipIfNavMeshExists && s_runtimeBakes == 0 && HasAnyNavMesh)
             {
                 return;

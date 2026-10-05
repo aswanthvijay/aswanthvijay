@@ -7,8 +7,8 @@ namespace Runeheir.Visuals
     /// <summary>
     /// Colored materials for placeholder art, created at runtime and cached per color + outline.
     /// Under URP they use the cel-shaded <c>Runeheir/Toon</c> shader (GDD Phase 2 Step 5: anime toon
-    /// shading with ink outlines; it lives in a Resources folder so it is always in builds). Without
-    /// URP they fall back to the render pipeline's default lit shader.
+    /// shading with ink outlines; it lives in a Resources folder so it ships in every build). Without
+    /// it they fall back to the active pipeline's default lit shader.
     /// </summary>
     public static class RuntimeMaterials
     {
@@ -110,14 +110,28 @@ namespace Runeheir.Visuals
             {
                 if (s_litShader == null)
                 {
-                    var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    var renderer = probe.GetComponent<Renderer>();
-                    s_litShader = renderer != null && renderer.sharedMaterial != null ? renderer.sharedMaterial.shader : null;
-                    Object.DestroyImmediate(probe);
+                    var pipeline = GraphicsSettings.currentRenderPipeline;
+                    if (pipeline != null)
+                    {
+                        // Ask the pipeline, never a probe primitive: outside the Editor URP has no default
+                        // material, so a primitive can come back with built-in Standard, which URP cannot draw.
+                        s_litShader = pipeline.defaultShader;
+                        if (s_litShader == null || !s_litShader.isSupported)
+                        {
+                            s_litShader = FindShader("Universal Render Pipeline/Lit", "Universal Render Pipeline/Simple Lit", "Universal Render Pipeline/Unlit");
+                        }
+                    }
+                    else
+                    {
+                        var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        var renderer = probe.GetComponent<Renderer>();
+                        s_litShader = renderer != null && renderer.sharedMaterial != null ? renderer.sharedMaterial.shader : null;
+                        Object.DestroyImmediate(probe);
+                    }
 
                     if (s_litShader == null)
                     {
-                        s_litShader = FindShader("Universal Render Pipeline/Lit", "Standard");
+                        s_litShader = FindShader("Standard", "Sprites/Default");
                     }
                 }
 

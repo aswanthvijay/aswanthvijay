@@ -22,14 +22,26 @@ namespace Runeheir.Player
             {
                 case SkillEffect.PhysicalStrike:
                 case SkillEffect.MagicStrike:
-                    for (int hit = 0; hit < Mathf.Max(1, skill.Hits); hit++)
+                {
+                    int hits = Mathf.Max(1, skill.Hits);
+                    bool anyLanded = false;
+                    for (int hit = 0; hit < hits; hit++)
                     {
                         if (!IsValid(caster, target))
                         {
                             yield break;
                         }
 
-                        Strike(caster, skill, target, isLastHit: hit == skill.Hits - 1);
+                        bool lastHit = hit == hits - 1;
+                        anyLanded |= Strike(caster, skill, target, lastHit);
+
+                        // Phantom Barrage's stun (GDD: "guaranteed stun") lands with the barrage as a whole:
+                        // a miss on the 8th hit alone must not cancel it.
+                        if (lastHit && anyLanded && skill.Status == StatusEffect.Stun)
+                        {
+                            TryApplyStatus(skill, target);
+                        }
+
                         if (skill.HitInterval > 0f)
                         {
                             yield return new WaitForSeconds(skill.HitInterval);
@@ -37,6 +49,7 @@ namespace Runeheir.Player
                     }
 
                     break;
+                }
 
                 case SkillEffect.PhysicalAreaAroundSelf:
                     GroundRing.SpawnPulse(caster.Position, new Color(1f, 0.55f, 0.3f, 1f), 0.5f, skill.Radius, 0.35f, 0.15f);
@@ -48,9 +61,13 @@ namespace Runeheir.Player
                         }
 
                         CollectHostiles(caster, caster.Position, skill.Radius);
+                        bool lastWave = wave == Mathf.Max(1, skill.Hits) - 1;
                         foreach (var enemy in Targets)
                         {
-                            Strike(caster, skill, enemy, isLastHit: wave == skill.Hits - 1);
+                            if (Strike(caster, skill, enemy, lastWave) && lastWave && skill.Status == StatusEffect.Stun)
+                            {
+                                TryApplyStatus(skill, enemy);
+                            }
                         }
 
                         if (skill.HitInterval > 0f)
@@ -160,11 +177,12 @@ namespace Runeheir.Player
             }
         }
 
-        private static void Strike(PlayerCharacter caster, SkillDefinition skill, CombatEntity target, bool isLastHit)
+        /// <returns>True when the hit connected and the target survived it.</returns>
+        private static bool Strike(PlayerCharacter caster, SkillDefinition skill, CombatEntity target, bool isLastHit)
         {
             if (!IsValid(caster, target))
             {
-                return;
+                return false;
             }
 
             var attacker = caster.BuildAttackerProfile();
@@ -183,21 +201,33 @@ namespace Runeheir.Player
             target.ReceiveDamage(result, caster, physicalMelee: melee);
             if (result.IsMiss || target.IsDead)
             {
-                return;
+                return false;
             }
 
-            // Stun lands once on the final hit (Phantom Barrage); freeze rolls every wave (Glacial Tempest).
-            bool rollStatus = skill.Status == StatusEffect.Freeze || (skill.Status == StatusEffect.Stun && isLastHit);
-            if (rollStatus && Random.value * 100f < skill.StatusChance)
+            // Freeze rolls on every wave that connects (Glacial Tempest); stun is applied by the caller
+            // once per cast (Phantom Barrage).
+            if (skill.Status == StatusEffect.Freeze)
             {
-                target.ApplyStatus(skill.Status, skill.StatusDuration);
-                WorldFeedback.Announce(target, skill.Status == StatusEffect.Stun ? "Stunned" : "Frozen", new Color(0.7f, 0.9f, 1f));
+                TryApplyStatus(skill, target);
             }
 
             if (isLastHit && skill.Knockback > 0f)
             {
                 target.Knockback(target.Position - caster.Position, skill.Knockback);
             }
+
+            return true;
+        }
+
+        private static void TryApplyStatus(SkillDefinition skill, CombatEntity target)
+        {
+            if (target == null || target.IsDead || !(Random.value * 100f < skill.StatusChance))
+            {
+                return;
+            }
+
+            target.ApplyStatus(skill.Status, skill.StatusDuration);
+            WorldFeedback.Announce(target, skill.Status == StatusEffect.Stun ? "Stunned" : "Frozen", new Color(0.7f, 0.9f, 1f));
         }
 
         private static bool IsValid(PlayerCharacter caster, CombatEntity target)

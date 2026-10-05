@@ -50,6 +50,14 @@ namespace Runeheir.Field
 
             if (!RuntimeNavMeshBaker.HasAnyNavMesh)
             {
+                foreach (var baker in FindObjectsByType<RuntimeNavMeshBaker>(FindObjectsSortMode.None))
+                {
+                    baker.EnsureBaked();
+                }
+            }
+
+            if (!RuntimeNavMeshBaker.HasAnyNavMesh)
+            {
                 Debug.LogError("[Runeheir] No NavMesh in this scene. Add a RuntimeNavMeshBaker to the environment root, " +
                                "or bake a NavMeshSurface (AI Navigation package).");
             }

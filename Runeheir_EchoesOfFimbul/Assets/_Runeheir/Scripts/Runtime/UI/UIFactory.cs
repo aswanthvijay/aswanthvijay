@@ -161,6 +161,9 @@ namespace Runeheir.UI
             var image = CreatePanel(parent, "Button_" + label, Color.white);
             var button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
+
+            // Mouse-driven UI: a clicked button must not stay selected, or Enter/WASD would press it again.
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
             var colors = button.colors;
             colors.normalColor = UITheme.Button;
             colors.highlightedColor = UITheme.ButtonHover;
@@ -214,6 +217,7 @@ namespace Runeheir.UI
             input.placeholder = hint;
             input.lineType = InputField.LineType.SingleLine;
             input.characterLimit = characterLimit;
+            input.customCaretColor = true;
             input.caretColor = UITheme.Gold;
             input.selectionColor = new Color(UITheme.Frost.r, UITheme.Frost.g, UITheme.Frost.b, 0.35f);
             if (password)
@@ -242,6 +246,7 @@ namespace Runeheir.UI
             text.rectTransform.Stretch(30f, 0f, 0f, 0f);
 
             var toggle = rect.gameObject.AddComponent<Toggle>();
+            toggle.navigation = new Navigation { mode = Navigation.Mode.None };
             toggle.targetGraphic = box;
             toggle.graphic = check;
             toggle.isOn = isOn;

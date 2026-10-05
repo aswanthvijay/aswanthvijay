@@ -38,6 +38,7 @@ namespace Runeheir.Combat
         private float _dpsSessionStart = -1f;
         private float _lastHitAt;
         private long _dpsTotal;
+        private long _dpsFirstHit;
         private int _dpsHits;
 
         public MonsterDefinition Definition { get; private set; }
@@ -255,6 +256,13 @@ namespace Runeheir.Combat
         {
             _attacker.Disengage();
             _motor.Stop();
+
+            // Leave the crowd simulation so the corpse no longer pushes or blocks other agents.
+            if (_motor.Agent != null)
+            {
+                _motor.Agent.enabled = false;
+            }
+
             if (_animation != null)
             {
                 _animation.SetDead(true);
@@ -322,6 +330,7 @@ namespace Runeheir.Combat
                 _dpsSessionStart = Time.time;
                 _dpsTotal = 0;
                 _dpsHits = 0;
+                _dpsFirstHit = result.Amount;
             }
 
             _lastHitAt = Time.time;
@@ -336,8 +345,18 @@ namespace Runeheir.Combat
                 return;
             }
 
-            float seconds = Mathf.Max(0.5f, _lastHitAt - _dpsSessionStart);
-            ChatLog.Notice($"[{DisplayName}] {_dpsTotal:N0} damage in {seconds:0.0}s → {_dpsTotal / seconds:N0} DPS, {_dpsHits / seconds:0.00} hits/s ({_dpsHits} hits)");
+            // N hits span N-1 intervals: measure from the first hit and leave its damage out of the rate.
+            float seconds = _lastHitAt - _dpsSessionStart;
+            if (_dpsHits < 2 || seconds < 0.05f)
+            {
+                ChatLog.Notice($"[{DisplayName}] {_dpsTotal:N0} damage ({_dpsHits} hits). Keep attacking for a DPS reading.");
+            }
+            else
+            {
+                ChatLog.Notice($"[{DisplayName}] {_dpsTotal:N0} damage in {seconds:0.0}s → {(_dpsTotal - _dpsFirstHit) / seconds:N0} DPS, " +
+                               $"{(_dpsHits - 1) / seconds:0.00} hits/s ({_dpsHits} hits)");
+            }
+
             _dpsSessionStart = -1f;
         }
     }
