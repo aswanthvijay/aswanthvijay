@@ -10,8 +10,10 @@ namespace Runeheir.UI
         /// <summary>Return null to refuse the drag (e.g. empty slot).</summary>
         public Func<DragPayload> PayloadProvider;
 
-        /// <summary>Called when the drag ends; the argument is true if a drop target accepted it.</summary>
-        public Action<bool> Ended;
+        /// <summary>Called when the drag ends with the payload it started with; true if a drop target accepted it.</summary>
+        public Action<DragPayload, bool> Ended;
+
+        private DragPayload _payload;
 
         public void OnBeginDrag(PointerEventData eventData)
         {
@@ -23,6 +25,7 @@ namespace Runeheir.UI
                 return;
             }
 
+            _payload = payload;
             DragDrop.Begin(payload, eventData, canvas.rootCanvas);
         }
 
@@ -36,7 +39,9 @@ namespace Runeheir.UI
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            if (DragDrop.Current == null)
+            var payload = _payload;
+            _payload = null;
+            if (DragDrop.Current == null || payload == null)
             {
                 return;
             }
@@ -47,7 +52,19 @@ namespace Runeheir.UI
             bool overSelf = over != null && over.transform.IsChildOf(transform);
             bool accepted = DragDrop.Accepted || overSelf;
             DragDrop.End();
-            Ended?.Invoke(accepted);
+            Ended?.Invoke(payload, accepted);
+        }
+
+        // Closing the source's window (Esc/S/E) or rebuilding its rows mid-drag: uGUI never sends OnEndDrag to an
+        // inactive object, so cancel here, keeping the original binding.
+        private void OnDisable()
+        {
+            if (_payload != null && DragDrop.Current == _payload)
+            {
+                DragDrop.End();
+            }
+
+            _payload = null;
         }
     }
 }

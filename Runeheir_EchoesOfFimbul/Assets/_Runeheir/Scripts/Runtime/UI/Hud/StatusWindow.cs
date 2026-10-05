@@ -43,7 +43,7 @@ namespace Runeheir.UI
             _points.rectTransform.SetRect(0f, 210f, 250f, 24f);
 
             var hint = UIFactory.CreateText(content, "Cost to raise shown on the right. 150 DEX = instant cast.\nASPD 150–197 → attack anim 1.0x–3.0x.", 12, UITheme.TextDim, TextAnchor.UpperLeft);
-            hint.rectTransform.SetRect(0f, 238f, 260f, 40f);
+            hint.rectTransform.SetRect(0f, 238f, 260f, 46f); // three lines at 12 pt
 
             var divider = UIFactory.CreatePanel(content, "Divider", new Color(1f, 1f, 1f, 0.08f), rounded: false, blocksRaycasts: false);
             divider.rectTransform.SetRect(262f, 0f, 2f, 280f);

@@ -11,8 +11,9 @@ namespace Runeheir.UI
 
         public void OnDrop(PointerEventData eventData)
         {
+            // Only accept drops from an active drag source (window title-bar drags carry no payload).
             var payload = DragDrop.Current;
-            if (payload == null)
+            if (payload == null || eventData.pointerDrag == null || eventData.pointerDrag.GetComponent<UIDragSource>() == null)
             {
                 return;
             }

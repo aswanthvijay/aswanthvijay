@@ -88,15 +88,17 @@ namespace Runeheir.UI
                 return;
             }
 
+            // The log renders rich text: escape everything a player typed, commands included.
+            string safe = text.Replace("<", "‹").Replace(">", "›");
             if (text.StartsWith("@"))
             {
-                ChatLog.Add(text, ChatKind.Normal);
+                ChatLog.Add(safe, ChatKind.Normal);
                 GmCommands.Execute(text, _player);
             }
             else
             {
-                // Local echo until Mirror chat channels exist (Phase 6). Escape rich text from players.
-                ChatLog.Add($"{_player.DisplayName} : {text.Replace("<", "‹").Replace(">", "›")}");
+                // Local echo until Mirror chat channels exist (Phase 6).
+                ChatLog.Add($"{_player.DisplayName} : {safe}");
             }
         }
 

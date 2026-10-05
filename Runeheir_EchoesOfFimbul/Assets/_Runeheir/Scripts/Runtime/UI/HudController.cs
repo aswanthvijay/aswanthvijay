@@ -87,6 +87,7 @@ namespace Runeheir.UI
         private UIWindow BuildMenu()
         {
             var menu = UIWindow.Create(Canvas.transform, "Menu", 810f, 380f, 300f, 230f);
+            menu.CenterOnShow = true;
             string[] labels = { "Character Select", "Exit Game", "Return to Game" };
             UnityEngine.Events.UnityAction[] actions =
             {
@@ -107,6 +108,7 @@ namespace Runeheir.UI
         private UIWindow BuildDeathDialog()
         {
             var dialog = UIWindow.Create(Canvas.transform, "Fallen", 760f, 420f, 400f, 170f, closable: false);
+            dialog.CenterOnShow = true;
             var text = UIFactory.CreateText(dialog.Content, "You have fallen in the Fimbulwinter...", 18, UITheme.Error, TextAnchor.MiddleCenter, FontStyle.Bold);
             text.rectTransform.SetRect(0f, 4f, 380f, 40f);
             var button = UIFactory.CreateButton(dialog.Content, "Return to Save Point", () => _player.RespawnAtSavePoint(), 17);

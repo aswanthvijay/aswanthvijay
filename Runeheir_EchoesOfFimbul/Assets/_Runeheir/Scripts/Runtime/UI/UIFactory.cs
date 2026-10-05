@@ -79,6 +79,22 @@ namespace Runeheir.UI
     /// <summary>Builds uGUI controls from code (no prefabs needed for the prototype).</summary>
     public static class UIFactory
     {
+        /// <summary>Sorting order for tooltips and drag ghosts: above every HUD window, whatever its sibling order.</summary>
+        public const int OverlaySortingOrder = 100;
+
+        /// <summary>Gives a child element its own canvas that always renders on top (no raycasts).</summary>
+        public static void RenderOnTop(GameObject element, int extraOrder = 0)
+        {
+            var canvas = element.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = element.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = OverlaySortingOrder + extraOrder;
+        }
+
         public static Canvas CreateCanvas(string name, int sortingOrder)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -164,6 +180,7 @@ namespace Runeheir.UI
 
             // Mouse-driven UI: a clicked button must not stay selected, or Enter/WASD would press it again.
             button.navigation = new Navigation { mode = Navigation.Mode.None };
+            image.gameObject.AddComponent<UIRaiseWindow>();
             var colors = button.colors;
             colors.normalColor = UITheme.Button;
             colors.highlightedColor = UITheme.ButtonHover;
@@ -180,6 +197,9 @@ namespace Runeheir.UI
 
             var text = CreateText(image.transform, label, fontSize, UITheme.Text, TextAnchor.MiddleCenter, FontStyle.Bold);
             text.rectTransform.Stretch(4f, 2f, 4f, 2f);
+
+            // Single centered line: never truncate it when the font's line height is a bit taller than the button.
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             AddShadow(text, 1f);
             return button;
         }
@@ -247,6 +267,7 @@ namespace Runeheir.UI
 
             var toggle = rect.gameObject.AddComponent<Toggle>();
             toggle.navigation = new Navigation { mode = Navigation.Mode.None };
+            rect.gameObject.AddComponent<UIRaiseWindow>();
             toggle.targetGraphic = box;
             toggle.graphic = check;
             toggle.isOn = isOn;
@@ -271,6 +292,7 @@ namespace Runeheir.UI
 
             var label = CreateText(background.transform, string.Empty, fontSize, UITheme.Text, TextAnchor.MiddleCenter, FontStyle.Bold);
             label.rectTransform.Stretch();
+            label.verticalOverflow = VerticalWrapMode.Overflow; // thin bars (EXP) are shorter than one text line
             AddShadow(label, 1f);
             return new UIBar(background.rectTransform, fill.rectTransform, fill, label);
         }

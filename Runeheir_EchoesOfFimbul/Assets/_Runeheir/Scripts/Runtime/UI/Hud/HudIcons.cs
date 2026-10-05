@@ -29,12 +29,21 @@ namespace Runeheir.UI
             }
         }
 
-        public static string Tooltip(HotkeySlot slot)
+        public const string InventoryUseHint = "Double-click or right-click to use";
+        public const string HotkeyUseHint = "Click or F-key to use · right-click to clear · drag off to unbind";
+
+        /// <summary>Hotkey-bar tooltip; <paramref name="castMultiplier"/> is the player's DEX cast multiplier.</summary>
+        public static string Tooltip(HotkeySlot slot, float castMultiplier)
         {
             switch (slot.Kind)
             {
-                case HotkeyKind.Skill: return SkillTooltip(SkillCatalog.Get(slot.Id), 1f);
-                case HotkeyKind.Item: return ItemTooltip(ItemCatalog.Get(slot.Id));
+                case HotkeyKind.Skill:
+                {
+                    string text = SkillTooltip(SkillCatalog.Get(slot.Id), castMultiplier);
+                    return text == null ? null : $"{text}\n<color=#9AA8BC>{HotkeyUseHint}</color>";
+                }
+
+                case HotkeyKind.Item: return ItemTooltip(ItemCatalog.Get(slot.Id), HotkeyUseHint);
                 default: return null;
             }
         }
@@ -53,11 +62,11 @@ namespace Runeheir.UI
             return $"<b><color=#EBC466>{skill.Name}</color></b>\n{skill.Description}\n<color=#9AA8BC>SP {skill.SpCost} · {cast}{cooldown} · {TargetLabel(skill.Target)}</color>";
         }
 
-        public static string ItemTooltip(ItemDefinition item)
+        public static string ItemTooltip(ItemDefinition item, string useHint = InventoryUseHint)
         {
             return item == null
                 ? null
-                : $"<b><color=#EBC466>{item.Name}</color></b>\n{item.Description}\n<color=#9AA8BC>Weight {item.Weight} · Double-click or right-click to use</color>";
+                : $"<b><color=#EBC466>{item.Name}</color></b>\n{item.Description}\n<color=#9AA8BC>Weight {item.Weight} · {useHint}</color>";
         }
 
         public static string TargetLabel(SkillTarget target)

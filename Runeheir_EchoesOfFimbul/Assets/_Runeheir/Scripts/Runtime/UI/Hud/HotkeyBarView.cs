@@ -113,7 +113,9 @@ namespace Runeheir.UI
                 view.CooldownText.gameObject.SetActive(cooling);
                 if (cooling)
                 {
-                    view.Cooldown.rectTransform.anchorMax = new Vector2(1f, Mathf.Clamp01(remaining / total));
+                    // Shrink from the top by moving the top inset; the overlay never gets a negative height.
+                    float fraction = Mathf.Clamp01(remaining / total);
+                    view.Cooldown.rectTransform.offsetMax = new Vector2(-4f, -4f - (1f - fraction) * (SlotSize - 8f));
                     view.CooldownText.text = remaining >= 1f ? remaining.ToString("0") : remaining.ToString("0.0");
                 }
 
@@ -175,18 +177,19 @@ namespace Runeheir.UI
 
             var drag = background.gameObject.AddComponent<UIDragSource>();
             drag.PayloadProvider = () => CreatePayload(index);
-            drag.Ended = accepted =>
+            drag.Ended = (payload, accepted) =>
             {
-                if (!accepted)
+                // Clear the slot the drag started from, even if F12 switched pages meanwhile.
+                if (!accepted && payload.SourceHotkeyIndex >= 0)
                 {
-                    _player.Hotkeys.Clear(FlatIndex(index));
+                    _player.Hotkeys.Clear(payload.SourceHotkeyIndex);
                 }
             };
 
             var pointer = background.gameObject.AddComponent<UIPointerHandler>();
             pointer.LeftClick = () => _controller.Activate(FlatIndex(index));
             pointer.RightClick = () => _player.Hotkeys.Clear(FlatIndex(index));
-            pointer.PointerEnter = () => UITooltip.Show(HudIcons.Tooltip(_player.Hotkeys.Get(FlatIndex(index))));
+            pointer.PointerEnter = () => UITooltip.Show(HudIcons.Tooltip(_player.Hotkeys.Get(FlatIndex(index)), _player.Stats.CastTimeMultiplier));
             pointer.PointerExit = UITooltip.Hide;
             return view;
         }

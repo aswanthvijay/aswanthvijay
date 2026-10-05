@@ -39,6 +39,7 @@ namespace Runeheir.UI
             group.blocksRaycasts = false;
             group.alpha = 0.85f;
             s_ghost.SetAsLastSibling();
+            UIFactory.RenderOnTop(icon.gameObject, 1);
             Move(eventData);
         }
 

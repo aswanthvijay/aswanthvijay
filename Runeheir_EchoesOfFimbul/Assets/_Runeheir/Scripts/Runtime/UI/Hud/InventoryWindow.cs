@@ -53,6 +53,7 @@ namespace Runeheir.UI
             _footer.rectTransform.SetRect(0f, Rows * (SlotSize + Gap) + 6f, 400f, 20f);
 
             player.Inventory.Changed += Refresh;
+            player.StatsRecalculated += Refresh; // weight capacity follows STR, level and buffs
             Window.VisibilityChanged += Refresh;
             Refresh();
             Window.Hide();
@@ -63,6 +64,7 @@ namespace Runeheir.UI
         public void Dispose()
         {
             _player.Inventory.Changed -= Refresh;
+            _player.StatsRecalculated -= Refresh;
         }
 
         public void Refresh()

@@ -20,6 +20,11 @@ namespace Runeheir.UI
 
         public bool IsOpen => gameObject.activeSelf;
 
+        /// <summary>Dialogs (menu, death) re-center every time they open, whatever the screen shape.</summary>
+        public bool CenterOnShow { get; set; }
+
+        private Vector2Int _screenSize;
+
         public static UIWindow Create(Transform parent, string title, float x, float y, float width, float height, bool closable = true)
         {
             var frame = UIFactory.CreateFramedPanel(parent, "Window_" + title, UITheme.WindowBg);
@@ -54,7 +59,73 @@ namespace Runeheir.UI
         {
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
+            if (CenterOnShow)
+            {
+                CenterOnCanvas();
+            }
+
+            ClampToCanvas();
             VisibilityChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Keeps the whole window on screen. Window positions are authored for 16:9 (1920x1080 reference); on
+        /// 16:10, 4:3 or after a resize the canvas is narrower, so windows near the right edge are pulled in.
+        /// </summary>
+        public void ClampToCanvas()
+        {
+            if (!TryGetCanvasRect(out UnityEngine.Rect bounds))
+            {
+                return;
+            }
+
+            Vector2 size = Rect.rect.size;
+            Vector2 position = Rect.anchoredPosition; // top-left anchored (see UILayout.SetRect)
+            position.x = Mathf.Clamp(position.x, 0f, Mathf.Max(0f, bounds.width - size.x));
+            position.y = Mathf.Clamp(position.y, -Mathf.Max(0f, bounds.height - size.y), 0f);
+            Rect.anchoredPosition = position;
+        }
+
+        public void CenterOnCanvas()
+        {
+            if (TryGetCanvasRect(out UnityEngine.Rect bounds))
+            {
+                Vector2 size = Rect.rect.size;
+                Rect.anchoredPosition = new Vector2((bounds.width - size.x) * 0.5f, -(bounds.height - size.y) * 0.5f);
+            }
+        }
+
+        private bool TryGetCanvasRect(out UnityEngine.Rect bounds)
+        {
+            bounds = default;
+            var canvas = GetComponentInParent<Canvas>();
+            if (canvas == null || Rect == null || Rect.anchorMin != new Vector2(0f, 1f) || Rect.anchorMax != new Vector2(0f, 1f))
+            {
+                return false;
+            }
+
+            bounds = ((RectTransform)canvas.rootCanvas.transform).rect;
+            return bounds.width > 0f && bounds.height > 0f;
+        }
+
+        private void LateUpdate()
+        {
+            // Window resized or resolution changed while open: pull the window back on screen.
+            var screen = new Vector2Int(Screen.width, Screen.height);
+            if (screen != _screenSize)
+            {
+                bool first = _screenSize == Vector2Int.zero;
+                _screenSize = screen;
+                if (!first)
+                {
+                    if (CenterOnShow)
+                    {
+                        CenterOnCanvas();
+                    }
+
+                    ClampToCanvas();
+                }
+            }
         }
 
         public void Hide()

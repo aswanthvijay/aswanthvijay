@@ -24,6 +24,9 @@ namespace Runeheir.UI
                 graphic.raycastTarget = false;
             }
 
+            // Own sorting canvas: clicking or opening a window (SetAsLastSibling) must never cover the tooltip.
+            UIFactory.RenderOnTop(panel.gameObject);
+
             var tooltip = panel.gameObject.AddComponent<UITooltip>();
             tooltip._canvas = canvas;
             tooltip._rect = panel.rectTransform;
