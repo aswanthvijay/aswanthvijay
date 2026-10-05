@@ -253,6 +253,9 @@ namespace Runeheir.Player
 
         private void EnterTargeting(SkillDefinition skill)
         {
+            // A new cursor replaces any walk-into-range still pending from an earlier skill.
+            _approachSkill = null;
+            _approachTarget = null;
             TargetingSkill = skill;
             StateChanged?.Invoke();
         }
@@ -280,6 +283,9 @@ namespace Runeheir.Player
 
         private void BeginOrApproach(SkillDefinition skill, CombatEntity target, Vector3 point)
         {
+            // Whatever starts now (quick-cast, self-cast, confirmed cursor) replaces an open target cursor.
+            ExitTargeting();
+
             // Dashes go as far as they can instead of walking into range first.
             if (skill.Effect == SkillEffect.Dash || DistanceTo(skill, target, point) <= skill.Range)
             {

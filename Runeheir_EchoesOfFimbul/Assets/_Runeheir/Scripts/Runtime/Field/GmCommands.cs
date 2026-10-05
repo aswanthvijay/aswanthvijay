@@ -189,7 +189,17 @@ namespace Runeheir.Field
                 return;
             }
 
-            int amount = parts.Length > 2 && TryInt(parts[2], out int parsed) ? Mathf.Clamp(parsed, 1, Inventory.MaxStack) : 1;
+            int amount = 1;
+            if (parts.Length > 2)
+            {
+                if (!TryInt(parts[2], out int parsed))
+                {
+                    return;
+                }
+
+                amount = Mathf.Clamp(parsed, 1, Inventory.MaxStack);
+            }
+
             int added = player.Inventory.Add(item.Id, amount);
             ChatLog.Loot($"You got {item.Name} ({added}).");
         }
@@ -203,7 +213,17 @@ namespace Runeheir.Field
                 return;
             }
 
-            int count = parts.Length > 2 && TryInt(parts[2], out int parsed) ? Mathf.Clamp(parsed, 1, 30) : 1;
+            int count = 1;
+            if (parts.Length > 2)
+            {
+                if (!TryInt(parts[2], out int parsed))
+                {
+                    return;
+                }
+
+                count = Mathf.Clamp(parsed, 1, 30);
+            }
+
             int spawned = 0;
             for (int i = 0; i < count; i++)
             {

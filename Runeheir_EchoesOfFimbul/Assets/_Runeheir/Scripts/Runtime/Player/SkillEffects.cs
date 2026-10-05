@@ -52,7 +52,9 @@ namespace Runeheir.Player
                 }
 
                 case SkillEffect.PhysicalAreaAroundSelf:
+                {
                     GroundRing.SpawnPulse(caster.Position, new Color(1f, 0.55f, 0.3f, 1f), 0.5f, skill.Radius, 0.35f, 0.15f);
+                    var launched = new List<CombatEntity>();
                     for (int wave = 0; wave < Mathf.Max(1, skill.Hits); wave++)
                     {
                         if (caster == null || caster.IsDead)
@@ -64,9 +66,17 @@ namespace Runeheir.Player
                         bool lastWave = wave == Mathf.Max(1, skill.Hits) - 1;
                         foreach (var enemy in Targets)
                         {
-                            if (Strike(caster, skill, enemy, lastWave) && lastWave && skill.Status == StatusEffect.Stun)
+                            if (Strike(caster, skill, enemy, lastWave) && lastWave)
                             {
-                                TryApplyStatus(skill, enemy);
+                                if (skill.Status == StatusEffect.Stun)
+                                {
+                                    TryApplyStatus(skill, enemy);
+                                }
+
+                                if (skill.Knockback > 0f)
+                                {
+                                    launched.Add(enemy);
+                                }
                             }
                         }
 
@@ -76,7 +86,19 @@ namespace Runeheir.Player
                         }
                     }
 
+                    if (launched.Count > 0)
+                    {
+                        // Vortex Cleave (GDD: "Bowling Bash"): launched enemies crash into the ones where they land.
+                        if (skill.HitInterval < KnockbackSettleSeconds)
+                        {
+                            yield return new WaitForSeconds(KnockbackSettleSeconds - Mathf.Max(0f, skill.HitInterval));
+                        }
+
+                        ChainImpacts(caster, skill, launched);
+                    }
+
                     break;
+                }
 
                 case SkillEffect.MagicAreaAtGround:
                     for (int wave = 0; wave < Mathf.Max(1, skill.Hits); wave++)
@@ -133,6 +155,13 @@ namespace Runeheir.Player
 
                 case SkillEffect.Dash:
                 {
+                    // A dash is a disengage: drop the auto-attack target so the player doesn't run straight back.
+                    var autoAttacker = caster.GetComponent<AutoAttacker>();
+                    if (autoAttacker != null)
+                    {
+                        autoAttacker.Disengage();
+                    }
+
                     var motor = caster.GetComponent<NavMotor>();
                     Vector3 start = caster.Position;
                     Vector3 direction = point - start;
@@ -160,9 +189,13 @@ namespace Runeheir.Player
                     int spent = caster.DrainAllSp() + skill.SpCost;
                     var attacker = caster.BuildAttackerProfile();
                     attacker.ForceCritical = false;
-                    attacker.Hit = 100000; // never misses
+                    attacker.NeverMiss = true;
                     var result = DamageCalculator.Physical(attacker, target.BuildDefenderProfile(), 100f * (8f + spent / 10f), false, SystemRandomSource.Shared);
-                    result.Amount += 1750;
+                    if (!result.IsMiss && result.ElementMultiplier > 0f)
+                    {
+                        result.Amount += 1750; // flat bonus on top; element immunity still holds
+                    }
+
                     target.ReceiveDamage(result, caster, physicalMelee: true);
 
                     var rig = Object.FindFirstObjectByType<IsometricCameraRig>();
@@ -177,8 +210,47 @@ namespace Runeheir.Player
             }
         }
 
+        private const float KnockbackSettleSeconds = 0.2f;
+        private const float ChainImpactRadius = 1.2f;
+        private const float ChainImpactPowerScale = 0.5f;
+
+        /// <summary>Each launched enemy that lands among others hits them, and itself, once at half power.</summary>
+        private static void ChainImpacts(PlayerCharacter caster, SkillDefinition skill, List<CombatEntity> launched)
+        {
+            var impacted = new List<CombatEntity>();
+            foreach (var body in launched)
+            {
+                if (!IsValid(caster, body))
+                {
+                    continue;
+                }
+
+                CollectHostiles(caster, body.Position, body.Radius + ChainImpactRadius);
+                impacted.Clear();
+                foreach (var other in Targets)
+                {
+                    if (other != body)
+                    {
+                        impacted.Add(other);
+                    }
+                }
+
+                if (impacted.Count == 0)
+                {
+                    continue;
+                }
+
+                GroundRing.SpawnPulse(body.Position, new Color(1f, 0.55f, 0.3f, 1f), 0.2f, body.Radius + ChainImpactRadius, 0.25f, 0.1f);
+                Strike(caster, skill, body, isLastHit: false, ChainImpactPowerScale);
+                foreach (var other in impacted)
+                {
+                    Strike(caster, skill, other, isLastHit: false, ChainImpactPowerScale);
+                }
+            }
+        }
+
         /// <returns>True when the hit connected and the target survived it.</returns>
-        private static bool Strike(PlayerCharacter caster, SkillDefinition skill, CombatEntity target, bool isLastHit)
+        private static bool Strike(PlayerCharacter caster, SkillDefinition skill, CombatEntity target, bool isLastHit, float powerScale = 1f)
         {
             if (!IsValid(caster, target))
             {
@@ -194,8 +266,8 @@ namespace Runeheir.Player
 
             var defender = target.BuildDefenderProfile();
             DamageResult result = skill.IsMagic
-                ? DamageCalculator.Magical(attacker, defender, skill.Power, skill.Element, SystemRandomSource.Shared)
-                : DamageCalculator.Physical(attacker, defender, skill.Power, false, SystemRandomSource.Shared);
+                ? DamageCalculator.Magical(attacker, defender, skill.Power * powerScale, skill.Element, SystemRandomSource.Shared)
+                : DamageCalculator.Physical(attacker, defender, skill.Power * powerScale, false, SystemRandomSource.Shared);
 
             bool melee = !skill.IsMagic && skill.Range <= 2f;
             target.ReceiveDamage(result, caster, physicalMelee: melee);

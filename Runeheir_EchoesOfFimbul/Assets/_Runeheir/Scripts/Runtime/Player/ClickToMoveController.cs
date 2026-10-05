@@ -102,6 +102,8 @@ namespace Runeheir.Player
 
             if (_caster.IsTargeting)
             {
+                // The cursor owns the mouse now; a hold-to-walk must not resume after the skill is confirmed.
+                _holdingMove = false;
                 HandleTargeting(overUI);
                 return;
             }
@@ -204,7 +206,9 @@ namespace Runeheir.Player
                 var entity = hit.collider.GetComponentInParent<CombatEntity>();
                 if (entity != null)
                 {
-                    bool selectable = !entity.IsDead && (entity != _player || friendlySkill);
+                    // Friend skills (heals, Runic Aegis) only pick friends, so a monster in melee range never
+                    // steals a self-heal click; everything else picks anyone but yourself.
+                    bool selectable = !entity.IsDead && (friendlySkill ? !_player.IsHostileTo(entity) : entity != _player);
                     if (selectable && hit.distance < bestEntity)
                     {
                         HoveredEntity = entity;
@@ -221,7 +225,7 @@ namespace Runeheir.Player
                 }
             }
 
-            if (HoveredEntity == null)
+            if (HoveredEntity == null && !friendlySkill)
             {
                 HoveredEntity = PickNearCursor();
             }

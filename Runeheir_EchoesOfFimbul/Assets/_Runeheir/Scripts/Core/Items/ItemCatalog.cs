@@ -186,7 +186,8 @@ namespace Runeheir.Items
                 _stacks.Add(stack);
             }
 
-            int added = Math.Min(amount, MaxStack - stack.Amount);
+            // Never negative: an over-cap stack from an old or hand-edited save must not lose items.
+            int added = Math.Max(0, Math.Min(amount, MaxStack - stack.Amount));
             stack.Amount += added;
             if (added > 0)
             {

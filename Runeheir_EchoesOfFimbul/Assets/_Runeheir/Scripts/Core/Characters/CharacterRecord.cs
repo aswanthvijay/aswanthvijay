@@ -76,6 +76,11 @@ namespace Runeheir.Characters
             Stats = Stats ?? new BaseStats();
             Inventory = Inventory ?? new List<ItemStack>();
             Inventory.RemoveAll(s => s == null || s.Amount <= 0 || ItemCatalog.Get(s.ItemId) == null);
+            foreach (var stack in Inventory)
+            {
+                stack.Amount = Math.Min(stack.Amount, Runeheir.Items.Inventory.MaxStack);
+            }
+
             Hotkeys = HotkeyLayout.Normalize(Hotkeys);
             BaseLevel = StatFormulas.Clamp(BaseLevel, 1, StatFormulas.MaxBaseLevel);
             JobLevel = StatFormulas.Clamp(JobLevel, 1, JobDatabase.MaxJobLevel(Job));

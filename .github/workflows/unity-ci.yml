@@ -1,7 +1,7 @@
 # RUNEHEIR: Echoes of Fimbul — continuous integration
 #
 #  core-tests   Always runs. Builds Runeheir.Core at Unity's API level (.NET Standard 2.1, C# 9)
-#               and runs the 56 rule tests with dotnet. No Unity license needed.
+#               and runs the Core rule tests with dotnet. No Unity license needed.
 #  unity-tests  Opens the project in real Unity 6.3 (GameCI) and runs every EditMode + PlayMode test:
 #               stat engine, scene generator, toon shader import, and play-mode smoke tests that walk,
 #               fight, cast, use hotkeys, die/respawn and drive the login screens.

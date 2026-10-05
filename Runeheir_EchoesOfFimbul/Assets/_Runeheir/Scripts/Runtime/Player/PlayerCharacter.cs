@@ -327,7 +327,12 @@ namespace Runeheir.Player
         private void OnBaseLevelUp(int level)
         {
             Recalculate();
-            SetVitals(MaxHp, MaxHp, MaxSp, MaxSp);
+            if (!IsDead)
+            {
+                // A level-up refills HP/SP, but never revives (e.g. @blvl typed while dead).
+                SetVitals(MaxHp, MaxHp, MaxSp, MaxSp);
+            }
+
             WorldFeedback.Announce(this, "Base Level Up!", new Color(1f, 0.85f, 0.3f));
             GroundRing.SpawnPulse(transform.position, new Color(1f, 0.85f, 0.3f, 1f), 0.3f, 2.2f, 0.8f, 0.12f);
             ChatLog.Notice($"Congratulations! {DisplayName} reached Base Level {level}. ({Record.StatPoints} status points)");

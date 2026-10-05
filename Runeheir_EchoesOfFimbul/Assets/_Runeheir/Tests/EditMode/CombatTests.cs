@@ -83,6 +83,21 @@ namespace Runeheir.Tests
         }
 
         [Test]
+        public void NeverMiss_SkipsTheHitRoll()
+        {
+            // Fist of Odin: even 0 HIT vs 1000 FLEE with a roll that would miss must connect.
+            var attacker = Attacker();
+            attacker.Hit = 0;
+            attacker.NeverMiss = true;
+            var defender = Defender();
+            defender.Flee = 1000;
+
+            var result = DamageCalculator.Physical(attacker, defender, 100f, false, new SequenceRandom(0.99, 0.99));
+            Assert.IsFalse(result.IsMiss);
+            Assert.AreEqual(200, result.Amount);
+        }
+
+        [Test]
         public void Critical_Deals140PercentAndIgnoresDefense()
         {
             var attacker = Attacker();

@@ -201,7 +201,7 @@ Prototype skills (`Core/Skills/SkillCatalog.cs`, inherited down the job tree):
 | Job | Skills |
 |---|---|
 | Initiate | First Aid |
-| Warrior → … → **Einherjar** | Bash · **Vortex Cleave** (360° AoE + knockback) · **Two-Hand Surge** (+7 ASPD, recovery cancel) · **Rage of Thor** (HP ×3, ASPD 195, items locked) |
+| Warrior → … → **Einherjar** | Bash · **Vortex Cleave** (360° AoE + knockback; launched enemies crash into others for chained 200% hits) · **Two-Hand Surge** (+7 ASPD, recovery cancel) · **Rage of Thor** (HP ×3, ASPD 195, items locked) |
 | Scout → … → **Shadow Walker** | Twin Fang · **Phantom Barrage** (8 hits + stun) · **Miasma Weapon** (damage ×4, 40 s) |
 | Mystic → … → **Archmage** | Muspel Bolt · **Glacial Tempest** (5-wave blizzard, freeze; frozen targets take ×3 blunt damage) · **Runic Aegis** (blocks 10 melee hits) |
 | Devotee → … → **Champion** | Eir's Blessing (heal) · **Fist of Odin** (drains all SP) · **Aether Snap** (dash) |
@@ -252,7 +252,7 @@ Suggested ASPD check: `@job einherjar` → `@blvl 255` → `@agi 150` → hit a 
 
 | Tab | Tests | What they cover |
 |---|---|---|
-| **EditMode** | 56 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts |
+| **EditMode** | 57 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts |
 | **EditMode** | 2 editor tests | The scene generator builds playable scenes (spawners, NavMesh baker, wiring); the toon shader imports with no errors on the active graphics API |
 | **PlayMode** | 3 smoke tests | Walk on the NavMesh, auto-attack a dummy, Two-Hand Surge raises ASPD by 7, an F2 hotkey uses an item, level-up, death and respawn; a Forest Imp aggroes and dies for EXP; the login, realm, character select and create screens open, and passwords are never stored in plain text |
 
@@ -305,7 +305,7 @@ Unity -batchmode -quit -projectPath Runeheir_EchoesOfFimbul -executeMethod Runeh
 
 | Job | Needs | What it does |
 |---|---|---|
-| Core rules (dotnet) | nothing | Builds `Runeheir.Core` at Unity's API level (.NET Standard 2.1, warnings as errors) and runs the 56 rule tests |
+| Core rules (dotnet) | nothing | Builds `Runeheir.Core` at Unity's API level (.NET Standard 2.1, warnings as errors) and runs the Core rule tests |
 | Unity 6.3 EditMode + PlayMode tests | Unity license secrets | Opens the project in real Unity 6000.3.25f1 (GameCI) and runs every test above |
 | Build StandaloneWindows64 / StandaloneLinux64 | Unity license secrets | Builds both players and uploads them as artifacts |
 

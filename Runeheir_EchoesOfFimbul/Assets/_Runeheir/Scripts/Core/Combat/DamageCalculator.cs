@@ -40,6 +40,9 @@ namespace Runeheir.Combat
         /// <summary>Tiwaz runestone: the next basic attack is a guaranteed crit.</summary>
         public bool ForceCritical;
 
+        /// <summary>Skips the HIT vs FLEE roll (Fist of Odin). HIT alone can't do this: hit chance caps at 95%.</summary>
+        public bool NeverMiss;
+
         public int MatkMin;
         public int MatkMax;
 
@@ -143,7 +146,7 @@ namespace Runeheir.Combat
             bool critical = canCrit && (attacker.ForceCritical || random.Chance(attacker.CritChance));
 
             // Crits always connect (Ragnarok rule); everything else rolls HIT vs FLEE.
-            if (!critical && !random.Chance(HitChance(attacker.Hit, defender.Flee)))
+            if (!critical && !attacker.NeverMiss && !random.Chance(HitChance(attacker.Hit, defender.Flee)))
             {
                 return DamageResult.Miss();
             }

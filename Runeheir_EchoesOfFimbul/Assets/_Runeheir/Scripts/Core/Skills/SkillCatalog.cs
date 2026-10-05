@@ -149,7 +149,7 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = "vortex_cleave", Name = "Vortex Cleave", Job = JobId.Einherjar,
-                Description = "360° greatsword sweep: two hits of 400% ATK and a knockback.",
+                Description = "360° greatsword sweep: two hits of 400% ATK. Launched enemies crash into others nearby (200% to both).",
                 IconLabel = "VC", IconColorHex = "#CB4335",
                 Target = SkillTarget.Self, Effect = SkillEffect.PhysicalAreaAroundSelf,
                 Radius = 3f, SpCost = 20, CastTime = 0.6f, Power = 400, Hits = 2, HitInterval = 0.15f,
