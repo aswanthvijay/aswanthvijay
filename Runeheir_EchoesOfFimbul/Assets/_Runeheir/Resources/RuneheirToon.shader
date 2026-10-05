@@ -3,6 +3,7 @@
 //   • hard-edged light/shadow band with a cool shadow tint and crisp received shadows
 //   • anime specular highlight, rim light, emission (runestone glow)
 //   • additional lights (point/spot) as banded light, Forward and Forward+ (cluster light loop)
+//   • screen-space shadows and SSAO
 //   • black "ink" outline: inverted-hull pass with constant on-screen width
 // Passes: UniversalForwardOnly, SRPDefaultUnlit (outline), ShadowCaster, DepthOnly, DepthNormals.
 // SRP Batcher compatible (all material properties live in UnityPerMaterial).
@@ -83,11 +84,12 @@ Shader "Runeheir/Toon"
             #pragma vertex ToonVertex
             #pragma fragment ToonFragment
 
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
 
@@ -108,6 +110,9 @@ Shader "Runeheir/Toon"
                 float3 positionWS : TEXCOORD1;
                 half3 normalWS : TEXCOORD2;
                 half fogFactor : TEXCOORD3;
+            #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+                float4 shadowCoord : TEXCOORD4;
+            #endif
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -126,6 +131,9 @@ Shader "Runeheir/Toon"
                 output.normalWS = normalInputs.normalWS;
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 output.fogFactor = ComputeFogFactor(positionInputs.positionCS.z);
+            #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+                output.shadowCoord = GetShadowCoord(positionInputs);
+            #endif
                 return output;
             }
 
@@ -157,7 +165,14 @@ Shader "Runeheir/Toon"
                 inputData.normalWS = normalWS;
                 inputData.viewDirectionWS = viewDirWS;
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+                // Same shadow-coordinate rules as URP Lit (screen-space shadows, single cascade, cascades).
+            #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+                inputData.shadowCoord = input.shadowCoord;
+            #elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
                 inputData.shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+            #else
+                inputData.shadowCoord = float4(0.0, 0.0, 0.0, 0.0);
+            #endif
                 half4 shadowMask = half4(1.0h, 1.0h, 1.0h, 1.0h);
 
                 // Main light: one hard band (half-Lambert) multiplied by crisp received shadows.
@@ -168,6 +183,12 @@ Shader "Runeheir/Toon"
 
                 half3 diffuse = albedo.rgb * lerp(_ShadowColor.rgb, half3(1.0h, 1.0h, 1.0h), lit) * mainLight.color;
                 half3 ambient = albedo.rgb * SampleSH(normalWS) * _AmbientStrength;
+
+                // SSAO (enabled on the PC renderer): darkens ambient fully and the lit band by the renderer's
+                // "Direct Lighting Strength".
+                AmbientOcclusionFactor aoFactor = GetScreenSpaceAmbientOcclusion(inputData.normalizedScreenSpaceUV);
+                ambient *= aoFactor.indirectAmbientOcclusion;
+                diffuse *= aoFactor.directAmbientOcclusion;
 
                 float3 halfDir = SafeNormalize(float3(mainLight.direction) + float3(viewDirWS));
                 half specBand = smoothstep(1.0h - _SpecularSize - 0.01h, 1.0h - _SpecularSize + 0.01h, saturate(dot(normalWS, halfDir)));

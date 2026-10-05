@@ -269,7 +269,8 @@ The Core tests also run without Unity: `dotnet test Tools/CoreTests/Tests` (need
 - **Cel shading:** one hard light/shadow band with a cool shadow tint, crisp received shadows, banded point and spot lights (Forward and Forward+), and ambient from light probes / the skybox.
 - **Anime highlights:** a banded specular spot and a rim light along silhouette edges, strongest on the lit side.
 - **Ink outline:** an inverted-hull pass with a **constant on-screen width** (pixels at 1080p), so outlines stay crisp at every zoom level.
-- **Production-ready passes:** shadow casting, depth and depth-normals (SSAO works), fog, GPU instancing, and SRP Batcher support.
+- **Plays well with URP:** casts and receives shadows (including screen-space shadows), receives SSAO (on in the PC renderer), has depth and depth-normals passes, fog, GPU instancing and SRP Batcher support.
+- **Checked offline:** all 5 passes and every keyword variant (204 compilations for Vulkan, D3D and Metal) compile with Microsoft DXC against the real URP 17.3 shader library. In Unity, the `ToonShader_ImportsWithoutErrors` test repeats the check on your graphics API.
 
 | Property | Default | Notes |
 |---|---|---|
