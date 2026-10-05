@@ -9,6 +9,8 @@ namespace Runeheir.Accounts
     /// character slots, create/delete/save. Storage is injected so the same rules back the offline
     /// prototype (JSON file) and, later, a real server. Thread-safe: password hashing may run on a
     /// worker thread. Character records cross this boundary as copies, like network messages would.
+    /// A failed write (disk full, read-only file, file changed by another instance) never throws: the change
+    /// is rolled back in memory, so memory and disk stay in step, and the call returns a failure.
     /// </summary>
     public sealed class AccountStore
     {
@@ -50,7 +52,12 @@ namespace Runeheir.Accounts
                     CreatedUnixMs = _nowUnixMs(),
                 };
                 _db.Accounts.Add(account);
-                _persist(_db);
+                if (!TryPersist(out string saveError))
+                {
+                    _db.Accounts.Remove(account);
+                    return OpResult<string>.Fail(saveError);
+                }
+
                 return OpResult<string>.Ok(account.Username);
             }
         }
@@ -77,8 +84,9 @@ namespace Runeheir.Accounts
 
             lock (_gate)
             {
+                // Bookkeeping only: if this write fails the login still succeeds.
                 account.LastLoginUnixMs = _nowUnixMs();
-                _persist(_db);
+                TryPersist(out _);
             }
 
             return OpResult<string>.Ok(account.Username);
@@ -143,7 +151,12 @@ namespace Runeheir.Accounts
 
                 var record = CharacterFactory.Create(request, slot, _nowUnixMs());
                 account.Characters.Add(record);
-                _persist(_db);
+                if (!TryPersist(out string saveError))
+                {
+                    account.Characters.Remove(record);
+                    return OpResult<CharacterRecord>.Fail(saveError);
+                }
+
                 return OpResult<CharacterRecord>.Ok(record.Clone());
             }
         }
@@ -165,8 +178,14 @@ namespace Runeheir.Accounts
                     return OpResult.Fail("Type the character name exactly to confirm deletion.");
                 }
 
-                account.Characters.Remove(character);
-                _persist(_db);
+                int index = account.Characters.IndexOf(character);
+                account.Characters.RemoveAt(index);
+                if (!TryPersist(out string saveError))
+                {
+                    account.Characters.Insert(index, character);
+                    return OpResult.Fail(saveError);
+                }
+
                 return OpResult.Ok();
             }
         }
@@ -192,10 +211,17 @@ namespace Runeheir.Accounts
                     return OpResult.Fail("Character does not belong to this account.");
                 }
 
+                var previous = account.Characters[index];
                 var copy = record.Clone();
+                copy.Sanitize();
                 copy.LastPlayedUnixMs = _nowUnixMs();
                 account.Characters[index] = copy;
-                _persist(_db);
+                if (!TryPersist(out string saveError))
+                {
+                    account.Characters[index] = previous;
+                    return OpResult.Fail(saveError);
+                }
+
                 return OpResult.Ok();
             }
         }
@@ -219,6 +245,21 @@ namespace Runeheir.Accounts
                 }
 
                 return total;
+            }
+        }
+
+        private bool TryPersist(out string error)
+        {
+            try
+            {
+                _persist(_db);
+                error = null;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                error = "Could not save account data: " + exception.Message;
+                return false;
             }
         }
 

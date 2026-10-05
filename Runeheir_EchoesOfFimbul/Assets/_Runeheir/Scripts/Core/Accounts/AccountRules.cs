@@ -16,8 +16,9 @@ namespace Runeheir.Accounts
         /// <summary>Character slots per account (shown as a 3x3 grid on character select).</summary>
         public const int MaxCharacterSlots = 9;
 
-        private static readonly Regex UsernamePattern = new Regex("^[A-Za-z0-9_]+$");
-        private static readonly Regex CharacterNamePattern = new Regex("^[A-Za-z0-9 ]+$");
+        // \z, not $: in .NET "$" also matches before a trailing newline ("odin\n" would pass).
+        private static readonly Regex UsernamePattern = new Regex("^[A-Za-z0-9_]+\\z");
+        private static readonly Regex CharacterNamePattern = new Regex("^[A-Za-z0-9 ]+\\z");
 
         public static bool ValidateUsername(string username, out string error)
         {

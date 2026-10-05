@@ -64,6 +64,8 @@ namespace Runeheir.FrontEnd
 
             _entries.Clear();
             SetStatus(_status, "Fetching realms...");
+            int visit = Visit;
+            Busy = true;
             try
             {
                 _servers = await Context.Session.Accounts.GetServersAsync();
@@ -71,9 +73,22 @@ namespace Runeheir.FrontEnd
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                SetStatus(_status, "Could not load realms.", error: true);
+                if (IsCurrent(visit))
+                {
+                    Busy = false;
+                    SetStatus(_status, "Could not load realms.", error: true);
+                }
+
                 return;
             }
+
+            // Left and came back before the reply arrived: that visit builds its own list.
+            if (!IsCurrent(visit))
+            {
+                return;
+            }
+
+            Busy = false;
 
             for (int i = 0; i < _servers.Count; i++)
             {

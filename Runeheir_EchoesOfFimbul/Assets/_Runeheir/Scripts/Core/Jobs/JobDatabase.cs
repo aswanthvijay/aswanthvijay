@@ -107,6 +107,11 @@ namespace Runeheir.Jobs
             return info;
         }
 
+        public static bool Exists(JobId id)
+        {
+            return Jobs.ContainsKey(id);
+        }
+
         public static int MaxJobLevel(JobId id)
         {
             return Get(id).MaxJobLevel;

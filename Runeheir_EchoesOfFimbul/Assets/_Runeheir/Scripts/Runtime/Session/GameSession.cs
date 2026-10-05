@@ -91,6 +91,7 @@ namespace Runeheir.Session
 
         public void Logout()
         {
+            ChatLog.Clear();
             Username = null;
             Server = null;
             ActiveCharacter = null;
@@ -101,6 +102,7 @@ namespace Runeheir.Session
         {
             ActiveCharacter = record ?? throw new ArgumentNullException(nameof(record));
             IsTemporaryCharacter = false;
+            ChatLog.Clear(); // the previous character's chat, loot and GM output stays with them
             SceneFlow.LoadMap(record.MapId);
         }
 
@@ -113,22 +115,59 @@ namespace Runeheir.Session
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             ActiveCharacter = record;
             IsTemporaryCharacter = true;
+            ChatLog.Clear();
             return record;
         }
 
-        public void SaveActiveCharacter()
+        /// <summary>
+        /// Saves a snapshot of the active character. Never throws: it runs inside gameplay events (level-ups,
+        /// monster deaths), where a storage error must not break the game. Failures are logged.
+        /// </summary>
+        public Task SaveActiveCharacter()
         {
             if (ActiveCharacter == null || IsTemporaryCharacter || !IsLoggedIn)
+            {
+                return Task.CompletedTask;
+            }
+
+            Task<OpResult> save;
+            try
+            {
+                // A copy: gameplay keeps changing the live record while a networked save is in flight.
+                save = Accounts.SaveCharacterAsync(Username, ActiveCharacter.Clone());
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                return Task.CompletedTask;
+            }
+
+            ObserveFaults(save, "save character");
+            return save;
+        }
+
+        public async void ReturnToCharacterSelect()
+        {
+            if (_returning)
             {
                 return;
             }
 
-            ObserveFaults(Accounts.SaveCharacterAsync(Username, ActiveCharacter), "save character");
-        }
+            _returning = true;
+            try
+            {
+                // Character select reloads the list from the service, so the save must land first.
+                await SaveActiveCharacter();
+            }
+            catch (Exception)
+            {
+                // Already logged by ObserveFaults; leaving the field must still work.
+            }
+            finally
+            {
+                _returning = false;
+            }
 
-        public void ReturnToCharacterSelect()
-        {
-            SaveActiveCharacter();
             bool canReturn = IsLoggedIn && !IsTemporaryCharacter;
             ActiveCharacter = null;
             IsTemporaryCharacter = false;
@@ -144,6 +183,8 @@ namespace Runeheir.Session
             Application.Quit();
 #endif
         }
+
+        private bool _returning;
 
         private static async void ObserveFaults(Task<OpResult> task, string what)
         {

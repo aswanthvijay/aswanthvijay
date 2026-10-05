@@ -137,10 +137,7 @@ namespace Runeheir.Tests
         public IEnumerator FrontEnd_Builds_And_AccountFlowWorks()
         {
             string dbPath = Path.Combine(Application.temporaryCachePath, "runeheir_test_accounts.json");
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
+            DeleteDatabaseFiles(dbPath);
 
             var session = GameSession.Instance;
             session.Accounts = new LocalAccountService(dbPath);
@@ -174,7 +171,16 @@ namespace Runeheir.Tests
 
             Assert.IsTrue(File.Exists(dbPath), "account database written");
             Assert.IsFalse(File.ReadAllText(dbPath).Contains("valhalla123"), "password never stored in plain text");
-            File.Delete(dbPath);
+            DeleteDatabaseFiles(dbPath);
+        }
+
+        /// <summary>The database plus its .tmp/.bak siblings, which LocalAccountService would recover from.</summary>
+        private static void DeleteDatabaseFiles(string dbPath)
+        {
+            foreach (string file in Directory.GetFiles(Path.GetDirectoryName(dbPath), Path.GetFileName(dbPath) + "*"))
+            {
+                File.Delete(file);
+            }
         }
 
         private static void BuildMiniField()

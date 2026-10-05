@@ -80,7 +80,16 @@ namespace Runeheir.FrontEnd
             _saveId.isOn = !string.IsNullOrEmpty(saved);
             _username.text = saved;
             _password.text = string.Empty;
-            SetStatus(_status, "Welcome, wanderer. The Fimbulwinter has begun.");
+            string storageError = (Context.Session.Accounts as LocalAccountService)?.StorageError;
+            if (storageError != null)
+            {
+                SetStatus(_status, storageError, error: true);
+            }
+            else
+            {
+                SetStatus(_status, "Welcome, wanderer. The Fimbulwinter has begun.");
+            }
+
             Focus(string.IsNullOrEmpty(saved) ? _username : _password);
         }
 
@@ -115,11 +124,12 @@ namespace Runeheir.FrontEnd
                 return;
             }
 
+            int visit = Visit;
             SetBusy(true, "Connecting to the realm...");
             try
             {
                 var result = await Context.Session.Accounts.LoginAsync(username, password);
-                if (Context == null)
+                if (!IsCurrent(visit))
                 {
                     return;
                 }
@@ -146,11 +156,18 @@ namespace Runeheir.FrontEnd
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                SetStatus(_status, "Login failed: " + exception.Message, error: true);
+                if (IsCurrent(visit))
+                {
+                    SetStatus(_status, "Login failed: " + exception.Message, error: true);
+                }
             }
             finally
             {
-                SetBusy(false, null);
+                // Only touch the UI if it still exists and is still this visit (Play mode may have stopped).
+                if (IsCurrent(visit))
+                {
+                    SetBusy(false, null);
+                }
             }
         }
 
@@ -170,10 +187,16 @@ namespace Runeheir.FrontEnd
             }
 
             bool registered = false;
+            int visit = Visit;
             SetBusy(true, "Carving your name into the runestones...");
             try
             {
                 var result = await Context.Session.Accounts.RegisterAsync(username, password);
+                if (!IsCurrent(visit))
+                {
+                    return;
+                }
+
                 if (result.Success)
                 {
                     registered = true;
@@ -186,14 +209,20 @@ namespace Runeheir.FrontEnd
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                SetStatus(_status, "Registration failed: " + exception.Message, error: true);
+                if (IsCurrent(visit))
+                {
+                    SetStatus(_status, "Registration failed: " + exception.Message, error: true);
+                }
             }
             finally
             {
-                SetBusy(false, null);
+                if (IsCurrent(visit))
+                {
+                    SetBusy(false, null);
+                }
             }
 
-            if (registered && Context != null)
+            if (registered && IsCurrent(visit))
             {
                 SetStatus(_status, "Account created! Logging in...");
                 OnLogin();
@@ -202,9 +231,7 @@ namespace Runeheir.FrontEnd
 
         private void SetBusy(bool busy, string message)
         {
-            Busy = busy;
-            _loginButton.interactable = !busy;
-            _registerButton.interactable = !busy;
+            Busy = busy; // locks every control, Exit included, through the screen's CanvasGroup
             if (message != null)
             {
                 SetStatus(_status, message);

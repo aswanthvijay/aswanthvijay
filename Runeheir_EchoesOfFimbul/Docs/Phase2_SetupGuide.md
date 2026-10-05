@@ -224,9 +224,11 @@ Items: Lingonberry Tonic, Honey Mead, Aether Sap Vial, **Uruz / Tiwaz / Sowilo r
 | Character create | Name (4–23 letters/numbers, unique), gender, 8 hair styles, 9 hair colors, live preview. You start as an Initiate in Whisperwood Plains. |
 
 **Storage:** `LocalAccountService` keeps accounts in `Application.persistentDataPath/runeheir_local_accounts.json`. Passwords are **PBKDF2-SHA256 hashed with a per-account salt**, never stored as plain text. Characters autosave every 60 s, on level-up, on job change, on returning to character select and on quit.
-Menu **Runeheir ▸ Debug ▸ Reveal / Delete Local Account Database** to inspect or reset it.
+Menu **Runeheir ▸ Debug ▸ Reveal / Delete Local Account Database** to inspect or reset it (delete is disabled during Play, because the running game would write the data back).
 
-**Going online (Phase 6):** the screens only talk to `IAccountService`. Implement it over Mirror or HTTP, assign `GameSession.Instance.Accounts = new YourService()` before the login screen opens, and the UI stays the same. `AccountStore` (in Core) holds the login/char-server rules and can run on the server unchanged.
+**Crash safety:** each save writes `.tmp` and then swaps it in, keeping the previous file as `.bak`. A damaged file is kept as `.corrupt-…` and the game recovers from `.tmp` or `.bak`. If the file can't be read (locked by another program, no permission), or another game window changed it, the game won't overwrite it: saves fail with a message on the login screen and in the Console. A failed save is rolled back in memory, so what you see always matches the disk.
+
+**Going online (Phase 6):** the screens only talk to `IAccountService`. Implement it over Mirror or HTTP and assign `GameSession.Instance.Accounts = new YourService()` before the login screen opens. The screens are ready for slow replies: each one locks its controls while a request is in flight and ignores replies that arrive after you've moved on. Returning to character select waits for the save before reloading the list, and saves send a snapshot of the character. The quit-time save is best-effort: a network service should also save on a timer, as the autosave already does. `AccountStore` (in Core) holds the login/char-server rules and can run on the server unchanged.
 
 ---
 

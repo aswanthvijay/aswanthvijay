@@ -197,15 +197,15 @@ namespace Runeheir.FrontEnd
                 return;
             }
 
+            int visit = Visit;
             Busy = true;
-            _createButton.interactable = false;
             SetStatus(_status, "Weaving your fate with the Norns...");
             try
             {
                 var session = Context.Session;
                 var request = new CharacterCreateRequest { Name = _name.text, Gender = _gender, HairStyle = _hairStyle, HairColor = _hairColor };
                 var result = await session.Accounts.CreateCharacterAsync(session.Username, Slot, request);
-                if (Context == null)
+                if (!IsCurrent(visit))
                 {
                     return;
                 }
@@ -221,12 +221,17 @@ namespace Runeheir.FrontEnd
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                SetStatus(_status, "Could not create the character.", error: true);
+                if (IsCurrent(visit))
+                {
+                    SetStatus(_status, "Could not create the character.", error: true);
+                }
             }
             finally
             {
-                Busy = false;
-                _createButton.interactable = true;
+                if (IsCurrent(visit))
+                {
+                    Busy = false;
+                }
             }
         }
     }

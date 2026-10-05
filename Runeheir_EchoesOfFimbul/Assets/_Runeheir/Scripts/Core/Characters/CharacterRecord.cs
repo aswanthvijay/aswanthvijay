@@ -82,6 +82,18 @@ namespace Runeheir.Characters
             }
 
             Hotkeys = HotkeyLayout.Normalize(Hotkeys);
+            // Unknown enum values (hand-edited save, or written by a newer build) are repaired, never thrown on,
+            // so one bad record can't hide every character on the account.
+            if (!JobDatabase.Exists(Job))
+            {
+                Job = JobId.Initiate;
+            }
+
+            if (Gender != Gender.Male && Gender != Gender.Female)
+            {
+                Gender = Gender.Male;
+            }
+
             BaseLevel = StatFormulas.Clamp(BaseLevel, 1, StatFormulas.MaxBaseLevel);
             JobLevel = StatFormulas.Clamp(JobLevel, 1, JobDatabase.MaxJobLevel(Job));
             foreach (var stat in StatTypes.All)

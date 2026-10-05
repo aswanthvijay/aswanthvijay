@@ -167,11 +167,12 @@ namespace Runeheir.FrontEnd
             var session = Context.Session;
             _header.text = $"{session.Server?.Name ?? "Vigrid Haven"}  ·  {session.Username}";
             SetStatus(_status, "Loading characters...");
+            int visit = Visit;
             Busy = true;
             try
             {
                 var characters = await session.Accounts.GetCharactersAsync(session.Username);
-                if (Context == null)
+                if (!IsCurrent(visit))
                 {
                     return;
                 }
@@ -189,11 +190,19 @@ namespace Runeheir.FrontEnd
             catch (Exception exception)
             {
                 Debug.LogException(exception);
+                if (!IsCurrent(visit))
+                {
+                    return;
+                }
+
                 SetStatus(_status, "Could not load characters.", error: true);
             }
             finally
             {
-                Busy = false;
+                if (IsCurrent(visit))
+                {
+                    Busy = false;
+                }
             }
 
             RefreshCards();
@@ -369,11 +378,17 @@ namespace Runeheir.FrontEnd
                 return;
             }
 
+            int visit = Visit;
             Busy = true;
             try
             {
                 var session = Context.Session;
                 var result = await session.Accounts.DeleteCharacterAsync(session.Username, record.Slot, _deleteInput.text);
+                if (!IsCurrent(visit))
+                {
+                    return;
+                }
+
                 if (!result.Success)
                 {
                     _deletePrompt.text = $"<color=#FF7A6B>{result.Error}</color>";
@@ -389,11 +404,17 @@ namespace Runeheir.FrontEnd
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                SetStatus(_status, "Delete failed.", error: true);
+                if (IsCurrent(visit))
+                {
+                    SetStatus(_status, "Delete failed.", error: true);
+                }
             }
             finally
             {
-                Busy = false;
+                if (IsCurrent(visit))
+                {
+                    Busy = false;
+                }
             }
         }
 

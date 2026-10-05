@@ -100,6 +100,61 @@ namespace Runeheir.Tests
         }
 
         [Test]
+        public void FailedWrites_RollBack_AndLoginStillWorks()
+        {
+            bool diskFull = false;
+            var store = new AccountStore(new AccountDatabase(), _ =>
+            {
+                if (diskFull)
+                {
+                    throw new System.IO.IOException("disk full");
+                }
+            }, () => 1000);
+
+            diskFull = true;
+            var failed = store.Register("thor_main", "valhalla123");
+            Assert.IsFalse(failed.Success);
+            StringAssert.Contains("disk full", failed.Error);
+            diskFull = false;
+            Assert.IsTrue(store.Register("thor_main", "valhalla123").Success, "a failed register leaves no ghost account");
+
+            var record = store.CreateCharacter("thor_main", 0, Request("Mjolnir Bearer")).Value;
+            diskFull = true;
+            Assert.IsTrue(store.Login("thor_main", "valhalla123").Success, "last-login bookkeeping can't block a login");
+            Assert.IsFalse(store.CreateCharacter("thor_main", 1, Request("Second One")).Success);
+            Assert.IsFalse(store.IsNameTaken("Second One"));
+
+            Assert.IsFalse(store.DeleteCharacter("thor_main", 0, "Mjolnir Bearer").Success);
+            Assert.AreEqual(1, store.GetCharacters("thor_main").Count, "a failed delete keeps the character");
+
+            record.BaseLevel = 50;
+            Assert.IsFalse(store.SaveCharacter("thor_main", record).Success);
+            Assert.AreEqual(1, store.GetCharacters("thor_main")[0].BaseLevel, "a failed save keeps the stored record");
+        }
+
+        [Test]
+        public void Names_RejectTrailingNewline()
+        {
+            Assert.IsFalse(AccountRules.ValidateUsername("odin_main\n", out _), "no look-alike accounts");
+            Assert.IsTrue(AccountRules.ValidateUsername("odin_main", out _));
+            Assert.AreEqual("Ragnar", CharacterNames.Normalize("Ragnar\n"), "character names are trimmed before use");
+        }
+
+        [Test]
+        public void UnknownJobInSave_IsRepaired_NotThrown()
+        {
+            var store = NewStore();
+            store.Register("player_one", "valhalla123");
+            var record = store.CreateCharacter("player_one", 0, Request("Future Hero")).Value;
+            record.Job = (Runeheir.Jobs.JobId)999;
+            store.SaveCharacter("player_one", record);
+
+            var characters = store.GetCharacters("player_one");
+            Assert.AreEqual(1, characters.Count);
+            Assert.AreEqual(Runeheir.Jobs.JobId.Initiate, characters[0].Job);
+        }
+
+        [Test]
         public void NewCharacter_HasStarterHotkeysAndItems()
         {
             var record = CharacterFactory.Create(Request("Freydis"), 0, 0);

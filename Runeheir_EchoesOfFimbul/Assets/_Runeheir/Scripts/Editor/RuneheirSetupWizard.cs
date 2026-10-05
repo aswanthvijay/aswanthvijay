@@ -132,17 +132,31 @@ namespace Runeheir.EditorTools
         public static void DeleteDatabase()
         {
             string path = Path.Combine(Application.persistentDataPath, LocalAccountService.FileName);
-            if (!File.Exists(path))
+            string[] files = Directory.Exists(Application.persistentDataPath)
+                ? Directory.GetFiles(Application.persistentDataPath, LocalAccountService.FileName + "*")
+                : new string[0];
+            if (files.Length == 0)
             {
                 EditorUtility.DisplayDialog("Runeheir", "There is no local account database to delete.", "OK");
                 return;
             }
 
-            if (EditorUtility.DisplayDialog("Runeheir", $"Delete ALL local accounts and characters?\n{path}", "Delete", "Cancel"))
+            if (EditorUtility.DisplayDialog("Runeheir", $"Delete ALL local accounts and characters?\n{path}\n(plus its .bak/.tmp copies)", "Delete", "Cancel"))
             {
-                File.Delete(path);
-                Debug.Log($"[Runeheir] Deleted {path}");
+                foreach (string file in files)
+                {
+                    File.Delete(file);
+                }
+
+                Debug.Log($"[Runeheir] Deleted {files.Length} account file(s) in {Application.persistentDataPath}");
             }
+        }
+
+        // A running game holds the accounts in memory and would write them straight back.
+        [MenuItem("Runeheir/Debug/Delete Local Account Database", true)]
+        public static bool CanDeleteDatabase()
+        {
+            return !EditorApplication.isPlaying;
         }
 
         [MenuItem("Runeheir/Debug/Log ASPD Table", priority = 60)]

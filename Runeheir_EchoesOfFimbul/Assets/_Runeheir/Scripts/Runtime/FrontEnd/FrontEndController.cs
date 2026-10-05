@@ -137,8 +137,13 @@ namespace Runeheir.FrontEnd
             Root.Stretch();
             Frame = UIFactory.CreateRect("Frame", Root);
             Frame.Anchor(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f));
+            _inputLock = Root.gameObject.AddComponent<CanvasGroup>();
             Root.gameObject.SetActive(false);
         }
+
+        private readonly CanvasGroup _inputLock;
+        private bool _busy;
+        private int _visit;
 
         public RectTransform Root { get; }
 
@@ -146,16 +151,44 @@ namespace Runeheir.FrontEnd
 
         protected FrontEndController Context { get; }
 
-        protected bool Busy { get; set; }
+        /// <summary>A request is in flight: every control on the screen (Cancel, Logout, Exit…) is locked.</summary>
+        protected bool Busy
+        {
+            get => _busy;
+            set
+            {
+                _busy = value;
+                if (_inputLock != null)
+                {
+                    _inputLock.interactable = !value;
+                }
+            }
+        }
+
+        /// <summary>Changes every time the screen is shown or hidden; capture it before an await.</summary>
+        protected int Visit => _visit;
+
+        /// <summary>
+        /// True if the screen is still on the same visit that started a request and the scene still exists.
+        /// Check it after every await: with a networked account service, replies can arrive after the player
+        /// has moved on (Cancel, Logout, leaving Play mode), and must then be ignored.
+        /// </summary>
+        protected bool IsCurrent(int visit)
+        {
+            return Context != null && Root != null && visit == _visit && Root.gameObject.activeSelf;
+        }
 
         public void Show()
         {
+            _visit++;
+            Busy = false;
             Root.gameObject.SetActive(true);
             OnShow();
         }
 
         public void Hide()
         {
+            _visit++;
             Root.gameObject.SetActive(false);
             OnHide();
         }
