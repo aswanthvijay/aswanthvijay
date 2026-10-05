@@ -1,36 +1,60 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Runeheir.Visuals
 {
     /// <summary>
-    /// Colored materials for placeholder art, created at runtime and cached per color.
-    /// The lit shader is taken from the render pipeline's default material (URP Lit in a URP project),
-    /// so it is always included in builds.
+    /// Colored materials for placeholder art, created at runtime and cached per color + outline.
+    /// Under URP they use the cel-shaded <c>Runeheir/Toon</c> shader (GDD Phase 2 Step 5: anime toon
+    /// shading with ink outlines; it lives in a Resources folder so it is always in builds). Without
+    /// URP they fall back to the render pipeline's default lit shader.
     /// </summary>
     public static class RuntimeMaterials
     {
-        private static readonly Dictionary<Color32, Material> LitCache = new Dictionary<Color32, Material>();
+        public const string ToonShaderName = "Runeheir/Toon";
+
+        /// <summary>Ink outline width (pixels at 1080p) for characters and monsters.</summary>
+        public const float CharacterOutline = 2f;
+
+        private static readonly Dictionary<(Color32, int), Material> LitCache = new Dictionary<(Color32, int), Material>();
         private static Shader s_litShader;
+        private static Shader s_toonShader;
+        private static bool s_toonResolved;
         private static Material s_unlit;
+
+        /// <summary>True when the toon shader is available and the active pipeline is URP.</summary>
+        public static bool ToonAvailable => ToonShader != null;
 
         public static Material Lit(Color color)
         {
-            Color32 key = color;
+            return Lit(color, CharacterOutline);
+        }
+
+        /// <param name="outlineWidth">Ink outline in pixels at 1080p (0 = none). Ignored without the toon shader.</param>
+        public static Material Lit(Color color, float outlineWidth)
+        {
+            var key = ((Color32)color, Mathf.RoundToInt(outlineWidth * 100f));
             if (LitCache.TryGetValue(key, out var cached) && cached != null)
             {
                 return cached;
             }
 
-            var material = new Material(LitShader) { name = $"RH_Lit_{ColorUtility.ToHtmlStringRGBA(color)}", color = color };
-            if (material.HasProperty("_Smoothness"))
+            var toon = ToonShader;
+            var material = new Material(toon != null ? toon : LitShader)
             {
-                material.SetFloat("_Smoothness", 0.15f);
-            }
+                name = $"RH_{(toon != null ? "Toon" : "Lit")}_{ColorUtility.ToHtmlStringRGBA(color)}",
+                color = color,
+            };
 
-            if (material.HasProperty("_Glossiness"))
+            if (toon != null)
             {
-                material.SetFloat("_Glossiness", 0.15f);
+                material.SetFloat("_OutlineWidth", outlineWidth);
+            }
+            else
+            {
+                SetIfPresent(material, "_Smoothness", 0.15f);
+                SetIfPresent(material, "_Glossiness", 0.15f);
             }
 
             LitCache[key] = material;
@@ -63,6 +87,23 @@ namespace Runeheir.Visuals
             return Hex(hex, Color.gray);
         }
 
+        private static Shader ToonShader
+        {
+            get
+            {
+                if (!s_toonResolved)
+                {
+                    s_toonResolved = true;
+                    var pipeline = GraphicsSettings.currentRenderPipeline;
+                    bool urp = pipeline != null && pipeline.GetType().Name.Contains("Universal");
+                    var shader = urp ? Shader.Find(ToonShaderName) : null;
+                    s_toonShader = shader != null && shader.isSupported ? shader : null;
+                }
+
+                return s_toonShader;
+            }
+        }
+
         private static Shader LitShader
         {
             get
@@ -81,6 +122,14 @@ namespace Runeheir.Visuals
                 }
 
                 return s_litShader;
+            }
+        }
+
+        private static void SetIfPresent(Material material, string property, float value)
+        {
+            if (material.HasProperty(property))
+            {
+                material.SetFloat(property, value);
             }
         }
 

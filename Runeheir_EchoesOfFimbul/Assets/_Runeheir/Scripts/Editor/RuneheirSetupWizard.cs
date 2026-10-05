@@ -32,6 +32,9 @@ namespace Runeheir.EditorTools
 
         private const float GroundSize = 140f;
 
+        /// <summary>Ink outline (pixels at 1080p) for props; ground decals get none.</summary>
+        private const float PropOutline = 1.5f;
+
         private static readonly Color Grass = new Color(0.42f, 0.63f, 0.30f);
         private static readonly Color GrassDark = new Color(0.33f, 0.53f, 0.25f);
         private static readonly Color Dirt = new Color(0.56f, 0.45f, 0.31f);
@@ -44,7 +47,8 @@ namespace Runeheir.EditorTools
         private static readonly Color Wood = new Color(0.55f, 0.40f, 0.25f);
         private static readonly Color Cloth = new Color(0.86f, 0.82f, 0.72f);
 
-        private static readonly Dictionary<Color, Material> MaterialCache = new Dictionary<Color, Material>();
+        private static readonly Dictionary<string, Material> MaterialCache = new Dictionary<string, Material>();
+        private static string s_materialsFolder = MaterialsFolder;
 
         [MenuItem("Runeheir/Setup/Build Prototype Scenes", priority = 0)]
         public static void BuildPrototypeScenes()
@@ -60,15 +64,7 @@ namespace Runeheir.EditorTools
                 return;
             }
 
-            MaterialCache.Clear();
-            EnsureFolder(ScenesFolder);
-            EnsureFolder(MaterialsFolder);
-
-            BuildLoginScene();
-            BuildFieldScene();
-            RegisterScenesInBuildSettings();
-            AssetDatabase.SaveAssets();
-
+            GenerateScenes();
             EditorSceneManager.OpenScene(LoginScenePath);
             EditorUtility.DisplayDialog(
                 "Runeheir",
@@ -77,6 +73,33 @@ namespace Runeheir.EditorTools
                 "• Or open the field scene and press Play for a temporary test character.\n\n" +
                 "In game: left-click to move/attack, F1–F10 hotkeys, A/S/E windows, Enter + @help for test commands.",
                 "Play!");
+        }
+
+        /// <summary>
+        /// Non-interactive scene generation, used by the menu, the CI build (<see cref="RuneheirBuild"/>)
+        /// and the editor tests. Returns the login and field scene paths.
+        /// </summary>
+        public static (string login, string field) GenerateScenes(
+            string scenesFolder = ScenesFolder,
+            string materialsFolder = MaterialsFolder,
+            bool registerInBuildSettings = true)
+        {
+            MaterialCache.Clear();
+            s_materialsFolder = materialsFolder;
+            EnsureFolder(scenesFolder);
+            EnsureFolder(materialsFolder);
+
+            string login = scenesFolder + "/RH_Login.unity";
+            string field = scenesFolder + "/RH_Field_WhisperwoodPlains.unity";
+            BuildLoginScene(login);
+            BuildFieldScene(field);
+            if (registerInBuildSettings)
+            {
+                RegisterScenesInBuildSettings(login, field);
+            }
+
+            AssetDatabase.SaveAssets();
+            return (login, field);
         }
 
         [MenuItem("Runeheir/Setup/Open Login Scene", priority = 20)]
@@ -141,7 +164,7 @@ namespace Runeheir.EditorTools
         }
 
         // ================================================================ login scene
-        private static void BuildLoginScene()
+        private static void BuildLoginScene(string path)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -155,11 +178,11 @@ namespace Runeheir.EditorTools
             CreateSun(new Vector3(40f, -30f, 0f), new Color(1f, 0.95f, 0.88f), 1.1f);
             new GameObject("FrontEnd").AddComponent<FrontEndController>();
 
-            EditorSceneManager.SaveScene(scene, LoginScenePath);
+            EditorSceneManager.SaveScene(scene, path);
         }
 
         // ================================================================ field scene
-        private static void BuildFieldScene()
+        private static void BuildFieldScene(string path)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var random = new System.Random(1337);
@@ -195,19 +218,19 @@ namespace Runeheir.EditorTools
             bakerSettings.FindProperty("boundsSize").vector3Value = new Vector3(GroundSize + 10f, 40f, GroundSize + 10f);
             bakerSettings.ApplyModifiedPropertiesWithoutUndo();
 
-            var ground = Block(environment.transform, "Ground", PrimitiveType.Cube, new Vector3(0f, -0.5f, 0f), new Vector3(GroundSize, 1f, GroundSize), Grass, keepCollider: true);
+            var ground = Block(environment.transform, "Ground", PrimitiveType.Cube, new Vector3(0f, -0.5f, 0f), new Vector3(GroundSize, 1f, GroundSize), Grass, keepCollider: true, outline: 0f);
             SetStatic(ground);
 
             var decor = new GameObject("Decor").transform;
             decor.SetParent(environment.transform, false);
-            Block(decor, "PathNS", PrimitiveType.Cube, new Vector3(0f, 0.01f, 0f), new Vector3(4.5f, 0.02f, GroundSize - 6f), Dirt, keepCollider: false);
-            Block(decor, "PathEW", PrimitiveType.Cube, new Vector3(0f, 0.012f, 0f), new Vector3(GroundSize - 6f, 0.02f, 4.5f), Dirt, keepCollider: false);
+            Block(decor, "PathNS", PrimitiveType.Cube, new Vector3(0f, 0.01f, 0f), new Vector3(4.5f, 0.02f, GroundSize - 6f), Dirt, keepCollider: false, outline: 0f);
+            Block(decor, "PathEW", PrimitiveType.Cube, new Vector3(0f, 0.012f, 0f), new Vector3(GroundSize - 6f, 0.02f, 4.5f), Dirt, keepCollider: false, outline: 0f);
             for (int i = 0; i < 26; i++)
             {
                 var position = RandomPoint(random, GroundSize * 0.45f);
                 float size = Range(random, 4f, 11f);
                 Block(decor, "GrassPatch", PrimitiveType.Cylinder, new Vector3(position.x, 0.005f, position.z), new Vector3(size, 0.005f, size * Range(random, 0.6f, 1f)),
-                    i % 2 == 0 ? GrassDark : new Color(0.48f, 0.68f, 0.32f), keepCollider: false);
+                    i % 2 == 0 ? GrassDark : new Color(0.48f, 0.68f, 0.32f), keepCollider: false, outline: 0f);
             }
 
             var spawns = new (string id, Vector3 position, int count, float radius)[]
@@ -259,7 +282,7 @@ namespace Runeheir.EditorTools
             settings.FindProperty("mapSize").vector3Value = new Vector3(GroundSize - 10f, 20f, GroundSize - 10f);
             settings.ApplyModifiedPropertiesWithoutUndo();
 
-            EditorSceneManager.SaveScene(scene, FieldScenePath);
+            EditorSceneManager.SaveScene(scene, path);
         }
 
         private static void PlaceTrees(Transform parent, System.Random random, List<(Vector3 center, float radius)> avoid)
@@ -340,7 +363,7 @@ namespace Runeheir.EditorTools
                 stone.transform.rotation = Quaternion.Euler(Range(random, -4f, 4f), Range(random, 0f, 360f), Range(random, -4f, 4f));
                 stone.AddComponent<NavBlocker>();
                 SetStatic(stone);
-                Block(stone.transform, "Glyphs", PrimitiveType.Cube, new Vector3(0f, 0.05f, 0.52f), new Vector3(0.35f, 0.75f, 0.05f), RuneGlow, keepCollider: false);
+                Block(stone.transform, "Glyphs", PrimitiveType.Cube, new Vector3(0f, 0.05f, 0.52f), new Vector3(0.35f, 0.75f, 0.05f), RuneGlow, keepCollider: false, outline: 0f, emission: RuneGlow * 1.6f);
             }
         }
 
@@ -380,7 +403,7 @@ namespace Runeheir.EditorTools
             }
 
             Block(root, "Logs", PrimitiveType.Cylinder, new Vector3(0f, 0.15f, 0f), new Vector3(0.18f, 0.5f, 0.18f), Bark, keepCollider: false).transform.localRotation = Quaternion.Euler(80f, 30f, 0f);
-            Block(root, "Flame", PrimitiveType.Sphere, new Vector3(0f, 0.45f, 0f), new Vector3(0.45f, 0.7f, 0.45f), new Color(1f, 0.55f, 0.15f), keepCollider: false);
+            Block(root, "Flame", PrimitiveType.Sphere, new Vector3(0f, 0.45f, 0f), new Vector3(0.45f, 0.7f, 0.45f), new Color(1f, 0.55f, 0.15f), keepCollider: false, outline: 0f, emission: new Color(1.4f, 0.6f, 0.15f));
             var light = new GameObject("FireLight").AddComponent<Light>();
             light.transform.SetParent(root, false);
             light.transform.localPosition = new Vector3(0f, 1.2f, 0f);
@@ -413,7 +436,8 @@ namespace Runeheir.EditorTools
             RenderSettings.sun = sun;
         }
 
-        private static GameObject Block(Transform parent, string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color, bool keepCollider)
+        private static GameObject Block(Transform parent, string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color, bool keepCollider,
+            float outline = PropOutline, Color? emission = null)
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
@@ -425,7 +449,7 @@ namespace Runeheir.EditorTools
                 Object.DestroyImmediate(go.GetComponent<Collider>());
             }
 
-            go.GetComponent<Renderer>().sharedMaterial = MaterialFor(color);
+            go.GetComponent<Renderer>().sharedMaterial = MaterialFor(color, outline, emission);
             return go;
         }
 
@@ -434,42 +458,76 @@ namespace Runeheir.EditorTools
             GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
         }
 
-        private static Material MaterialFor(Color color)
+        /// <summary>
+        /// Toon material asset (GDD Phase 2 Step 5) when the Runeheir/Toon shader and URP are available,
+        /// otherwise URP Lit / Standard. One asset per color + outline + emission combination.
+        /// </summary>
+        private static Material MaterialFor(Color color, float outline, Color? emission)
         {
             color.a = 1f;
-            if (MaterialCache.TryGetValue(color, out var cached) && cached != null)
+            string key = $"{ColorUtility.ToHtmlStringRGB(color)}_o{Mathf.RoundToInt(outline * 10f)}" +
+                         (emission.HasValue ? "_e" + ColorUtility.ToHtmlStringRGB(emission.Value) : string.Empty);
+            if (MaterialCache.TryGetValue(key, out var cached) && cached != null)
             {
                 return cached;
             }
 
-            string path = $"{MaterialsFolder}/M_{ColorUtility.ToHtmlStringRGB(color)}.mat";
+            var shader = PreferredShader(out bool toon);
+            string path = $"{s_materialsFolder}/M_{key}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Lit");
-                if (shader == null)
-                {
-                    shader = Shader.Find("Standard");
-                }
-
                 material = new Material(shader);
                 AssetDatabase.CreateAsset(material, path);
             }
-
-            material.color = color;
-            if (material.HasProperty("_Smoothness"))
+            else if (material.shader != shader)
             {
-                material.SetFloat("_Smoothness", 0.12f);
+                material.shader = shader;
             }
 
-            if (material.HasProperty("_Glossiness"))
+            material.color = color;
+            if (toon)
             {
-                material.SetFloat("_Glossiness", 0.12f);
+                material.SetFloat("_OutlineWidth", outline);
+                material.SetColor("_EmissionColor", emission ?? Color.black);
+            }
+            else
+            {
+                if (material.HasProperty("_Smoothness"))
+                {
+                    material.SetFloat("_Smoothness", 0.12f);
+                }
+
+                if (material.HasProperty("_Glossiness"))
+                {
+                    material.SetFloat("_Glossiness", 0.12f);
+                }
+
+                if (emission.HasValue && material.HasProperty("_EmissionColor"))
+                {
+                    material.EnableKeyword("_EMISSION");
+                    material.SetColor("_EmissionColor", emission.Value);
+                }
             }
 
             EditorUtility.SetDirty(material);
-            MaterialCache[color] = material;
+            MaterialCache[key] = material;
             return material;
+        }
+
+        private static Shader PreferredShader(out bool toon)
+        {
+            var pipeline = GraphicsSettings.currentRenderPipeline;
+            bool urp = pipeline != null && pipeline.GetType().Name.Contains("Universal");
+            var toonShader = urp ? Shader.Find(RuntimeMaterials.ToonShaderName) : null;
+            toon = toonShader != null;
+            if (toon)
+            {
+                return toonShader;
+            }
+
+            var lit = Shader.Find("Universal Render Pipeline/Lit");
+            return urp && lit != null ? lit : Shader.Find("Standard");
         }
 
         private static Vector3 RandomPoint(System.Random random, float halfExtent)
@@ -516,16 +574,16 @@ namespace Runeheir.EditorTools
             AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
         }
 
-        private static void RegisterScenesInBuildSettings()
+        private static void RegisterScenesInBuildSettings(string loginPath, string fieldPath)
         {
             var scenes = new List<EditorBuildSettingsScene>
             {
-                new EditorBuildSettingsScene(LoginScenePath, true),
-                new EditorBuildSettingsScene(FieldScenePath, true),
+                new EditorBuildSettingsScene(loginPath, true),
+                new EditorBuildSettingsScene(fieldPath, true),
             };
             foreach (var existing in EditorBuildSettings.scenes)
             {
-                if (existing.path != LoginScenePath && existing.path != FieldScenePath)
+                if (existing.path != loginPath && existing.path != fieldPath)
                 {
                     scenes.Add(existing);
                 }

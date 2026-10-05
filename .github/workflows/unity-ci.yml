@@ -1,0 +1,144 @@
+# RUNEHEIR: Echoes of Fimbul — continuous integration
+#
+#  core-tests   Always runs. Builds Runeheir.Core at Unity's API level (.NET Standard 2.1, C# 9)
+#               and runs the 56 rule tests with dotnet. No Unity license needed.
+#  unity-tests  Opens the project in real Unity 6.3 (GameCI) and runs every EditMode + PlayMode test:
+#               stat engine, scene generator, toon shader import, and play-mode smoke tests that walk,
+#               fight, cast, use hotkeys, die/respawn and drive the login screens.
+#  build        Builds Windows + Linux players through Runeheir.EditorTools.RuneheirBuild.
+#
+#  The Unity jobs need a Unity license stored as repository secrets (Settings > Secrets and variables
+#  > Actions): UNITY_LICENSE (contents of your Unity_lic.ulf), UNITY_EMAIL, UNITY_PASSWORD
+#  (Pro/Plus: UNITY_SERIAL instead of UNITY_LICENSE). Without them those jobs are skipped with a notice.
+name: Unity CI
+
+on:
+  push:
+    paths:
+      - 'Runeheir_EchoesOfFimbul/**'
+      - '.github/workflows/unity-ci.yml'
+  pull_request:
+    paths:
+      - 'Runeheir_EchoesOfFimbul/**'
+      - '.github/workflows/unity-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: unity-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_PATH: Runeheir_EchoesOfFimbul
+  UNITY_VERSION: 6000.3.25f1
+
+jobs:
+  core-tests:
+    name: Core rules (dotnet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build Runeheir.Core (netstandard2.1, warnings as errors)
+        run: dotnet build ${{ env.PROJECT_PATH }}/Tools/CoreTests/Core -c Release
+      - name: Run Core tests
+        run: dotnet test ${{ env.PROJECT_PATH }}/Tools/CoreTests/Tests -c Release --logger "trx;LogFileName=core-tests.trx"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-test-results
+          path: ${{ env.PROJECT_PATH }}/Tools/CoreTests/Tests/TestResults
+
+  check-license:
+    name: Unity license available?
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - id: check
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] || [ -n "$UNITY_SERIAL" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Unity jobs skipped::Add UNITY_LICENSE (or UNITY_SERIAL), UNITY_EMAIL and UNITY_PASSWORD repository secrets to run the real Unity tests and builds. See Runeheir_EchoesOfFimbul/Docs/Phase2_SetupGuide.md."
+          fi
+
+  unity-tests:
+    name: Unity 6.3 EditMode + PlayMode tests
+    needs: check-license
+    if: needs.check-license.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: Library-tests-${{ hashFiles('Runeheir_EchoesOfFimbul/Assets/**', 'Runeheir_EchoesOfFimbul/Packages/**', 'Runeheir_EchoesOfFimbul/ProjectSettings/**') }}
+          restore-keys: Library-tests-
+      - uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          testMode: all
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Unity test results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unity-test-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
+
+  build:
+    name: Build ${{ matrix.targetPlatform }}
+    needs: [check-license, unity-tests]
+    if: needs.check-license.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - StandaloneWindows64
+          - StandaloneLinux64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: Library-${{ matrix.targetPlatform }}-${{ hashFiles('Runeheir_EchoesOfFimbul/Assets/**', 'Runeheir_EchoesOfFimbul/Packages/**', 'Runeheir_EchoesOfFimbul/ProjectSettings/**') }}
+          restore-keys: Library-${{ matrix.targetPlatform }}-
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: ${{ matrix.targetPlatform }}
+          buildName: Runeheir
+          buildMethod: Runeheir.EditorTools.RuneheirBuild.BuildFromCommandLine
+          allowDirtyBuild: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Runeheir-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}

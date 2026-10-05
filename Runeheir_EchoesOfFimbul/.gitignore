@@ -43,3 +43,8 @@ crashlytics-build.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Keep the out-of-Unity Core test harness projects
+!/Tools/**/*.csproj
+/Tools/**/bin/
+/Tools/**/obj/
