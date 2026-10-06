@@ -412,7 +412,8 @@ namespace Runeheir.Items
             {
                 var entry = record.Equipment[i];
                 var item = entry?.Definition;
-                if (item == null || entry.IsEmpty)
+                // A broken weapon does nothing at all (no ATK, cards or runeword) until it's repaired.
+                if (item == null || entry.IsEmpty || (item.IsWeapon && entry.Broken))
                 {
                     continue;
                 }

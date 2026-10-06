@@ -75,6 +75,81 @@ namespace Runeheir.World
         GuildHall = 31,
     }
 
+    /// <summary>Which props block movement and how much ground they cover (the runtime builder draws them to match).</summary>
+    public static class PropKinds
+    {
+        /// <summary>Flat or thin scenery you walk through (or over).</summary>
+        public static bool Blocks(PropKind kind)
+        {
+            switch (kind)
+            {
+                case PropKind.Banner:
+                case PropKind.Torch:
+                case PropKind.Bones:
+                case PropKind.Mushroom:
+                case PropKind.Chains:
+                case PropKind.Pool:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        /// <summary>Radius of the blocked footprint at scale 1 (palisades: half their thickness; logs and wrecks: a circle around them).</summary>
+        public static float Radius(PropKind kind)
+        {
+            switch (kind)
+            {
+                case PropKind.Tree: return 0.6f;
+                case PropKind.BirchTree: return 0.5f;
+                case PropKind.DeadTree: return 0.5f;
+                case PropKind.Rock: return 1.2f;
+                case PropKind.Runestone: return 0.6f;
+                case PropKind.Windmill: return 2f;
+                case PropKind.Campfire: return 0.8f;
+                case PropKind.House: return 4f;
+                case PropKind.MeadHall: return 9f;
+                case PropKind.Stall: return 1.6f;
+                case PropKind.Well: return 1.2f;
+                case PropKind.Brazier: return 0.5f;
+                case PropKind.Pillar: return 0.8f;
+                case PropKind.Coffin: return 1.1f;
+                case PropKind.Crystal: return 0.8f;
+                case PropKind.IceSpike: return 0.8f;
+                case PropKind.Stalagmite: return 0.8f;
+                case PropKind.Wreck: return 3f;
+                case PropKind.Log: return 1.5f;
+                case PropKind.Palisade: return 0.5f;
+                case PropKind.Statue: return 1.5f;
+                case PropKind.Anvil: return 0.6f;
+                case PropKind.GiantSkull: return 2.5f;
+                case PropKind.Tent: return 2f;
+                case PropKind.ForgeHut: return 4f;
+                case PropKind.GuildHall: return 6f;
+                default: return 0.5f;
+            }
+        }
+
+        /// <summary>Distance from <paramref name="point"/> to the edge of the prop's blocked footprint (negative = inside).</summary>
+        public static float EdgeDistance(PropPlacement prop, GroundPoint point)
+        {
+            float radius = Radius(prop.Kind) * prop.Scale;
+            if (prop.Length <= 0f)
+            {
+                return prop.At.DistanceTo(point) - radius;
+            }
+
+            // Long props (palisades) run along their local X axis, turned by yaw like a Unity transform: distance to the segment.
+            double yaw = prop.Yaw * Math.PI / 180.0;
+            float dx = (float)Math.Cos(yaw) * prop.Length * 0.5f;
+            float dz = -(float)Math.Sin(yaw) * prop.Length * 0.5f;
+            float ax = prop.At.X - dx, az = prop.At.Z - dz, bx = prop.At.X + dx, bz = prop.At.Z + dz;
+            float vx = bx - ax, vz = bz - az;
+            float t = Math.Max(0f, Math.Min(1f, ((point.X - ax) * vx + (point.Z - az) * vz) / Math.Max(1e-4f, vx * vx + vz * vz)));
+            return new GroundPoint(ax + vx * t, az + vz * t).DistanceTo(point) - radius;
+        }
+    }
+
     public sealed class PropPlacement
     {
         public PropKind Kind;

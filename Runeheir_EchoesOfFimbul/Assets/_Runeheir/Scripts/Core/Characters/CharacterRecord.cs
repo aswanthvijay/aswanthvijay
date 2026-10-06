@@ -5,6 +5,7 @@ using Runeheir.Items;
 using Runeheir.Jobs;
 using Runeheir.Skills;
 using Runeheir.Stats;
+using Runeheir.World;
 
 namespace Runeheir.Characters
 {
@@ -61,6 +62,10 @@ namespace Runeheir.Characters
 
         public long Zeny;
         public string MapId;
+
+        /// <summary>Where you revive and where Raven Feathers take you: the map of the last Norn Courier you saved with.</summary>
+        public string SaveMapId;
+
         public bool HasSavedPosition;
         public float PosX;
         public float PosY;
@@ -178,45 +183,15 @@ namespace Runeheir.Characters
                 HasSavedPosition = false;
             }
 
+            if (string.IsNullOrEmpty(SaveMapId) || MapCatalog.Get(SaveMapId) == null)
+            {
+                SaveMapId = MapCatalog.StartingMapId;
+            }
+
             SkillPoints = Math.Max(0, SkillPoints);
             SkillBook.SanitizeSkills(this);
             EquipmentSet.SanitizeEquipment(this);
             Zeny = Math.Max(0, Zeny);
-        }
-    }
-
-    public sealed class MapInfo
-    {
-        public string Id;
-        public string Name;
-        public string SceneName;
-        public int MinLevel;
-        public int MaxLevel;
-    }
-
-    /// <summary>GDD §2 maps. Phase 2 ships only the first field; Phase 5 adds the rest.</summary>
-    public static class MapCatalog
-    {
-        public const string StartingMapId = "whisperwood_plains";
-
-        private static readonly Dictionary<string, MapInfo> Maps = new Dictionary<string, MapInfo>(StringComparer.OrdinalIgnoreCase)
-        {
-            {
-                StartingMapId,
-                new MapInfo
-                {
-                    Id = StartingMapId,
-                    Name = "Whisperwood Plains",
-                    SceneName = "RH_Field_WhisperwoodPlains",
-                    MinLevel = 1,
-                    MaxLevel = 60,
-                }
-            },
-        };
-
-        public static MapInfo Get(string id)
-        {
-            return id != null && Maps.TryGetValue(id, out var map) ? map : null;
         }
     }
 }

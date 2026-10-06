@@ -536,6 +536,7 @@ namespace Runeheir.Combat
             });
 
             SkillBuffs.RegisterAll(Register);
+            Monsters.MonsterBuffs.RegisterAll(Register);
         }
 
         public static IEnumerable<BuffDefinition> All => ById.Values;

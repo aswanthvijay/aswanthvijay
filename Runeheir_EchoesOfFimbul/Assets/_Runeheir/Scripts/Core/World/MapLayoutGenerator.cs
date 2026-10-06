@@ -187,6 +187,55 @@ namespace Runeheir.World
             return false;
         }
 
+        /// <summary>Places a fixed prop at the first candidate spot on open ground that keeps 2 m clear of every key point.</summary>
+        private static void CampProp(MapLayout layout, PropKind kind, float yaw, params GroundPoint[] candidates)
+        {
+            foreach (var at in candidates)
+            {
+                var prop = new PropPlacement { Kind = kind, At = at, Yaw = yaw };
+                if (layout.IsWalkable(at) && !BlocksKeyPoint(layout, prop, 2f) && !TooCloseToProps(layout, at, PropKinds.Radius(kind) + 1f))
+                {
+                    layout.Props.Add(prop);
+                    return;
+                }
+            }
+        }
+
+        private static bool BlocksKeyPoint(MapLayout layout, PropPlacement prop, float clearance)
+        {
+            bool Blocks(GroundPoint point) => PropKinds.EdgeDistance(prop, point) < clearance;
+            if (Blocks(layout.SavePoint))
+            {
+                return true;
+            }
+
+            foreach (var portal in layout.Portals)
+            {
+                if (Blocks(portal.At) || Blocks(portal.Arrival))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var npc in layout.Npcs)
+            {
+                if (Blocks(npc.At))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var boss in layout.Bosses)
+            {
+                if (Blocks(boss.At))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void Prop(MapLayout layout, PropKind kind, GroundPoint at, float yaw = 0f, float scale = 1f, float length = 0f)
         {
             layout.Props.Add(new PropPlacement { Kind = kind, At = at, Yaw = yaw, Scale = scale, Length = length });
@@ -294,9 +343,12 @@ namespace Runeheir.World
             RemoveIslands(layout);
             Respot(layout);
 
-            // A camp at the save point: fire and tents.
-            Prop(layout, PropKind.Campfire, new GroundPoint(layout.SavePoint.X + 3f, layout.SavePoint.Z - 3f));
-            Prop(layout, PropKind.Tent, new GroundPoint(layout.SavePoint.X - 6f, layout.SavePoint.Z - 5f), 30f);
+            // A camp at the save point: a fire and a tent, on whichever side leaves the courier and the roads clear.
+            var save = layout.SavePoint;
+            CampProp(layout, PropKind.Campfire, 0f,
+                new GroundPoint(save.X + 3f, save.Z - 3f), new GroundPoint(save.X - 3f, save.Z - 3f), new GroundPoint(save.X + 3f, save.Z + 3f), new GroundPoint(save.X - 3f, save.Z + 3f));
+            CampProp(layout, PropKind.Tent, 30f,
+                new GroundPoint(save.X - 6f, save.Z - 5f), new GroundPoint(save.X + 6f, save.Z - 5f), new GroundPoint(save.X - 6f, save.Z + 5f), new GroundPoint(save.X + 6f, save.Z + 5f));
 
             switch (map.Theme)
             {
@@ -452,12 +504,13 @@ namespace Runeheir.World
             RemoveIslands(layout);
             Respot(layout);
 
-            // Gleipnir: chains around the rock Fenrir is bound to.
-            Prop(layout, PropKind.Statue, new GroundPoint(0f, islandZ + 14f), 180f, 1.8f);
+            // Gleipnir: chains staked in a ring around where Fenrir lies bound, under the rock of the gods.
+            var lair = layout.Bosses.Count > 0 ? layout.Bosses[0].At : new GroundPoint(0f, islandZ + 12f);
+            Prop(layout, PropKind.Statue, new GroundPoint(lair.X, lair.Z + 11f), 180f, 1.8f);
             for (int i = 0; i < 6; i++)
             {
                 double angle = i * Math.PI / 3;
-                Prop(layout, PropKind.Chains, new GroundPoint((float)Math.Sin(angle) * 12f, islandZ + (float)Math.Cos(angle) * 12f), (float)(angle * 180 / Math.PI), 1.2f);
+                Prop(layout, PropKind.Chains, new GroundPoint(lair.X + (float)Math.Sin(angle) * 7f, lair.Z + (float)Math.Cos(angle) * 7f), (float)(angle * 180 / Math.PI), 1.2f);
             }
 
             Border(layout, random, r => r.Next(2) == 0 ? PropKind.IceSpike : PropKind.Rock, 6f);

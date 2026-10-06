@@ -168,6 +168,34 @@ namespace Runeheir.Items
             Loot("wolf_pelt", "Wolf Pelt", "Coarse grey fur.", 1200);
             Loot("frost_fang", "Frost Fang", "A fang that never warms.", 4000);
             Loot("jotun_tooth", "Jotun Tooth", "Bigger than your fist.", 15000);
+
+            // Phase 5 bestiary.
+            Loot("boar_tusk", "Boar Tusk", "Curved and chipped from rooting in frozen ground.", 400);
+            Loot("stolen_coin_pouch", "Stolen Coin Pouch", "Someone in Vigrid is missing this.", 800);
+            Loot("bat_wing", "Bat Wing", "Leathery, cold and smelling of the crypt.", 900);
+            Loot("draugr_bone", "Draugr Bone", "It twitches now and then.", 1000);
+            Loot("rotten_bandage", "Rotten Bandage", "Best not to ask what it was wrapped around.", 1400);
+            Loot("harpy_feather", "Harpy Feather", "Grey as the fjord sky.", 1600);
+            Loot("crawler_carapace", "Crawler Carapace", "Stone-hard plates from the cavern dark.", 2000);
+            Loot("wraith_shroud", "Wraith Shroud", "A scrap of something that was never quite cloth.", 4500);
+            Loot("berserker_braid", "Berserker Braid", "A braid of red hair bound with iron rings.", 4500);
+            Loot("naga_scale", "Naga Scale", "Iridescent green, slick with brine.", 5000);
+            Loot("drake_scale", "Drake Scale", "Each one is the size of a shield boss.", 5500);
+            Loot("spectral_lace", "Spectral Lace", "Fine as frost and just as cold.", 6000);
+            Loot("ice_core", "Ice Core", "The heart of an Ice Golem. It never melts.", 7000);
+            Loot("tarnished_valknut", "Tarnished Valknut", "Odin's knot, blackened by Hel's touch.", 7500);
+            Loot("snow_plume", "Snow Plume", "A white feather that crackles with frost.", 12000);
+            Loot("leech_ichor", "Leech Ichor", "Black, thick and faintly glowing.", 13000);
+            Loot("grave_frost", "Grave Frost", "Rime scraped from a Frozen Revenant.", 13000);
+            Loot("hel_brand", "Hel's Brand", "An iron brand bearing the mark of Niflheim.", 16000);
+            Loot("wyrm_heart", "Wyrm Heart", "Still beating, slowly, in the cold.", 20000);
+            Loot("elder_wolf_mane", "Elder Wolf Mane", "Silver fur from the oldest wolf in the Woods.", 60000);
+            Loot("warlord_seal", "Warlord's Seal", "The signet of a king who forgot how to die.", 80000);
+            Loot("naga_pearl", "Naga Pearl", "A black pearl from the Naga Queen's crown.", 100000);
+            Loot("golem_core", "Golem Core", "A rune-carved stone heart, warm to the touch.", 120000);
+            Loot("gleipnir_thread", "Gleipnir Thread", "A strand of the fetter that bound Fenrir: made of a cat's footfall and a mountain's roots.", 500000);
+            Loot("hel_soulfire", "Hel's Soulfire", "A blue flame that burns without heat.", 500000);
+            Loot("world_serpent_scale", "World Serpent Scale", "Shed by Jormungandr's brood, broad as a door.", 500000);
         }
 
         private static void Material(string id, string name, string description, string icon, string color, int price)

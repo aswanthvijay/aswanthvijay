@@ -23,6 +23,9 @@ namespace Runeheir.Items
         /// <summary>Weapons: the two fuller grooves carved with Elder Futhark glyphs ("" = empty).</summary>
         public string[] Glyphs = Array.Empty<string>();
 
+        /// <summary>Weapons: smashed by a monster skill. Useless (you fight bare-handed) until Brokk repairs it.</summary>
+        public bool Broken;
+
         public ItemStack()
         {
         }
@@ -72,10 +75,11 @@ namespace Runeheir.Items
                 Refine = Refine,
                 Cards = (string[])(Cards ?? Array.Empty<string>()).Clone(),
                 Glyphs = (string[])(Glyphs ?? Array.Empty<string>()).Clone(),
+                Broken = Broken,
             };
         }
 
-        /// <summary>"+7 Iron Claymore [1/3]" — refine, name, cards used / sockets.</summary>
+        /// <summary>"+7 Iron Claymore [1/3]" — refine, name, cards used / sockets ("(Broken)" when smashed).</summary>
         public string DisplayName
         {
             get
@@ -88,7 +92,7 @@ namespace Runeheir.Items
 
                 string refine = Refine > 0 ? $"+{Refine} " : string.Empty;
                 string sockets = definition.Sockets > 0 ? $" [{CardCount}/{definition.Sockets}]" : string.Empty;
-                return refine + definition.Name + sockets;
+                return refine + definition.Name + sockets + (Broken ? " (Broken)" : string.Empty);
             }
         }
 
@@ -116,6 +120,7 @@ namespace Runeheir.Items
             }
 
             Refine = definition != null && definition.IsEquipment && definition.Refinable ? Math.Max(0, Math.Min(RefineRules.MaxRefine, Refine)) : 0;
+            Broken &= definition != null && definition.IsWeapon;
         }
 
         private static string[] EmptySlots(int count)

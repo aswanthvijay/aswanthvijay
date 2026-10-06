@@ -112,6 +112,12 @@ namespace Runeheir.Items
                 return false;
             }
 
+            if (entry.Broken)
+            {
+                reason = $"{item.Name} is broken. Have it repaired first.";
+                return false;
+            }
+
             if (entry.Refine >= MaxRefine)
             {
                 reason = $"{item.Name} is already +{MaxRefine}.";

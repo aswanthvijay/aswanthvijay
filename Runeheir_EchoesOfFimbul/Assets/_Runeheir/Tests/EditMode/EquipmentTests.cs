@@ -480,9 +480,9 @@ namespace Runeheir.Tests
                     }
                 }
 
-                if (!monster.Immortal)
+                if (!monster.Immortal && !monster.SummonOnly)
                 {
-                    Assert.IsTrue(monster.Drops.Any(d => ItemCatalog.Get(d.ItemId).IsCard), $"{monster.Id} has no card");
+                    Assert.IsTrue(monster.Drops.Any(d => d.ItemId == monster.Id + "_card"), $"{monster.Id} doesn't drop its own card");
                 }
             }
         }
@@ -500,16 +500,16 @@ namespace Runeheir.Tests
         }
 
         [Test]
-        public void Branches_SummonFieldMonstersOrTheStrongestTier()
+        public void Branches_SummonNormalMonstersOrBosses()
         {
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 20; i++)
             {
-                var dead = MonsterCatalog.PickForBranch(false, new SequenceRandom(i / 10.0));
+                var dead = MonsterCatalog.PickForBranch(false, new SequenceRandom(i / 20.0));
                 Assert.IsNotNull(dead);
-                Assert.Less(dead.Level, MonsterCatalog.BloodBranchMinLevel);
-                Assert.IsFalse(dead.Immortal);
-                var blood = MonsterCatalog.PickForBranch(true, new SequenceRandom(i / 10.0));
-                Assert.GreaterOrEqual(blood.Level, MonsterCatalog.BloodBranchMinLevel);
+                Assert.AreEqual(MonsterRank.Normal, dead.Rank, "Dead Branch: normal monsters only");
+                Assert.IsFalse(dead.Immortal || dead.SummonOnly, dead.Id);
+                var blood = MonsterCatalog.PickForBranch(true, new SequenceRandom(i / 20.0));
+                Assert.IsTrue(blood.IsBoss, "Blood Branch: a mini-boss or MVP");
             }
         }
 

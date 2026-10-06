@@ -1,6 +1,7 @@
 using Runeheir.Hotkeys;
 using Runeheir.Items;
 using Runeheir.Stats;
+using Runeheir.World;
 
 namespace Runeheir.Characters
 {
@@ -31,6 +32,7 @@ namespace Runeheir.Characters
                 StatPoints = StatFormulas.StartingStatPoints,
                 Zeny = StartingZeny,
                 MapId = MapCatalog.StartingMapId,
+                SaveMapId = MapCatalog.StartingMapId,
                 CreatedUnixMs = nowUnixMs,
             };
 

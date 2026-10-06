@@ -210,8 +210,8 @@ namespace Runeheir.World
                 Description = "A lonely isle past the Jotun Steppe where the gods bound Fenrir with Gleipnir. The chains are cracking.",
             });
             lyngvi.Portals.Add(new MapPortal { Id = "bridge", Label = "Jotun Steppe", X = 0f, Z = -56f, TargetMap = JotunSteppe, TargetPortal = "rune_bridge" });
-            Spawn(lyngvi, "frost_wolf", 4, -18f, 8f, 6f);
-            Spawn(lyngvi, "frost_wolf", 4, 18f, 8f, 6f);
+            Spawn(lyngvi, "frost_wyrm", 3, -20f, 6f, 7f);
+            Spawn(lyngvi, "snow_harpy", 4, 20f, 6f, 7f);
             Boss(lyngvi, "fenrir", 0f, 22f, 60f);
         }
 
@@ -267,7 +267,7 @@ namespace Runeheir.World
             {
                 new[] { "cave_crawler", "naga_scout", "cave_crawler", "sea_drake" },
                 new[] { "ice_golem", "abyssal_leech", "naga_scout", "abyssal_leech" },
-                new[] { "naga_scout", "ice_golem", "abyssal_leech" },
+                new[] { "abyssal_leech", "frost_wyrm", "ice_golem" },
             };
             int[][] levels = { new[] { 130, 175 }, new[] { 185, 235 }, new[] { 235, 255 } };
             for (int floor = 1; floor <= 3; floor++)
