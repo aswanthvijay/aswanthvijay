@@ -154,6 +154,12 @@ namespace Runeheir.Items
             }
 
             amount = item.IsStackable ? Math.Min(amount, entry.Amount) : 1;
+            if (amount <= 0)
+            {
+                message = "Choose how many to store.";
+                return false;
+            }
+
             var existing = item.IsStackable ? storage.Find(s => s.ItemId == item.Id) : null;
             if (existing == null && storage.Count >= MaxEntries)
             {
@@ -169,7 +175,12 @@ namespace Runeheir.Items
 
             if (item.IsStackable)
             {
-                inventory.TryRemove(item.Id, amount);
+                if (!inventory.TryRemove(item.Id, amount))
+                {
+                    message = "You don't have that many.";
+                    return false;
+                }
+
                 if (existing != null)
                 {
                     existing.Amount += amount;
@@ -200,6 +211,12 @@ namespace Runeheir.Items
             }
 
             amount = item.IsStackable ? Math.Min(amount, entry.Amount) : 1;
+            if (amount <= 0)
+            {
+                message = "Choose how many to take out.";
+                return false;
+            }
+
             if (currentWeight + (long)item.Weight * amount > weightCapacity)
             {
                 message = "You can't carry that much weight.";

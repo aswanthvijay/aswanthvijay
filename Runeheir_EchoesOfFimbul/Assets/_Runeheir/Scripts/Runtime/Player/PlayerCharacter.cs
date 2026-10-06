@@ -150,8 +150,7 @@ namespace Runeheir.Player
             Stats = DerivedStats.Compute(Record.BaseLevel, Record.Stats, modifiers, Weapon);
             var resist = Stats.StatusResistances;
             resist.ImmunityMask = Gear.ImmunityMask;
-            resist.ExtraResistStatus = Gear.ExtraResistStatus;
-            resist.ExtraResistPercent = Gear.ExtraResistPercent;
+            resist.ExtraResist = Gear.ExtraResist;
             Stats.StatusResistances = resist;
             SetVitals(Mathf.Min(Hp, Stats.MaxHp), Stats.MaxHp, Mathf.Min(Sp, Stats.MaxSp), Stats.MaxSp);
             Poise.SetMax(Stats.MaxPoise);
@@ -756,10 +755,6 @@ namespace Runeheir.Player
             if (gift != null)
             {
                 ChatLog.Loot($"Job change gift: {gift.DisplayName}{(Equipment.Get(EquipPosition.Weapon) == gift ? " (equipped)" : " (in your bag)")}.");
-            }
-            else
-            {
-                ChatLog.Error("Your bag is full: the job change gift weapon was lost.");
             }
 
             Recalculate();

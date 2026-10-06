@@ -92,10 +92,17 @@ namespace Runeheir.Combat
         /// <summary>One bit per <see cref="StatusEffect"/> the wearer can't get (Frost Wolf Card: Freeze).</summary>
         public int ImmunityMask;
 
-        /// <summary>Extra resistance in percent against <see cref="ExtraResistStatus"/> (Cave Crawler Card).</summary>
-        public StatusEffect ExtraResistStatus;
+        /// <summary>
+        /// Extra resistance in percent per status, indexed by <see cref="StatusEffect"/> (Cave Crawler Card: Stone Curse +10,
+        /// Frost Goggles: Freeze +20). Null = none.
+        /// </summary>
+        public float[] ExtraResist;
 
-        public float ExtraResistPercent;
+        public float ExtraResistTo(StatusEffect status)
+        {
+            int index = (int)status;
+            return ExtraResist != null && status != StatusEffect.None && index >= 0 && index < ExtraResist.Length ? ExtraResist[index] : 0f;
+        }
 
         public bool IsImmuneTo(StatusEffect status)
         {
@@ -158,7 +165,7 @@ namespace Runeheir.Combat
                 return 0f;
             }
 
-            float extra = defender.ExtraResistStatus == status && status != StatusEffect.None ? defender.ExtraResistPercent : 0f;
+            float extra = defender.ExtraResistTo(status);
             float stat;
             switch (info.ResistStat)
             {

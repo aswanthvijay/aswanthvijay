@@ -155,7 +155,8 @@ namespace Runeheir.Items
                 }
             }
 
-            if (_inventory.Stacks.Count - 1 + displaced.Count > Inventory.MaxEntries)
+            // Wearing takes one entry out of the bag; only a swap that grows a full bag is refused.
+            if (displaced.Count > 1 && _inventory.Stacks.Count - 1 + displaced.Count > Inventory.MaxEntries)
             {
                 reason = "Your bag is too full to swap that in.";
                 return false;
@@ -196,26 +197,52 @@ namespace Runeheir.Items
             return true;
         }
 
-        /// <summary>Unequips pieces the current job/level can no longer wear (after a GM job change). Returns how many.</summary>
+        /// <summary>
+        /// Unequips pieces the current job/level can no longer wear (after a job change). A full bag overflows rather than
+        /// keeping or losing the piece. Returns how many came off.
+        /// </summary>
         public int RemoveUnwearable()
         {
             int removed = 0;
             foreach (var pair in new List<KeyValuePair<EquipPosition, ItemStack>>(Worn()))
             {
-                if (!CanWear(_record, pair.Value.Definition, out _) && TryUnequip(pair.Key, out _))
+                if (CanWear(_record, pair.Value.Definition, out _))
                 {
-                    removed++;
+                    continue;
                 }
+
+                if (!TryUnequip(pair.Key, out _))
+                {
+                    _record.Equipment[(int)pair.Key] = null;
+                    ForceIntoBag(_record, _inventory, pair.Value);
+                    Changed?.Invoke();
+                }
+
+                removed++;
             }
 
             return removed;
         }
 
         /// <summary>
+        /// Moves a piece into the bag even past <see cref="Inventory.MaxEntries"/>: gear is never destroyed by a full bag
+        /// (an over-full bag just refuses new loot until you make room).
+        /// </summary>
+        private static void ForceIntoBag(CharacterRecord record, Inventory bag, ItemStack entry)
+        {
+            if (!bag.AddEntry(entry))
+            {
+                entry.Amount = Math.Max(1, entry.Amount);
+                record.Inventory.Add(entry);
+                bag.NotifyChanged();
+            }
+        }
+
+        /// <summary>
         /// Job-change gift: a new copy of the job's starter weapon goes into the bag. It is equipped (the old weapon goes to the
         /// bag) when the hands are empty, the old weapon can't be wielded by the new job, or the old weapon is just an earlier
-        /// job's plain starter weapon. A weapon you invested in (refined, carded, etched) stays in your hands. Null when the
-        /// bag is full.
+        /// job's plain starter weapon. A weapon you invested in (refined, carded, etched) stays in your hands. A full bag
+        /// overflows rather than losing the gift. Null only when the job has no starter weapon.
         /// </summary>
         public ItemStack GiftJobWeapon()
         {
@@ -226,10 +253,7 @@ namespace Runeheir.Items
             }
 
             var gift = ItemStack.NewInstance(item);
-            if (!_inventory.AddEntry(gift))
-            {
-                return null;
-            }
+            ForceIntoBag(_record, _inventory, gift);
 
             var current = Get(EquipPosition.Weapon);
             if (current == null || !CanWear(_record, current.Definition, out _) || IsPlainStarterWeapon(current))
@@ -330,7 +354,7 @@ namespace Runeheir.Items
                 }
                 else
                 {
-                    bag.AddEntry(entry);
+                    ForceIntoBag(record, bag, entry);
                 }
             }
 
@@ -368,8 +392,10 @@ namespace Runeheir.Items
         /// <summary>One bit per <see cref="StatusEffect"/> (see <c>StatusResistances.ImmunityMask</c>).</summary>
         public int ImmunityMask;
 
-        public StatusEffect ExtraResistStatus;
-        public float ExtraResistPercent;
+        /// <summary>Extra status resistance in percent, one entry per <see cref="StatusEffect"/> (see <c>StatusResistances.ExtraResist</c>).</summary>
+        public readonly float[] ExtraResist = new float[StatusCount];
+
+        private static readonly int StatusCount = MaxStatusValue() + 1;
 
         /// <summary>Runeword on the weapon, if its two glyphs spell one.</summary>
         public RunewordDefinition Runeword;
@@ -466,8 +492,7 @@ namespace Runeheir.Items
 
             if (effect.ResistStatus != StatusEffect.None && effect.ResistPercent > 0f)
             {
-                ExtraResistStatus = effect.ResistStatus;
-                ExtraResistPercent += effect.ResistPercent;
+                ExtraResist[(int)effect.ResistStatus] += effect.ResistPercent;
             }
 
             WeaponUnbreakable |= effect.Unbreakable;
@@ -481,6 +506,18 @@ namespace Runeheir.Items
             {
                 Add(condition.Bonus, record);
             }
+        }
+    
+
+        private static int MaxStatusValue()
+        {
+            int max = 0;
+            foreach (StatusEffect status in Enum.GetValues(typeof(StatusEffect)))
+            {
+                max = Math.Max(max, (int)status);
+            }
+
+            return max;
         }
     }
 }

@@ -255,7 +255,10 @@ namespace Runeheir.Items
 
             if (definition.IsStackable)
             {
-                return Add(entry.ItemId, entry.Amount) == entry.Amount;
+                // All or nothing: a partial merge would leave the caller unsure what moved.
+                var existing = FindFirst(entry.ItemId);
+                bool fits = existing != null ? existing.Amount + (long)entry.Amount <= MaxStack : _stacks.Count < MaxEntries && entry.Amount <= MaxStack;
+                return fits && Add(entry.ItemId, entry.Amount) == entry.Amount;
             }
 
             if (_stacks.Count >= MaxEntries)

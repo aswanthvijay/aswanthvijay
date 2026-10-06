@@ -527,6 +527,71 @@ namespace Runeheir.Tests
         }
 
         [Test]
+        public void StatusResistGear_StacksPerStatus()
+        {
+            var record = NewRecord(JobId.Warrior, 99);
+            var bag = new Inventory(record.Inventory);
+            var set = new EquipmentSet(record, bag);
+            var goggles = ItemCatalog.All.First(i => i.IsEquipment && i.Effect != null && i.Effect.ResistStatus == StatusEffect.Freeze);
+            var guard = ItemCatalog.All.First(i => i.IsEquipment && i.Effect != null && i.Effect.ResistStatus == StatusEffect.Poison);
+            Assert.IsTrue(set.TryEquip(Give(bag, goggles.Id), out string reason), reason);
+            Assert.IsTrue(set.TryEquip(Give(bag, guard.Id), out reason), reason);
+
+            var stats = EquipmentStats.Compute(record);
+            var resist = new StatusResistances { ExtraResist = stats.ExtraResist };
+            Assert.AreEqual(goggles.Effect.ResistPercent, StatusRules.ResistPercent(StatusEffect.Freeze, resist), 0.001f);
+            Assert.AreEqual(guard.Effect.ResistPercent, StatusRules.ResistPercent(StatusEffect.Poison, resist), 0.001f);
+            Assert.AreEqual(0f, StatusRules.ResistPercent(StatusEffect.Stun, resist), 0.001f);
+        }
+
+        [Test]
+        public void FullBag_NeverDestroysGear()
+        {
+            var record = NewRecord(JobId.Initiate, 20);
+            var bag = new Inventory(record.Inventory);
+            var set = new EquipmentSet(record, bag);
+            var seax = set.Get(EquipPosition.Weapon);
+            seax.Refine = 7;
+            while (bag.Stacks.Count < Inventory.MaxEntries)
+            {
+                bag.Add("sandals", 1);
+            }
+
+            // Devotees can't use daggers: the +7 Seax comes off into the over-full bag and the gift still arrives.
+            record.Job = JobId.Devotee;
+            Assert.AreEqual(1, set.RemoveUnwearable());
+            Assert.IsTrue(bag.Contains(seax));
+            var gift = set.GiftJobWeapon();
+            Assert.AreSame(gift, set.Get(EquipPosition.Weapon));
+
+            // A save repair with a full bag keeps misplaced gear too.
+            var hat = ItemStack.NewInstance(ItemCatalog.Get("feathered_beret"));
+            record.Equipment[(int)EquipPosition.Footgear] = hat;
+            record.Sanitize();
+            Assert.IsTrue(record.Inventory.Contains(hat), "moved to the bag, not deleted");
+            Assert.IsTrue(record.Inventory.Any(s => s.ItemId == ItemCatalog.RustySeax && s.Refine == 7));
+        }
+
+        [Test]
+        public void Storage_RejectsZeroOrNegativeAmounts_AndBagMergesAllOrNothing()
+        {
+            var record = NewRecord();
+            var bag = new Inventory(record.Inventory);
+            var storage = new List<ItemStack>();
+            var tonics = bag.FindFirst(ItemCatalog.LingonberryTonic);
+            int before = tonics.Amount;
+            Assert.IsFalse(StorageRules.TryDeposit(bag, storage, tonics, -5, out _));
+            Assert.IsFalse(StorageRules.TryDeposit(bag, storage, tonics, 0, out _));
+            Assert.AreEqual(0, storage.Count);
+            Assert.AreEqual(before, bag.Count(ItemCatalog.LingonberryTonic));
+
+            tonics.Amount = Inventory.MaxStack - 3;
+            Assert.IsFalse(bag.AddEntry(new ItemStack(ItemCatalog.LingonberryTonic, 10)), "would overflow the stack");
+            Assert.AreEqual(Inventory.MaxStack - 3, bag.Count(ItemCatalog.LingonberryTonic), "nothing was added");
+            Assert.IsTrue(bag.AddEntry(new ItemStack(ItemCatalog.LingonberryTonic, 3)));
+        }
+
+        [Test]
         public void IsaShield_AbsorbsDamageThenBreaks()
         {
             var buffs = new BuffContainer();
