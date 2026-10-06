@@ -885,7 +885,8 @@ namespace Runeheir.Combat
                 }
             }
 
-            if (Definition.Phases.Count > 0 && result.Amount > 0 && !IsDead)
+            // OnDamaged runs before the death check: a killing blow must not start a phase on the way down.
+            if (Definition.Phases.Count > 0 && result.Amount > 0 && Hp > 0 && !IsDead)
             {
                 CheckPhase();
             }
