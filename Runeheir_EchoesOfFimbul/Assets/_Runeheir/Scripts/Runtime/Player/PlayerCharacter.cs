@@ -736,6 +736,13 @@ namespace Runeheir.Player
         {
             Record.Hp = IsDead ? Mathf.Max(1, MaxHp / 2) : Hp;
             Record.Sp = Sp;
+
+            // Mid-warp the record already points at the destination map; this map's position no longer applies.
+            if (WorldTravel.InTransit)
+            {
+                return;
+            }
+
             Record.MapId = FieldContext.MapId ?? Record.MapId;
 
             // Leaving while dead (generated world): you wake at your save point, on your save map.

@@ -150,6 +150,10 @@ namespace Runeheir.Tests
                 {
                     Check(portal.At, "portal " + portal.Portal.Id);
                     Check(portal.Arrival, "arrival of " + portal.Portal.Id);
+
+                    // Arriving at the save point (death, teleports, @warp) must not drop you into a warp.
+                    Assert.Greater(portal.At.DistanceTo(layout.SavePoint), 6f, $"{map.Id}: portal {portal.Portal.Id} is on top of the save point");
+                    Assert.Greater(portal.At.DistanceTo(portal.Arrival), 3f, $"{map.Id}: arriving through {portal.Portal.Id} lands in the portal");
                 }
 
                 layout.Npcs.ForEach(n => Check(n.At, n.Npc.Name));

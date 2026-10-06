@@ -6,6 +6,7 @@ using Runeheir.Combat;
 using Runeheir.Field;
 using Runeheir.Items;
 using Runeheir.Monsters;
+using Runeheir.Movement;
 using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.Visuals;
@@ -102,6 +103,11 @@ namespace Runeheir.Tests
             Assert.IsNotNull(fenrir, "Fenrir is up when nobody has slain him");
             Assert.IsTrue(fenrir.Definition.IsMvp);
 
+            // Fight him up close: from the save point (40 m away) he'd give up the chase, leash home and reset.
+            Assert.IsTrue(NavMesh.SamplePosition(lair.transform.position + new Vector3(0f, 0f, -6f), out NavMeshHit near, 4f, NavMesh.AllAreas));
+            player.GetComponent<NavMotor>().Warp(near.position);
+            yield return null;
+
             // Phase 1 at 70%: enraged.
             fenrir.ReceiveDamage(DamageResult.Fixed(Mathf.CeilToInt(fenrir.MaxHp * 0.35f)), player, physicalMelee: false);
             Assert.AreEqual(1, fenrir.Phase);
@@ -111,6 +117,7 @@ namespace Runeheir.Tests
             Assert.IsTrue(fenrir.ForceSkill("call_skoll", player));
             yield return new WaitForSeconds(2f);
             Assert.AreEqual(1, fenrir.Minions.Count(m => m != null && !m.IsDead));
+            Assert.AreEqual(1, fenrir.Phase, "still in phase 1: he didn't leash and reset");
 
             // A telegraphed breath, cut short by a stagger.
             Assert.IsTrue(fenrir.ForceSkill("moon_eater_breath", player));

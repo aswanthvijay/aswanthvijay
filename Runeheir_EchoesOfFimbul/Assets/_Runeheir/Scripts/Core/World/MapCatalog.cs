@@ -206,7 +206,7 @@ namespace Runeheir.World
             var lyngvi = Add(new MapDefinition
             {
                 Id = Lyngvi, Name = "Lyngvi, Isle of the Bound Wolf", Kind = MapKind.Lair, Theme = MapTheme.Isle, MinLevel = 240, MaxLevel = 255,
-                Size = 120f, Seed = 777, SaveX = 0f, SaveZ = -50f,
+                Size = 120f, Seed = 777, SaveX = 0f, SaveZ = -18f,
                 Description = "A lonely isle past the Jotun Steppe where the gods bound Fenrir with Gleipnir. The chains are cracking.",
             });
             lyngvi.Portals.Add(new MapPortal { Id = "bridge", Label = "Jotun Steppe", X = 0f, Z = -56f, TargetMap = JotunSteppe, TargetPortal = "rune_bridge" });

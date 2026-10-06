@@ -12,7 +12,7 @@ namespace Runeheir.UI
     /// <summary>
     /// Ragnarok-style minimap (top-right): the whole map drawn once from its generated layout, turned with the camera so
     /// "up" on the map is "up" on screen, with warp portals (rose), NPCs (gold), the save point (blue), living bosses (red)
-    /// and you (white, pointing where you face). Map name and coordinates on top. Ctrl+Tab: small, large, hidden.
+    /// and you (white, pointing where you face). Map name and coordinates underneath. Ctrl+Tab: small, large, hidden.
     /// </summary>
     public sealed class MinimapView
     {
@@ -51,9 +51,13 @@ namespace Runeheir.UI
             nose.Anchor(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(3f, 9f));
 
             _title = UIFactory.CreateText(hud.Canvas.transform, string.Empty, 13, UITheme.Gold, TextAnchor.MiddleRight, FontStyle.Bold);
+            _title.horizontalOverflow = HorizontalWrapMode.Overflow; // long names ("Lyngvi, Isle of the Bound Wolf") keep their coordinates
             UIFactory.AddOutline(_title, new Color(0f, 0f, 0f, 0.9f), 1f);
             ApplySize();
         }
+
+        /// <summary>Width the minimap takes from the top-right corner right now, gap included (0 when hidden).</summary>
+        public float OccupiedWidth => Sizes[_size] > 0f ? Sizes[_size] + 12f : 0f;
 
         /// <summary>Ctrl+Tab: small → large → hidden.</summary>
         public void CycleSize()
@@ -111,10 +115,10 @@ namespace Runeheir.UI
                 return;
             }
 
-            _frame.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-14f, -34f), new Vector2(size, size));
+            _frame.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-14f, -14f), new Vector2(size, size));
             float side = size * 0.707f;
             _content.Anchor(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(side, side));
-            _title.rectTransform.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -10f), new Vector2(Mathf.Max(size, 260f), 20f));
+            _title.rectTransform.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -18f - size), new Vector2(size, 20f));
         }
 
         private void AddMarkers()

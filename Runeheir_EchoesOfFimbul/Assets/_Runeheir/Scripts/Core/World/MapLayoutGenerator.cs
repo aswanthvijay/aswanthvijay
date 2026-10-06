@@ -494,12 +494,14 @@ namespace Runeheir.World
                 }
             }
 
-            ResolveAbsolute(layout);
-            foreach (var portal in layout.Portals)
+            // The rune bridge: a straight causeway from each portal (out over the sea) to the island, carved before the
+            // points are resolved so the portal stays at the far end instead of snapping onto the shore.
+            foreach (var portal in map.Portals)
             {
-                // The rune bridge: a straight causeway from the portal to the island.
-                CarvePath(layout, portal.At, new GroundPoint(0f, islandZ - islandRadius + 4f), CellTag.Path);
+                CarvePath(layout, new GroundPoint(portal.X, portal.Z), new GroundPoint(0f, islandZ - islandRadius + 4f), CellTag.Path);
             }
+
+            ResolveAbsolute(layout);
 
             RemoveIslands(layout);
             Respot(layout);

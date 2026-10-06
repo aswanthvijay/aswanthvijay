@@ -286,6 +286,7 @@ namespace Runeheir.UI
             if (FieldContext.Layout != null)
             {
                 _minimap = new MinimapView(this, _player, FieldContext.Layout);
+                _buffs.SetRightInset(_minimap.OccupiedWidth);
             }
             _status = new StatusWindow(this, _player);
             _skills = new SkillWindow(this, _player);
@@ -396,7 +397,12 @@ namespace Runeheir.UI
 
             if (GameInput.KeyDown(GameKey.Tab) && GameInput.KeyHeld(GameKey.Ctrl))
             {
-                _minimap?.CycleSize();
+                if (_minimap != null)
+                {
+                    _minimap.CycleSize();
+                    _buffs.SetRightInset(_minimap.OccupiedWidth);
+                }
+
                 return;
             }
 

@@ -56,7 +56,7 @@ Played directly, `RH_World` starts a temporary character in Vigrid. To start som
 - **Map banner:** the map's name fades in at the top of the screen when you arrive.
 - **Minimap** (top-right): the whole map, turned with the camera so that up on the minimap is up on screen.
   - Markers: portals (rose), NPCs (gold), the save point (blue), living bosses (red) and you (white, pointing where you face).
-  - The map name and your coordinates are shown above it.
+  - The map name and your coordinates are shown underneath it.
   - **Ctrl+Tab** switches between small, large and hidden.
 - **Norn Couriers** stand at every field camp and in Vigrid. They offer:
   - **Open storage:** the same account storage as Phase 4.

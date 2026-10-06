@@ -295,13 +295,14 @@ namespace Runeheir.Field
             }
 
             string portal = parts.Length > 2 ? parts[2] : null;
-            if (portal != null && map.Portal(portal) == null)
+            var target = portal != null ? map.Portal(portal) : null;
+            if (portal != null && target == null)
             {
                 ChatLog.Error($"{map.Name} has no portal '{portal}': {string.Join(", ", map.Portals.Select(x => x.Id))}.");
                 return;
             }
 
-            WorldTravel.Warp(player, map.Id, portal, $"Warping to {map.Name}...");
+            WorldTravel.Warp(player, map.Id, target?.Id, $"Warping to {map.Name}...");
         }
 
         private static void ListBosses()

@@ -32,6 +32,7 @@ namespace Runeheir.WorldBuilding
     public static class WorldTravel
     {
         private static string s_arrivalPortal;
+        private static bool s_arriving;
 
         /// <summary>A warp is loading (portals and couriers ignore further requests until the new map is up).</summary>
         public static bool InTransit { get; private set; }
@@ -39,13 +40,18 @@ namespace Runeheir.WorldBuilding
         /// <summary>True when generated maps can be loaded (RH_World is in Build Settings).</summary>
         public static bool WorldSceneAvailable => Application.CanStreamedLevelBeLoaded(MapCatalog.WorldScene);
 
-        /// <summary>The portal the player is arriving through (once): null when arriving at the save point or a saved spot.</summary>
-        public static string TakeArrivalPortal()
+        /// <summary>
+        /// Called once by the map that just loaded: true when this load is the end of a warp, with the portal the player
+        /// arrives through (null = the save point).
+        /// </summary>
+        public static bool TakeArrival(out string portal)
         {
-            string portal = s_arrivalPortal;
+            bool arriving = s_arriving;
+            portal = s_arrivalPortal;
             s_arrivalPortal = null;
+            s_arriving = false;
             InTransit = false;
-            return portal;
+            return arriving;
         }
 
         /// <summary>
@@ -66,15 +72,18 @@ namespace Runeheir.WorldBuilding
                 return false;
             }
 
-            InTransit = true;
+            // Write the destination into the record, then freeze it: until the new map loads, WriteBackToRecord leaves
+            // the map and position alone, so an autosave or level-up save this frame can't undo the warp. The new map
+            // saves the character once it's up (after a Raven Feather has been used up, a courier fee paid...).
             if (player != null)
             {
                 player.WriteBackToRecord();
                 player.Record.MapId = map.Id;
                 player.Record.HasSavedPosition = false;
-                GameSession.Instance.SaveActiveCharacter();
             }
 
+            InTransit = true;
+            s_arriving = true;
             s_arrivalPortal = arrivalPortalId;
             if (!string.IsNullOrEmpty(message))
             {
@@ -103,6 +112,7 @@ namespace Runeheir.WorldBuilding
         internal static void ResetForNewGame()
         {
             s_arrivalPortal = null;
+            s_arriving = false;
             InTransit = false;
         }
     }

@@ -84,9 +84,10 @@ namespace Runeheir.Field
 
             Vector3 save;
             string arrivalPortal = null;
+            bool warped = false;
             if (generateMap)
             {
-                arrivalPortal = WorldTravel.TakeArrivalPortal();
+                warped = WorldTravel.TakeArrival(out arrivalPortal);
                 var map = MapCatalog.Get(record.MapId) ?? MapCatalog.Get(MapCatalog.StartingMapId);
                 World = WorldBuilder.Build(map, cameraRig != null ? cameraRig.GetComponent<Camera>() : Camera.main);
                 save = World.SavePoint;
@@ -131,6 +132,11 @@ namespace Runeheir.Field
             }
 
             Greet(record, session);
+            if (warped)
+            {
+                _player.SaveNow(); // the warp's save, now that the character stands on the new map
+            }
+
             _nextAutosave = Time.time + autosaveSeconds;
         }
 
@@ -169,7 +175,7 @@ namespace Runeheir.Field
         {
             if (World != null && !string.IsNullOrEmpty(arrivalPortal))
             {
-                var portal = World.Layout.Portals.Find(p => p.Portal.Id == arrivalPortal);
+                var portal = World.Layout.Portals.Find(p => string.Equals(p.Portal.Id, arrivalPortal, System.StringComparison.OrdinalIgnoreCase));
                 if (portal != null)
                 {
                     return WorldBuilder.ToWorld(portal.Arrival);
