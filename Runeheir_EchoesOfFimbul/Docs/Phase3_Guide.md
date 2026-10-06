@@ -428,6 +428,6 @@ The same settings asset has **Override Rates** (Base/Job/Drop). Use it instead o
 ## What's next
 - Real character models and clips through the generated controller (Art track).
 - Skill VFX art: today's rings, streaks, arcs and projectiles are clear placeholders.
-- Phase 4: equipment, refining, cards. Thurisaz, Isa and Hagalaz plug into `PoiseDamagePercent`, statuses and the buff system.
+- Phase 4 (done): equipment, refining, cards and the Thurisaz, Isa and Hagalaz runestones. See [Phase4_Guide.md](Phase4_Guide.md).
 - Phase 5: monster skills and MVPs using the same skill engine.
 - Optional: choose a skill's level on each hotkey (Ragnarok's level-select drag).

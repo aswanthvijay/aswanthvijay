@@ -242,6 +242,7 @@ Menu **Runeheir ▸ Debug ▸ Reveal / Delete Local Account Database** to inspec
 | `@monster dire_wolf 3` · `@monsters` | Spawn monsters next to you |
 | `@heal` · `@save` · `@where` | Utilities |
 | `@allskills` · `@learn bash 5` · `@skillpoint 50` · `@skillreset` · `@status poison 10` · `@cleanse` | Skills and statuses ([Phase 3 Guide §8](Phase3_Guide.md#8-new-gm-commands)) |
+| `@zeny 100000` · `@items cards` · `@refine 10` | Gear and loot ([Phase 4 Guide §11](Phase4_Guide.md#11-new-gm-commands)) |
 
 Suggested ASPD check: `@job einherjar` → `@blvl 255` → `@agi 150` → hit a Training Dummy and read the hits/s in chat → cast **Two-Hand Surge** → hit again (higher) → **Rage of Thor** (locked at 195).
 
@@ -249,9 +250,9 @@ Suggested ASPD check: `@job einherjar` → `@blvl 255` → `@agi 150` → hit a 
 
 | Tab | Tests | What they cover |
 |---|---|---|
-| **EditMode** | 93 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts; Phase 3 skill trees, skill catalog, statuses and poise |
+| **EditMode** | 118 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts; Phase 3 skill trees, skill catalog, statuses and poise; Phase 4 equipment, cards, refining, runewords, trade and storage |
 | **EditMode** | 3 editor tests | The scene generator builds playable scenes (spawners, NavMesh baker, wiring); the toon shader imports with no errors on the active graphics API; the Animator Controller builder wires every parameter |
-| **PlayMode** | 3 smoke tests | Walk on the NavMesh, auto-attack a dummy, skills must be learned, Two-Hand Surge Lv 10 raises ASPD by 7, passives and Silence, an F2 hotkey uses an item, level-up, death and respawn; a Forest Imp aggroes and dies for EXP; the login, realm, character select and create screens open, and passwords are never stored in plain text |
+| **PlayMode** | 4 smoke tests | Walk on the NavMesh, auto-attack a dummy, skills must be learned, Two-Hand Surge Lv 10 raises ASPD by 7, passives and Silence, an F2 hotkey uses an item, level-up, death and respawn; a Forest Imp aggroes and dies for EXP; gear, cards and on-hit procs, the town NPCs, a Dead Branch and storage; the login, realm, character select and create screens open, and passwords are never stored in plain text |
 
 Unity fails a test whenever an error or exception is logged, so the PlayMode tests also catch crashes in Update loops (HUD, AI, skills) while they run.
 
@@ -343,5 +344,5 @@ These numbers weren't fixed by the GDD, so I picked Ragnarok-style defaults. Eac
 ## What's next
 - **Phase 2 Step 5 polish:** smoothed-normal outline bake for imported Blender models; optional Shader Graph port for artists.
 - **Phase 3 (done):** skill trees, 105 skills, statuses, poise/stagger and the animator builder. See [Phase3_Guide.md](Phase3_Guide.md).
-- **Phase 4:** the 10-slot equipment paperdoll, +10/+20 refining and 4-socket soul cards (`DamageBonuses` and `StatModifiers` are ready to receive card effects).
+- **Phase 4 (done):** the 10-slot paperdoll, 87 items, 35 Soul Cards, refining to +20, runewords, shops and storage. See [Phase4_Guide.md](Phase4_Guide.md).
 - **Phase 6:** Mirror server authority (move `DamageCalculator` / `AccountStore` calls server-side) and a networked `IAccountService`.
