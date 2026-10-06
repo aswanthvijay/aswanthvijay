@@ -25,7 +25,7 @@ This guide takes you from a fresh clone to a playable prototype loop:
 |---|---|
 | Unity | **Unity 6.3 LTS**. The project pins `6000.3.25f1` (`ProjectSettings/ProjectVersion.txt`); any 6000.3.x patch opens it. |
 | Render pipeline | **URP 17.3**, already configured (PC and Mobile quality assets from the official Universal 3D template) |
-| Packages | Pinned in `Packages/manifest.json`: Input System, Unity UI (uGUI), AI Navigation, Test Framework, Timeline. Unity installs them on first open. |
+| Packages | Pinned in `Packages/manifest.json` at Unity 6.3's own versions: Input System 1.20.0, Unity UI 2.0.0, AI Navigation 2.0.14, Test Framework 1.6.0, Timeline 1.8.13, URP 17.3.0. Unity installs them on first open. |
 | Hardware | The ASUS TUF F15 (i5-11400H / RTX 3060 6 GB) is plenty. The prototype uses primitives only. |
 
 No other assets are needed. All UI, icons and placeholder characters are generated in code.
@@ -327,6 +327,8 @@ Until then those jobs show as skipped, with a notice explaining why.
 | `Scene 'RH_…' is not in Build Settings` | Run **Runeheir ▸ Setup ▸ Build Prototype Scenes**, or add both scenes in File ▸ Build Profiles. |
 | Clicks do nothing / no NavMesh error in Console | The field needs `RuntimeNavMeshBaker` on the environment root, or a baked NavMeshSurface. |
 | `InvalidOperationException: You are trying to read Input using the UnityEngine.Input class…` | A scene contains an old `StandaloneInputModule`. Delete that EventSystem; the game creates the correct one. |
+| `'BuildTarget' does not contain a definition for 'ReservedCFE'` (inside `com.unity.inputsystem`), then a `TypeLoadException` for `InputActionAsset` | The Input System package is older than Unity 6.3 supports. `Packages/manifest.json` must ask for **`com.unity.inputsystem` 1.20.0** or newer (this repo does since 6 Oct 2026). Close Unity, fix the version, delete `Packages/packages-lock.json` if present, and reopen. |
+| No **Runeheir** menu in the menu bar | Scripts didn't compile. Open **Window ▸ General ▸ Console** and fix the first red error. A package error blocks every script in the project. |
 | Assembly error mentioning `Unity.InputSystem` | Install **Input System** via Package Manager (it is preinstalled in Unity 6 templates). |
 | Pink objects | The project isn't using URP. This project ships with URP assigned; in another project, assign a URP asset in Project Settings ▸ Graphics. |
 | Outlines missing | Outline Width is 0 on that material, or the object doesn't use `Runeheir/Toon` (check `RuntimeMaterials.ToonAvailable`). |
