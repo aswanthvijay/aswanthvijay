@@ -67,8 +67,8 @@ There are ten positions: Upper, Mid and Lower Headgear, Armor, Weapon, Shield, G
 All three NPCs stand a few meters from the save point. Click one to walk over. Walking more than 7 m away, or dying, closes their windows.
 
 ### Ásta's Trading Post
-- **Buy:** the amount box sets how many you get.
-- **Sell:** everything in your bag sells for **half its price**. Refined, carded or etched gear asks for confirmation first. Worn gear isn't for sale.
+- **Buy:** double-click an item; the amount box sets how many you get.
+- **Sell:** double-click; everything in your bag sells for **half its price**. Every gear sale asks for confirmation first (and warns when refine, cards or glyphs would go with it). Worn gear isn't for sale.
 
 ### Brokk's Dwarven Forge
 - **Refine equipment, Runic Fuller, Extract Soul Cards** (sections 5–7), and a supply shop for ores, Runes of Preservation and Extraction, the six glyphs, and the Thurisaz, Isa and Hagalaz runestones.

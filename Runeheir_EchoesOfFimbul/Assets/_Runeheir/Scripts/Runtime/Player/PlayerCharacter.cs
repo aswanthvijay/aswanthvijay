@@ -474,6 +474,8 @@ namespace Runeheir.Player
                 }
             }
 
+            int hp = Hp;
+            int sp = Sp;
             if (worn.HasValue && !Equipment.TryUnequip(worn.Value, out string reason))
             {
                 ChatLog.Error(reason);
@@ -489,6 +491,12 @@ namespace Runeheir.Player
                 if (worn.HasValue && Inventory.Contains(entry))
                 {
                     Equipment.TryEquip(entry, out _);
+
+                    // Taking +Max HP/SP gear off clamped HP/SP; putting it back must not leave them lower.
+                    if (!IsDead)
+                    {
+                        SetVitals(Mathf.Min(hp, MaxHp), MaxHp, Mathf.Min(sp, MaxSp), MaxSp);
+                    }
                 }
             }
         }

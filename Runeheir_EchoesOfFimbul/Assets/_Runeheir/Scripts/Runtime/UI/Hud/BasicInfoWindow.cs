@@ -89,7 +89,7 @@ namespace Runeheir.UI
             _jobLevel.text = $"Job Lv. <b>{record.JobLevel}</b>";
             _jobExp.Set(progression.JobExpPercent / 100f, progression.IsMaxJobLevel ? "MAX" : $"{progression.JobExpPercent:0.0}%");
 
-            int weight = _player.Inventory.TotalWeight();
+            int weight = _player.CurrentWeight; // bag + worn gear
             _footer.text = $"Weight {weight:N0} / {_player.Stats.WeightCapacity:N0}    Zeny {record.Zeny:N0}";
         }
 

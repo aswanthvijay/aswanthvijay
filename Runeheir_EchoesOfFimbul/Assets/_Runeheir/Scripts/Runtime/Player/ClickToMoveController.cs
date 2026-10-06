@@ -299,7 +299,20 @@ namespace Runeheir.Player
                 }
             }
 
-            if (HoveredEntity == null && !friendlySkill)
+            // The nearest thing under the cursor wins: an NPC in front of a monster is talked to, not the monster attacked.
+            if (HoveredNpc != null && HoveredEntity != null)
+            {
+                if (bestNpc < bestEntity)
+                {
+                    HoveredEntity = null;
+                }
+                else
+                {
+                    HoveredNpc = null;
+                }
+            }
+
+            if (HoveredEntity == null && HoveredNpc == null && !friendlySkill)
             {
                 HoveredEntity = PickNearCursor();
             }

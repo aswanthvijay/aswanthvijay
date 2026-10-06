@@ -40,6 +40,7 @@ namespace Runeheir.UI
         private readonly List<Button> _glyphButtons = new List<Button>();
         private Mode _mode;
         private ItemStack _selected;
+        private bool _autoSelect;
         private int _groove;
 
         public ForgeWindow(HudController hud, PlayerCharacter player)
@@ -111,6 +112,7 @@ namespace Runeheir.UI
         {
             _mode = mode;
             _selected = null;
+            _autoSelect = true;
             _result.text = string.Empty;
             Window.Show();
             _list.ScrollToTop();
@@ -124,6 +126,7 @@ namespace Runeheir.UI
             if (_selected != null && !Fits(_selected))
             {
                 _selected = null;
+                _autoSelect = true;
             }
 
             Refresh();
@@ -183,13 +186,15 @@ namespace Runeheir.UI
             var candidates = Candidates();
             if (_selected != null && !candidates.Contains(_selected))
             {
-                _selected = null; // shattered, sold or stored
+                _selected = null; // shattered, emptied of cards, sold or stored: never jump to another piece by itself
             }
 
-            if (_selected == null && candidates.Count > 0)
+            if (_selected == null && _autoSelect && candidates.Count > 0)
             {
                 _selected = candidates[0];
             }
+
+            _autoSelect = false;
 
             _list.EmptyText = _mode == Mode.Refine ? "No refinable gear." : _mode == Mode.Etch ? "No weapons." : "No gear with cards in it.";
             _list.Clear();

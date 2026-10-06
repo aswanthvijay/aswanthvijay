@@ -40,6 +40,7 @@ namespace Runeheir.UI
         private UIWindow _menu;
         private UIWindow _deathDialog;
         private bool _chatFocusedLastFrame;
+        private bool _typingLastFrame;
 
         public Canvas Canvas { get; private set; }
 
@@ -143,6 +144,13 @@ namespace Runeheir.UI
         private static KeyValuePair<string, Action> Option(string label, Action action)
         {
             return new KeyValuePair<string, Action>(label, action);
+        }
+
+        /// <summary>The player is still talking to (and within reach of) an NPC of this kind.</summary>
+        public bool IsAtNpc(NpcKind kind)
+        {
+            return _activeNpc != null && _activeNpc.Kind == kind && _player != null && !_player.IsDead
+                   && _activeNpc.EdgeDistanceTo(_player) <= NpcActor.LeaveRange;
         }
 
         private void CloseNpcWindows()
@@ -253,6 +261,7 @@ namespace Runeheir.UI
 
             HandleKeys();
             _chatFocusedLastFrame = _chat.IsFocused;
+            _typingLastFrame = UIFocus.IsTyping;
         }
 
         private void HandleKeys()
@@ -268,7 +277,8 @@ namespace Runeheir.UI
                 return;
             }
 
-            if (GameInput.KeyDown(GameKey.Enter) && _chat.LastSubmitFrame != Time.frameCount)
+            // Enter that just finished typing in another field (a shop or storage amount) must not also open chat.
+            if (GameInput.KeyDown(GameKey.Enter) && _chat.LastSubmitFrame != Time.frameCount && !_typingLastFrame)
             {
                 _chat.Focus();
                 return;

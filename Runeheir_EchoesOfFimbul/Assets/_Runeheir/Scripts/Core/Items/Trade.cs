@@ -100,6 +100,7 @@ namespace Runeheir.Items
             }
 
             record.Zeny -= (long)item.Price * added;
+            inventory.NotifyChanged(); // zeny changed after the bag did: refresh the zeny shown
             message = $"Bought {item.Name} x{added} for {(long)item.Price * added:N0} zeny.";
             return true;
         }
@@ -120,17 +121,16 @@ namespace Runeheir.Items
                 return false;
             }
 
-            if (item.IsStackable)
+            bool removed = item.IsStackable ? inventory.TryRemove(item.Id, amount) : inventory.RemoveEntry(entry);
+            if (!removed)
             {
-                inventory.TryRemove(item.Id, amount);
-            }
-            else
-            {
-                inventory.RemoveEntry(entry);
+                message = "You don't have that many.";
+                return false;
             }
 
             long earned = (long)item.SellPrice * amount;
             record.Zeny += earned;
+            inventory.NotifyChanged();
             message = $"Sold {entry.DisplayName} x{amount} for {earned:N0} zeny.";
             return true;
         }

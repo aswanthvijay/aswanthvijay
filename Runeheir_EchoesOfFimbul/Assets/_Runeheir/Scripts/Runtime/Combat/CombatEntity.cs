@@ -250,13 +250,16 @@ namespace Runeheir.Combat
             Damaged?.Invoke(result, attacker);
             AnyDamaged?.Invoke(this, result, attacker);
             RaiseVitalsChanged();
-            Reflect(result, attacker, physicalMelee);
 
+            // Death resolves before the reflect: a reflected kill (EXP, a level-up refill) must not save a lethal hit.
             if (Hp <= 0 && result.Amount > 0)
             {
                 OnHpDepleted(attacker);
+                Reflect(result, attacker, physicalMelee);
                 return result;
             }
+
+            Reflect(result, attacker, physicalMelee);
 
             if (result.Amount > 0 && !result.IsDamageOverTime)
             {

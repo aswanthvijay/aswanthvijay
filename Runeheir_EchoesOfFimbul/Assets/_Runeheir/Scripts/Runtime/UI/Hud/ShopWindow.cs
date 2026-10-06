@@ -20,6 +20,7 @@ namespace Runeheir.UI
         private readonly Button _sellTab;
         private ShopDefinition _shop;
         private bool _selling;
+        private float _ignoreClicksUntil;
 
         public ShopWindow(HudController hud, PlayerCharacter player)
         {
@@ -83,8 +84,8 @@ namespace Runeheir.UI
             }
 
             _header.text = _selling
-                ? "Click an item to sell it (the amount box sets how many from a stack). Worn gear isn't for sale: take it off first."
-                : $"<i>\"{_shop.Greeting}\"</i>\nClick an item to buy the amount in the box.";
+                ? "Double-click an item to sell it (the amount box sets how many from a stack). Worn gear isn't for sale: take it off first."
+                : $"<i>\"{_shop.Greeting}\"</i>\nDouble-click an item to buy the amount in the box.";
             _buyTab.GetComponent<Image>().color = _selling ? Color.white : UITheme.Gold;
             _sellTab.GetComponent<Image>().color = _selling ? UITheme.Gold : Color.white;
             _footer.text = $"Zeny <b><color=#EBC466>{_player.Record.Zeny:N0}</color></b>    Weight {_player.CurrentWeight:N0} / {_player.Stats.WeightCapacity:N0}";
@@ -104,7 +105,7 @@ namespace Runeheir.UI
                     var captured = entry;
                     _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.DisplayName,
                         $"{item.SellPrice:N0} z each{(entry.Amount > 1 ? $" · x{entry.Amount:N0}" : string.Empty)}",
-                        () => Sell(captured), () => ItemTooltips.For(captured));
+                        null, () => ItemTooltips.For(captured, "double-click: sell"), onDoubleClick: () => Sell(captured));
                 }
             }
             else
@@ -121,7 +122,7 @@ namespace Runeheir.UI
                     int owned = _player.Inventory.Count(id);
                     _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), item.Name,
                         $"<color=#EBC466>{item.Price:N0} z</color>{(owned > 0 ? $" · you have {owned:N0}" : string.Empty)}",
-                        () => Buy(id), () => ItemTooltips.For(Preview(item)));
+                        null, () => ItemTooltips.For(Preview(item), "double-click: buy"), onDoubleClick: () => Buy(id));
                 }
             }
         }
@@ -131,8 +132,25 @@ namespace Runeheir.UI
             return item.IsEquipment ? ItemStack.NewInstance(item) : new ItemStack(item.Id, 1);
         }
 
+        /// <summary>The list rebuilds after every trade; a click that lands on the row that moved under the pointer is ignored.</summary>
+        private bool Debounce()
+        {
+            if (Time.unscaledTime < _ignoreClicksUntil)
+            {
+                return true;
+            }
+
+            _ignoreClicksUntil = Time.unscaledTime + 0.4f;
+            return false;
+        }
+
         private void Buy(string itemId)
         {
+            if (Debounce())
+            {
+                return;
+            }
+
             if (TradeRules.TryBuy(_player.Record, _player.Inventory, _shop, itemId, Amount, _player.Stats.WeightCapacity, _player.CurrentWeight, out string message))
             {
                 ChatLog.Loot(message);
@@ -148,11 +166,18 @@ namespace Runeheir.UI
 
         private void Sell(ItemStack entry)
         {
+            if (Debounce())
+            {
+                return;
+            }
+
             var item = entry.Definition;
             int amount = Mathf.Min(Amount, entry.Amount);
-            if (item.IsEquipment && (entry.Refine > 0 || entry.CardCount > 0 || entry.Glyphs != null && System.Array.Exists(entry.Glyphs, g => !string.IsNullOrEmpty(g))))
+            if (item.IsEquipment)
             {
-                _hud.Confirm($"Sell <b>{entry.DisplayName}</b> for {item.SellPrice:N0} zeny?\nIts refine, cards and glyphs are lost with it.", () => DoSell(entry, amount), "Sell");
+                bool invested = entry.Refine > 0 || entry.CardCount > 0 || entry.Glyphs != null && System.Array.Exists(entry.Glyphs, g => !string.IsNullOrEmpty(g));
+                _hud.Confirm($"Sell <b>{entry.DisplayName}</b> for {item.SellPrice:N0} zeny?" + (invested ? "\nIts refine, cards and glyphs are lost with it." : string.Empty),
+                    () => DoSell(entry, amount), "Sell");
                 return;
             }
 
