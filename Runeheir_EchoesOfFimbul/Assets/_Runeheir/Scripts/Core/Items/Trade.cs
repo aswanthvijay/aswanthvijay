@@ -17,6 +17,8 @@ namespace Runeheir.Items
     {
         public const string GeneralStore = "general_store";
         public const string ForgeSupplies = "forge_supplies";
+        public const string Armory = "vigrid_armory";
+        public const string BranchWarden = "branch_warden";
 
         private static readonly Dictionary<string, ShopDefinition> ById = new Dictionary<string, ShopDefinition>
         {
@@ -48,6 +50,29 @@ namespace Runeheir.Items
                         RunewordRules.Sowilo, RunewordRules.Tiwaz, RunewordRules.Isa, RunewordRules.Hagalaz, RunewordRules.Thurisaz, RunewordRules.Uruz,
                         ItemCatalog.RuneThurisaz, ItemCatalog.RuneIsa, ItemCatalog.RuneHagalaz,
                     },
+                }
+            },
+            {
+                Armory, new ShopDefinition
+                {
+                    Id = Armory,
+                    Name = "Vigrid Armory",
+                    Greeting = "Mail, greatswords and shields for the road north. Rare steel you'll have to win from the wilds.",
+                    ItemIds = new[]
+                    {
+                        "iron_claymore", "steel_claymore", "chainmail", "mystic_robe", "kite_shield", "round_viking_shield", "bear_pelt",
+                        "feathered_beret", "iron_helm", "eyepatch", "viking_pipe", "braided_beard",
+                        "rune_ring", "wolf_tooth_necklace", "raven_brooch", "ward_amulet",
+                    },
+                }
+            },
+            {
+                BranchWarden, new ShopDefinition
+                {
+                    Id = BranchWarden,
+                    Name = "Hall of Branches Supply",
+                    Greeting = "Branches and something to drink before whatever climbs out of them.",
+                    ItemIds = new[] { ItemCatalog.DeadBranch, ItemCatalog.LingonberryTonic, ItemCatalog.HoneyMead, ItemCatalog.AetherSap, ItemCatalog.RuneSowilo },
                 }
             },
         };
