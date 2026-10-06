@@ -87,6 +87,7 @@ namespace Runeheir.Combat
             Poise.SetMax(PoiseRules.MonsterMaxPoise(definition.Size, definition.Level));
             Poise.Reset();
             _motor.BaseMoveSpeed = definition.MoveSpeed;
+            OnModifiersChanged();
             _nextWanderAt = Time.time + Random.Range(1f, 4f);
         }
 
@@ -237,6 +238,11 @@ namespace Runeheir.Combat
                 {
                     _returningHome = false;
                     Heal(MaxHp, showNumber: false);
+                }
+                else if (!_motor.IsMoving)
+                {
+                    // A snare or stun on the way home stopped the agent (and cleared its path): set off again.
+                    _motor.MoveTo(_home);
                 }
 
                 return;

@@ -187,8 +187,11 @@ namespace Runeheir.Player
             bool forcedCrit = Buffs.HasCharge(BuffTraits.CriticalCharges);
 
             // Attacking reveals you; out of Shadow Veil that first attack is a guaranteed critical backstab.
-            var stealth = IsHidden ? Buffs.BreakStealth() : null;
-            bool ambush = stealth != null && stealth.Definition.Has(BuffTraits.AmbushCritical);
+            bool ambush = false;
+            if (IsHidden)
+            {
+                Buffs.BreakStealth(out ambush);
+            }
 
             var attacker = BuildAttackerProfile();
             attacker.ForceCritical |= ambush;
@@ -433,6 +436,12 @@ namespace Runeheir.Player
 
         protected override void OnDied(CombatEntity killer)
         {
+            // Die() cleared the stealth buff; Update stops running while dead, so drop the silhouette here.
+            if (_animation != null)
+            {
+                _animation.SetHidden(false);
+            }
+
             _attacker.Disengage();
             _caster.CancelAll();
             _motor.Stop();
@@ -502,6 +511,10 @@ namespace Runeheir.Player
             if (avatar != null)
             {
                 avatar.RebuildHumanoid(AvatarLook.FromRecord(Record));
+                if (_animation != null)
+                {
+                    _animation.RefreshHidden(); // the rebuilt parts need the stealth look too
+                }
             }
 
             ChatLog.Notice($"{DisplayName} is now a {Job.Name}!");

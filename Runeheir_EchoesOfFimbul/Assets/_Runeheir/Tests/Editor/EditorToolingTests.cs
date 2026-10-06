@@ -77,6 +77,14 @@ namespace Runeheir.Tests
 
             Assert.IsTrue(states.Any(s => s.name == "Stagger") && states.Any(s => s.name == "Dead") && states.Any(s => s.name == "Cast"));
             Assert.AreEqual("Locomotion", controller.layers[0].stateMachine.defaultState.name);
+            foreach (var transition in controller.layers[0].stateMachine.anyStateTransitions)
+            {
+                if (transition.destinationState.name != "Dead")
+                {
+                    Assert.IsTrue(transition.conditions.Any(c => c.parameter == RuneheirAnimatorBuilder.Dead && c.mode == UnityEditor.Animations.AnimatorConditionMode.IfNot),
+                        $"{transition.destinationState.name} must not fire while dead");
+                }
+            }
 
             // Rebuilding keeps the asset (and its GUID) instead of making a new one.
             string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(controller));

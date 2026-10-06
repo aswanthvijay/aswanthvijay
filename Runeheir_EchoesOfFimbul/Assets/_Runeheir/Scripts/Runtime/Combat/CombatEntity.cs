@@ -132,13 +132,7 @@ namespace Runeheir.Combat
         {
             get
             {
-                if (!_watchingModifiers)
-                {
-                    _watchingModifiers = true;
-                    Buffs.Changed += MarkModifiersDirty;
-                    Statuses.Changed += MarkModifiersDirty;
-                }
-
+                WatchModifiers();
                 if (_modifiersDirty)
                 {
                     _activeModifiers.Clear();
@@ -194,12 +188,13 @@ namespace Runeheir.Combat
         /// <summary>
         /// Applies a hit. Melee hits can be blocked (Runic Aegis charges, Guardian's Oath chance); damage-taken
         /// modifiers scale it; hits that deal damage wake sleepers, shatter stone and chip <paramref name="poiseDamage"/>.
+        /// Returns the result as applied (blocked, scaled), so callers skip on-hit effects for blocked hits.
         /// </summary>
-        public void ReceiveDamage(DamageResult result, CombatEntity attacker, bool physicalMelee, float poiseDamage = 0f)
+        public DamageResult ReceiveDamage(DamageResult result, CombatEntity attacker, bool physicalMelee, float poiseDamage = 0f)
         {
             if (IsDead)
             {
-                return;
+                return DamageResult.Miss();
             }
 
             if (physicalMelee && !result.IsMiss && !result.IsBlocked)
@@ -233,7 +228,7 @@ namespace Runeheir.Combat
             if (Hp <= 0 && result.Amount > 0)
             {
                 OnHpDepleted(attacker);
-                return;
+                return result;
             }
 
             if (result.Amount > 0 && !result.IsDamageOverTime)
@@ -241,12 +236,14 @@ namespace Runeheir.Combat
                 Statuses.BreakOnDamage();
                 ApplyPoiseDamage(poiseDamage);
             }
+
+            return result;
         }
 
         /// <summary>Chips poise; at zero the entity is staggered (unless immune).</summary>
         public void ApplyPoiseDamage(float amount)
         {
-            if (IsDead || amount <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune))
+            if (IsDead || amount <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune) || StatusResistances.Immune)
             {
                 return;
             }
@@ -346,10 +343,14 @@ namespace Runeheir.Combat
             return ApplyStatus(status, StatusRules.EffectiveDuration(status, seconds, resist));
         }
 
-        /// <summary>Applies a status with no roll (stagger, GM commands). Sowilo's ward blocks everything.</summary>
-        public bool ApplyStatus(StatusEffect status, float seconds)
+        /// <summary>
+        /// Applies a status with no chance roll (stagger, guaranteed stuns). Sowilo's ward always blocks it; status-immune
+        /// targets (MVPs) block it unless <paramref name="ignoreImmunity"/> (GM commands).
+        /// </summary>
+        public bool ApplyStatus(StatusEffect status, float seconds, bool ignoreImmunity = false)
         {
-            if (IsDead || seconds <= 0f || status == StatusEffect.None || Buffs.HasTrait(BuffTraits.CrowdControlImmune))
+            if (IsDead || seconds <= 0f || status == StatusEffect.None || Buffs.HasTrait(BuffTraits.CrowdControlImmune)
+                || (!ignoreImmunity && StatusResistances.Immune))
             {
                 return false;
             }
@@ -454,6 +455,22 @@ namespace Runeheir.Combat
         protected virtual void OnEnable()
         {
             Registry.Add(this);
+
+            // Subscribed up front so a debuff landing before anything reads the modifiers still reaches
+            // OnModifiersChanged (a Bog of Niflheim slow on a monster that hasn't swung yet).
+            WatchModifiers();
+        }
+
+        private void WatchModifiers()
+        {
+            if (_watchingModifiers)
+            {
+                return;
+            }
+
+            _watchingModifiers = true;
+            Buffs.Changed += MarkModifiersDirty;
+            Statuses.Changed += MarkModifiersDirty;
         }
 
         protected virtual void OnDisable()

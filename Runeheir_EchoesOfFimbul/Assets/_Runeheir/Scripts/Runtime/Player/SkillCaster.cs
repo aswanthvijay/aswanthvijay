@@ -521,8 +521,8 @@ namespace Runeheir.Player
                                 || (skill.BuffId != null && BuffCatalog.Get(skill.BuffId) is BuffDefinition buff && buff.Has(BuffTraits.Stealth));
             if (!keepsStealth && _owner.IsHidden)
             {
-                var broken = _owner.Buffs.BreakStealth();
-                cast.Ambush = broken != null && broken.Definition.Has(BuffTraits.AmbushCritical);
+                _owner.Buffs.BreakStealth(out bool ambush);
+                cast.Ambush = ambush;
             }
 
             // Rune Amplify boosts this one damaging spell, then ends.

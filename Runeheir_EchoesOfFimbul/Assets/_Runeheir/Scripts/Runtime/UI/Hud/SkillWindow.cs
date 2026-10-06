@@ -50,6 +50,7 @@ namespace Runeheir.UI
             _page = player.Record.Job;
             player.Progression.JobChanged += OnJobChanged;
             player.Progression.JobLevelUp += OnJobLevelUp;
+            player.Progression.StatsChanged += Rebuild;
             player.SkillBook.Changed += Rebuild;
             Window.VisibilityChanged += Rebuild;
             Rebuild();
@@ -62,6 +63,7 @@ namespace Runeheir.UI
         {
             _player.Progression.JobChanged -= OnJobChanged;
             _player.Progression.JobLevelUp -= OnJobLevelUp;
+            _player.Progression.StatsChanged -= Rebuild;
             _player.SkillBook.Changed -= Rebuild;
         }
 

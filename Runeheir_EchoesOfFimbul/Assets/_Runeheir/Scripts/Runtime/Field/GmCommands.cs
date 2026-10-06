@@ -303,9 +303,19 @@ namespace Runeheir.Field
 
         private static void ApplyStatus(PlayerCharacter player, string[] parts)
         {
-            if (parts.Length < 2 || !Enum.TryParse(parts[1], true, out Combat.StatusEffect status) || status == Combat.StatusEffect.None)
+            // Names only: Enum.TryParse would also accept numbers ("3") and lists ("stun,sleep").
+            Combat.StatusEffect status = Combat.StatusEffect.None;
+            bool named = parts.Length >= 2 && parts[1].All(char.IsLetter)
+                         && Enum.TryParse(parts[1], true, out status) && Combat.StatusRules.Get(status) != null;
+            if (!named)
             {
                 ChatLog.Error("Usage: @status <name> [seconds]. See @statuses.");
+                return;
+            }
+
+            if (player.IsDead)
+            {
+                ChatLog.Error("You are dead.");
                 return;
             }
 
@@ -315,7 +325,7 @@ namespace Runeheir.Field
                 seconds = Mathf.Clamp(parsed, 0.5f, 120f);
             }
 
-            ChatLog.Gm(player.ApplyStatus(status, seconds)
+            ChatLog.Gm(player.ApplyStatus(status, seconds, ignoreImmunity: true)
                 ? $"{Combat.StatusRules.Get(status).Name} for {seconds:0.#}s."
                 : "Blocked (Sowilo's ward makes you immune).");
         }

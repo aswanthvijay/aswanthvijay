@@ -153,8 +153,8 @@ namespace Runeheir.Combat
             _impactPending = false;
             var target = _impactTarget;
             _impactTarget = null;
-            // A stun/freeze that lands mid-swing cancels the hit.
-            if (target == null || target.IsDead || _owner.IsDead || _owner.IsIncapacitated)
+            // A stun/freeze that lands mid-swing cancels the hit; so does the target vanishing into stealth.
+            if (target == null || target.IsDead || _owner.IsDead || _owner.IsIncapacitated || !_owner.CanSee(target))
             {
                 return;
             }
@@ -190,10 +190,10 @@ namespace Runeheir.Combat
             }
 
             float poise = owner.BasicPoiseDamage * (result.IsCritical ? PoiseRules.CriticalPoiseMultiplier : 1f);
-            target.ReceiveDamage(result, owner, physicalMelee: !owner.IsRangedAttacker, poise);
-            if (!result.IsMiss && !result.IsBlocked && !owner.IsDead)
+            var applied = target.ReceiveDamage(result, owner, physicalMelee: !owner.IsRangedAttacker, poise);
+            if (!applied.IsMiss && !applied.IsBlocked && !owner.IsDead)
             {
-                owner.OnBasicAttackLanded(target, result);
+                owner.OnBasicAttackLanded(target, applied);
             }
         }
     }

@@ -104,7 +104,7 @@ namespace Runeheir.Combat
         {
             Add(StatusEffect.Stun, "Stun", "STN", "#F4D03F", StatusFlags.Incapacitates, StatusResistStat.Vit);
             Add(StatusEffect.Freeze, "Frozen", "FRZ", "#85C1E9", StatusFlags.Incapacitates, StatusResistStat.Mdef);
-            Add(StatusEffect.StoneCurse, "Stone Curse", "STN", "#A6ACAF", StatusFlags.Incapacitates | StatusFlags.BreaksOnDamage, StatusResistStat.Mdef,
+            Add(StatusEffect.StoneCurse, "Stone Curse", "STO", "#A6ACAF", StatusFlags.Incapacitates | StatusFlags.BreaksOnDamage, StatusResistStat.Mdef,
                 mods: new StatModifiers { DefPercent = -50f, MdefPercent = 25f });
             Add(StatusEffect.Sleep, "Sleep", "SLP", "#A569BD", StatusFlags.Incapacitates | StatusFlags.BreaksOnDamage, StatusResistStat.Int);
             Add(StatusEffect.Poison, "Poison", "PSN", "#7D3C98", StatusFlags.BlocksRegen, StatusResistStat.Vit,

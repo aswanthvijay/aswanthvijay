@@ -179,6 +179,12 @@ namespace Runeheir.Visuals
         {
             if (_hasStagger)
             {
+                // The same hit already set Hit (flinch); Stagger replaces it, so don't leave Hit latched.
+                if (_hasHit)
+                {
+                    animator.ResetTrigger(_hitHash);
+                }
+
                 animator.SetTrigger(_staggerHash);
             }
             else if (_hasHit)
@@ -204,24 +210,7 @@ namespace Runeheir.Visuals
             if (hidden)
             {
                 _visibleMaterials.Clear();
-                var ghost = RuntimeMaterials.Ghost;
-                foreach (var renderer in GetComponentsInChildren<Renderer>())
-                {
-                    if (renderer is LineRenderer || renderer is TrailRenderer || renderer is ParticleSystemRenderer)
-                    {
-                        continue;
-                    }
-
-                    var original = renderer.sharedMaterials;
-                    _visibleMaterials[renderer] = original;
-                    var swapped = new Material[original.Length];
-                    for (int i = 0; i < swapped.Length; i++)
-                    {
-                        swapped[i] = ghost;
-                    }
-
-                    renderer.sharedMaterials = swapped;
-                }
+                GhostUnseenRenderers();
             }
             else
             {
@@ -234,6 +223,54 @@ namespace Runeheir.Visuals
                 }
 
                 _visibleMaterials.Clear();
+            }
+        }
+
+        /// <summary>Re-applies the stealth look to parts created after hiding (a job change rebuilds the placeholder model).</summary>
+        public void RefreshHidden()
+        {
+            if (!_hidden)
+            {
+                return;
+            }
+
+            var destroyed = new List<Renderer>();
+            foreach (var renderer in _visibleMaterials.Keys)
+            {
+                if (renderer == null)
+                {
+                    destroyed.Add(renderer);
+                }
+            }
+
+            foreach (var renderer in destroyed)
+            {
+                _visibleMaterials.Remove(renderer);
+            }
+
+            GhostUnseenRenderers();
+        }
+
+        private void GhostUnseenRenderers()
+        {
+            var ghost = RuntimeMaterials.Ghost;
+            foreach (var renderer in GetComponentsInChildren<Renderer>())
+            {
+                if (renderer is LineRenderer || renderer is TrailRenderer || renderer is ParticleSystemRenderer
+                    || _visibleMaterials.ContainsKey(renderer))
+                {
+                    continue;
+                }
+
+                var original = renderer.sharedMaterials;
+                _visibleMaterials[renderer] = original;
+                var swapped = new Material[original.Length];
+                for (int i = 0; i < swapped.Length; i++)
+                {
+                    swapped[i] = ghost;
+                }
+
+                renderer.sharedMaterials = swapped;
             }
         }
 
@@ -255,6 +292,15 @@ namespace Runeheir.Visuals
             if (_hasDead)
             {
                 animator.SetBool(_deadHash, dead);
+            }
+
+            if (dead && animator != null)
+            {
+                // Triggers set by the killing blow would otherwise fire on revive.
+                if (_hasHit) animator.ResetTrigger(_hitHash);
+                if (_hasAttack) animator.ResetTrigger(_attackHash);
+                if (_hasSkill) animator.ResetTrigger(_skillHash);
+                if (_hasStagger) animator.ResetTrigger(_staggerHash);
             }
 
             if (_placeholder != null)

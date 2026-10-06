@@ -168,7 +168,8 @@ namespace Runeheir.EditorTools
             machine.defaultState = locomotion;
             Move(machine, locomotion, 320f, 80f);
 
-            // Death first: it outranks every other Any State transition.
+            // Death first: it outranks every other Any State transition, and every other Any State transition
+            // requires !Dead, so a trigger left over from the killing blow can't pull the corpse out of Dead.
             var dead = AddState(machine, "Dead", Clip(folder, "Die", 1.2f), 620f, 380f);
             var toDead = machine.AddAnyStateTransition(dead);
             toDead.AddCondition(AnimatorConditionMode.If, 0f, Dead);
@@ -184,6 +185,7 @@ namespace Runeheir.EditorTools
             attack.speedParameter = AttackSpeed;
             var toAttack = machine.AddAnyStateTransition(attack);
             toAttack.AddCondition(AnimatorConditionMode.If, 0f, Attack);
+            toAttack.AddCondition(AnimatorConditionMode.IfNot, 0f, Dead);
             Snap(toAttack, 0.05f);
             toAttack.canTransitionToSelf = true;
             ExitTo(attack, locomotion);
@@ -191,18 +193,21 @@ namespace Runeheir.EditorTools
             var stagger = AddState(machine, "Stagger", Clip(folder, "Stagger", Combat.PoiseRules.StaggerSeconds), 620f, 300f);
             var toStagger = machine.AddAnyStateTransition(stagger);
             toStagger.AddCondition(AnimatorConditionMode.If, 0f, Stagger);
+            toStagger.AddCondition(AnimatorConditionMode.IfNot, 0f, Dead);
             Snap(toStagger, 0.05f);
             ExitTo(stagger, locomotion);
 
             var hit = AddState(machine, "Hit", Clip(folder, "Hit", 0.3f), 620f, 220f);
             var toHit = machine.AddAnyStateTransition(hit);
             toHit.AddCondition(AnimatorConditionMode.If, 0f, Hit);
+            toHit.AddCondition(AnimatorConditionMode.IfNot, 0f, Dead);
             Snap(toHit, 0.05f);
             ExitTo(hit, locomotion);
 
             var cast = AddState(machine, "Cast", Clip(folder, "CastLoop", 1f, loop: true), 620f, 140f);
             var toCast = machine.AddAnyStateTransition(cast);
             toCast.AddCondition(AnimatorConditionMode.If, 0f, Casting);
+            toCast.AddCondition(AnimatorConditionMode.IfNot, 0f, Dead);
             Snap(toCast, 0.12f);
             toCast.canTransitionToSelf = false;
             var endCast = cast.AddTransition(locomotion);
@@ -229,6 +234,7 @@ namespace Runeheir.EditorTools
                 var toSkill = machine.AddAnyStateTransition(state);
                 toSkill.AddCondition(AnimatorConditionMode.If, 0f, Skill);
                 toSkill.AddCondition(AnimatorConditionMode.Equals, (int)motion, SkillMotionParameter);
+                toSkill.AddCondition(AnimatorConditionMode.IfNot, 0f, Dead);
                 Snap(toSkill, 0.05f);
                 toSkill.canTransitionToSelf = true;
                 ExitTo(state, locomotion);

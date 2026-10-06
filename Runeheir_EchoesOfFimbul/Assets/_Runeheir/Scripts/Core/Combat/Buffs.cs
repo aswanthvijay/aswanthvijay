@@ -105,6 +105,13 @@ namespace Runeheir.Combat
                     foreach (var buff in _active)
                     {
                         var definition = buff.Definition;
+
+                        // Rune Amplify: its bonus is held back for the next spell (read by the caster), not a standing bonus.
+                        if (definition.Has(BuffTraits.ConsumedBySpell))
+                        {
+                            continue;
+                        }
+
                         _aggregate.Add(definition.Modifiers);
                         _aggregate.AddScaled(definition.ModifiersPerLevel, buff.Level - 1);
                         _aggregate.AddScaled(definition.ModifiersPerStack, buff.Stacks);
@@ -201,20 +208,31 @@ namespace Runeheir.Combat
             return removed;
         }
 
-        /// <summary>Ends stealth (attacking or using a skill). Returns the stealth buff that ended, if any.</summary>
-        public ActiveBuff BreakStealth()
+        /// <summary>
+        /// Ends stealth (attacking or using a skill): removes every stealth buff, so Shadow Cloak + Shadow Veil both end.
+        /// Returns true when any ended; <paramref name="ambush"/> is true when one of them grants an ambush critical.
+        /// </summary>
+        public bool BreakStealth(out bool ambush)
         {
-            foreach (var buff in _active)
+            bool any = false;
+            ambush = false;
+            for (int i = _active.Count - 1; i >= 0; i--)
             {
-                if (buff.Definition.Has(BuffTraits.Stealth))
+                var definition = _active[i].Definition;
+                if (definition.Has(BuffTraits.Stealth))
                 {
-                    _active.Remove(buff);
-                    MarkChanged();
-                    return buff;
+                    any = true;
+                    ambush |= definition.Has(BuffTraits.AmbushCritical);
+                    _active.RemoveAt(i);
                 }
             }
 
-            return null;
+            if (any)
+            {
+                MarkChanged();
+            }
+
+            return any;
         }
 
         public bool Remove(string id)

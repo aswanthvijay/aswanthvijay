@@ -367,17 +367,29 @@ namespace Runeheir.Tests
         public void Buffs_StealthBreaksAndDebuffsCleanse()
         {
             var buffs = new BuffContainer();
+            buffs.Apply(BuffCatalog.Get(SkillBuffs.ShadowCloak), now: 0);
             buffs.Apply(BuffCatalog.Get(SkillBuffs.ShadowVeil), now: 0);
             buffs.Apply(BuffCatalog.Get(SkillBuffs.Provoked), now: 0, level: 10);
             Assert.AreEqual(-55f, buffs.Aggregate.DefPercent, 0.001f, "Provoke Lv 10: -55% DEF");
 
-            var broken = buffs.BreakStealth();
-            Assert.IsNotNull(broken);
-            Assert.IsTrue(broken.Definition.Has(BuffTraits.AmbushCritical));
-            Assert.IsNull(buffs.BreakStealth());
+            Assert.IsTrue(buffs.BreakStealth(out bool ambush), "attacking ends Cloak and Veil together");
+            Assert.IsTrue(ambush, "Shadow Veil's ambush critical");
+            Assert.IsFalse(buffs.HasTrait(BuffTraits.Stealth));
+            Assert.IsFalse(buffs.BreakStealth(out ambush));
+            Assert.IsFalse(ambush);
 
             Assert.AreEqual(1, buffs.RemoveWhere(b => b.Definition.IsDebuff));
             Assert.AreEqual(0, buffs.Active.Count);
+        }
+
+        [Test]
+        public void RuneAmplify_IsHeldForTheNextSpell_NotAStandingBonus()
+        {
+            var buffs = new BuffContainer();
+            buffs.Apply(BuffCatalog.Get(SkillBuffs.RuneAmplify), now: 0, level: 10);
+            Assert.AreEqual(0f, buffs.Aggregate.MagicDamagePercent, "procs, zones and other spells don't get it");
+            Assert.IsTrue(buffs.HasTrait(BuffTraits.ConsumedBySpell));
+            Assert.AreEqual(1, buffs.RemoveWithTrait(BuffTraits.ConsumedBySpell));
         }
 
         [Test]
