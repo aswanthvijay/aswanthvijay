@@ -42,7 +42,7 @@ namespace Runeheir.Skills
         /// <summary>Everyone within Radius of the clicked ground point.</summary>
         AtGround = 3,
 
-        /// <summary>Everyone in a 1.2 m wide line from the caster to Range (pierces).</summary>
+        /// <summary>Everyone in a 0.7 m wide line from the caster to Range (pierces).</summary>
         Line = 4,
     }
 
@@ -172,9 +172,6 @@ namespace Runeheir.Skills
 
         /// <summary>Skips the HIT vs FLEE roll.</summary>
         public bool NeverMiss;
-
-        /// <summary>Usable while hidden without breaking stealth first (it still ends stealth once it hits).</summary>
-        public bool UsableInStealth;
 
         public Element Element = Element.Neutral;
 

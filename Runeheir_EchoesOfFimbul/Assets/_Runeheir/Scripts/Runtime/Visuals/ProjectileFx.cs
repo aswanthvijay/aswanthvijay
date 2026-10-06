@@ -62,7 +62,10 @@ namespace Runeheir.Visuals
 
             if (!arrow)
             {
-                var trail = gameObject.AddComponent<TrailRenderer>();
+                // Unity allows one Renderer per GameObject: the trail lives on a child next to the streak.
+                var trailObject = new GameObject("Trail");
+                trailObject.transform.SetParent(transform, false);
+                var trail = trailObject.AddComponent<TrailRenderer>();
                 trail.time = 0.2f;
                 trail.minVertexDistance = 0.05f;
                 trail.widthMultiplier = width * 2.2f;

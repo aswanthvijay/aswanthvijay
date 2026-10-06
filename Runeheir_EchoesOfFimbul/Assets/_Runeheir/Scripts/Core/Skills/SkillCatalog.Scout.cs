@@ -99,8 +99,8 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = "underfang", Name = "Underfang", Job = JobId.Assassin, MaxLevel = 5, Requires = Req("shadow_cloak", 2),
-                Description = "Strike from the shadows at everything around your target. Usable while cloaked.",
-                IconLabel = "UFG", IconColorHex = "#17202A", Weapons = WeaponMask.Katar, UsableInStealth = true,
+                Description = "Strike from the shadows at everything around your target. Out of Shadow Veil it is a critical ambush.",
+                IconLabel = "UFG", IconColorHex = "#17202A", Weapons = WeaponMask.Katar, CanCrit = true,
                 Target = SkillTarget.Enemy, Damage = SkillDamage.Physical, Area = SkillArea.AroundTarget, Motion = SkillMotion.Thrust,
                 Range = 2f, Radius = 1.5f, Power = L(250f, 50f), SpCost = 3,
             });
@@ -180,7 +180,7 @@ namespace Runeheir.Skills
                 IconLabel = "SNR", IconColorHex = "#6E2C00",
                 Target = SkillTarget.Ground, Special = SkillSpecial.Zone, Motion = SkillMotion.Cast,
                 Range = 4f, Radius = 1f, SpCost = 12, ZoneDuration = 60f, ZoneTrap = true,
-                Status = StatusEffect.Root, StatusChance = 100f, StatusDuration = L(3f, 2f),
+                Status = StatusEffect.Root, StatusChance = 100f, StatusDuration = L(3f, 2f), GuaranteedStatus = true,
             });
             Register(new SkillDefinition
             {

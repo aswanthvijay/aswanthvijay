@@ -147,9 +147,9 @@ namespace Runeheir.Skills
             register(new BuffDefinition
             {
                 Id = Bogged, Name = "Bogged", IsDebuff = true, IconLabel = "BOG", IconColorHex = "#566573", Duration = 1.5f,
-                Description = "Stuck in a freezing bog: -5 AGI and DEX per level, half movement speed.",
-                Modifiers = new StatModifiers { MoveSpeedPercent = -50f }.SetStat(StatType.Agi, -5).SetStat(StatType.Dex, -5),
-                ModifiersPerLevel = new StatModifiers().SetStat(StatType.Agi, -5).SetStat(StatType.Dex, -5),
+                Description = "Stuck in a freezing bog: -5 AGI and DEX per level (monsters: -5 FLEE and HIT per level), half movement speed.",
+                Modifiers = new StatModifiers { MoveSpeedPercent = -50f, Flee = -5, Hit = -5 }.SetStat(StatType.Agi, -5).SetStat(StatType.Dex, -5),
+                ModifiersPerLevel = new StatModifiers { Flee = -5, Hit = -5 }.SetStat(StatType.Agi, -5).SetStat(StatType.Dex, -5),
             });
             register(new BuffDefinition
             {

@@ -72,13 +72,14 @@ namespace Runeheir.Player
         private void Update()
         {
             var caster = _cast?.Caster;
-            if (caster == null || Time.time >= _endsAt)
+            if (caster == null || caster.IsDead || Time.time >= _endsAt)
             {
                 Expire();
                 return;
             }
 
-            if (Time.time < _nextTickAt)
+            // Traps watch every frame (a fast monster can cross one between 1 s ticks).
+            if (!_cast.Skill.ZoneTrap && Time.time < _nextTickAt)
             {
                 return;
             }
@@ -101,6 +102,22 @@ namespace Runeheir.Player
             if (inside.Count == 0)
             {
                 return;
+            }
+
+            if (skill.ZoneTrap)
+            {
+                // A trap springs on the first enemy to step in (the nearest one if several arrive together).
+                CombatEntity first = inside[0];
+                foreach (var enemy in inside)
+                {
+                    if (CombatEntity.HorizontalDistance(enemy.Position, transform.position) < CombatEntity.HorizontalDistance(first.Position, transform.position))
+                    {
+                        first = enemy;
+                    }
+                }
+
+                inside.Clear();
+                inside.Add(first);
             }
 
             foreach (var enemy in inside)

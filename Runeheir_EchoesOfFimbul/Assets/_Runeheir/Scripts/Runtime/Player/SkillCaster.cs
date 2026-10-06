@@ -27,6 +27,9 @@ namespace Runeheir.Player
 
         [SerializeField, Min(0.05f)] private float approachRepathInterval = 0.2f;
 
+        /// <summary>Extra reach allowed when a cast completes, so a target shuffling half a step doesn't fizzle it.</summary>
+        private const float CastRangeTolerance = 1.5f;
+
         private readonly Dictionary<string, float> _cooldownEnds = new Dictionary<string, float>();
         private readonly Dictionary<string, float> _cooldownTotals = new Dictionary<string, float>();
 
@@ -515,10 +518,8 @@ namespace Runeheir.Player
 
             var cast = new SkillCast { Caster = _owner, Skill = skill, Level = level, Target = target, Point = point };
 
-            // Using a skill reveals you (except stealth skills themselves and shadow strikes such as Underfang);
-            // Shadow Veil's ambush makes a skill that can crit, crit.
-            bool keepsStealth = skill.UsableInStealth
-                                || (skill.BuffId != null && BuffCatalog.Get(skill.BuffId) is BuffDefinition buff && buff.Has(BuffTraits.Stealth));
+            // Using a skill reveals you (except recasting a stealth skill); Shadow Veil's ambush makes a skill that can crit, crit.
+            bool keepsStealth = skill.BuffId != null && BuffCatalog.Get(skill.BuffId) is BuffDefinition buff && buff.Has(BuffTraits.Stealth);
             if (!keepsStealth && _owner.IsHidden)
             {
                 _owner.Buffs.BreakStealth(out bool ambush);
@@ -646,6 +647,14 @@ namespace Runeheir.Player
                 var target = _castTarget;
                 var point = _castTarget != null ? _castTarget.Position : _castPoint;
                 EndCast();
+
+                // The caster may have walked (Free Cast) or the target moved during the cast.
+                if (skill.Special != SkillSpecial.Dash && DistanceTo(skill, target, point) > skill.Range.At(level) + CastRangeTolerance)
+                {
+                    ChatLog.Error($"{skill.Name} failed: the target is out of range.");
+                    return;
+                }
+
                 Execute(skill, level, target, point);
             }
         }

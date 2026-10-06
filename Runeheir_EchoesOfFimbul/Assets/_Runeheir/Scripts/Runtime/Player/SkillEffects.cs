@@ -225,7 +225,7 @@ namespace Runeheir.Player
                 : caster.BasicPoiseDamage;
             float poise = poiseBase * skill.PoiseMultiplier.At(level) * powerScale * (result.IsCritical ? PoiseRules.CriticalPoiseMultiplier : 1f);
 
-            target.ReceiveDamage(result, caster, physicalMelee: skill.IsMelee(level), poise);
+            result = target.ReceiveDamage(result, caster, physicalMelee: skill.IsMelee(level), poise);
             if (result.IsMiss || result.IsBlocked || target.IsDead)
             {
                 return false;
@@ -315,8 +315,13 @@ namespace Runeheir.Player
             var item = Items.ItemCatalog.Get(itemId);
             if (item != null && cast.Caster.Inventory.Add(item.Id, 1) > 0)
             {
+                monster.MarkStolenFrom();
                 WorldFeedback.Announce(monster, "Stolen!", new Color(1f, 0.85f, 0.3f));
                 ChatLog.Loot($"You stole {item.Name} (1).");
+            }
+            else if (item != null)
+            {
+                ChatLog.Error($"You can't carry any more {item.Name}.");
             }
             else
             {

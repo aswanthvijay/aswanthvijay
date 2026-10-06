@@ -357,6 +357,8 @@ namespace Runeheir.Tests
             }
 
             Assert.AreEqual(3, buffs.StacksOf(SkillBuffs.SpiritSpheres), "Spirit Call Lv 3 holds 3 spheres");
+            buffs.Apply(spheres, now: 0, stackLimit: 1);
+            Assert.AreEqual(3, buffs.StacksOf(SkillBuffs.SpiritSpheres), "a Lv 1 recast never destroys spheres");
             Assert.AreEqual(9, buffs.Aggregate.Atk);
             Assert.AreEqual(2, buffs.TakeStacks(SkillBuffs.SpiritSpheres, 2));
             Assert.AreEqual(1, buffs.TakeStacks(SkillBuffs.SpiritSpheres, 5));

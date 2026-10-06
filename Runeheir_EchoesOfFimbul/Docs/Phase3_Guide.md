@@ -48,7 +48,7 @@ Phase 3 turns the Phase 2 prototype's 14 sample skills into a full Ragnarok-styl
 - **Spirit Spheres (Monk/Champion):** Spirit Call adds one sphere per cast, up to its level (max 5). Each sphere gives +3 ATK. Occult Strike, Thunder Palm, Diamond Skin and Spirit Barrage spend them.
 - **Stealth:**
   - Shadow Cloak and Shadow Veil hide you: monsters lose track of you and can't target you.
-  - Attacking or using a skill reveals you. The exceptions are the stealth skills themselves and Underfang.
+  - Attacking or using a skill reveals you (recasting a stealth skill doesn't). Cloak and Veil end together.
   - The first attack out of **Shadow Veil** is a guaranteed critical.
 - **Save data:** learned levels are stored per character (`CharacterRecord.Skills`). Older saves are migrated automatically, and bad entries are repaired instead of crashing.
 - **Signature skills:** the GDD signature skills keep their Phase 2 numbers at max level. Examples: Vortex Cleave 2×400%, Two-Hand Surge +7 ASPD, Rage of Thor 30 s, Phantom Barrage 8×110% with a guaranteed stun, Miasma Weapon ×4, Glacial Tempest 5×200% with 35% freeze, Runic Aegis 10 blocks, Fist of Odin +1750, Aether Snap 8 m.
@@ -137,7 +137,7 @@ Generated from `SkillCatalog` (numbers per level are in the in-game tooltips). "
 | **Katar Mastery** | 10 | Passive | +3 ATK and +1 CRIT per level with katars. | – |
 | **Shadow Cloak** | 10 | Self | Vanish: monsters lose track of you and can't target you. You move slowly (less so at higher levels). Attacking or using a skill reveals you. | Evasion Drills 3 |
 | **Venom Dust** | 10 | Ground | Leave a cloud of venom on the ground that poisons enemies standing in it. | Envenom 5 |
-| **Underfang** | 5 | Enemy | Strike from the shadows at everything around your target. Usable while cloaked. | Shadow Cloak 2, Katar |
+| **Underfang** | 5 | Enemy | Strike from the shadows at everything around your target. Out of Shadow Veil it is a critical ambush. | Shadow Cloak 2, Katar |
 | **Lacerate** | 10 | Enemy | Two tearing cuts that can cause Bleeding (HP loss over time, no natural regen). | Katar Mastery 3, Dagger / Katar |
 
 ### Shadow Walker (after Assassin)
@@ -208,7 +208,7 @@ Generated from `SkillCatalog` (numbers per level are in the in-game tooltips). "
 | **Rune Study** | 10 | Passive | +2 MATK and +1% Max SP per level. | – |
 | **Free Cast** | 10 | Passive | Walk while casting at 7.5% of your speed per level (75% at Lv 10). | – |
 | **Auto Rune** | 10 | Self | While active, your basic hits can cast a learned bolt (Muspel Bolt, Frost Spike or Thunder Rune) for free. | Rune Study 3 |
-| **Bog of Niflheim** | 5 | Ground | Turn the ground into a freezing bog: enemies in it lose AGI and DEX and move at half speed. | – |
+| **Bog of Niflheim** | 5 | Ground | Turn the ground into a freezing bog: enemies in it lose AGI and DEX (monsters: FLEE and HIT) and move at half speed. | – |
 | **Mystic Volcano** | 5 | Ground | Allies standing in the area gain ATK and magic damage. | Rune Study 5 |
 
 ### Chronomancer (after Sage)

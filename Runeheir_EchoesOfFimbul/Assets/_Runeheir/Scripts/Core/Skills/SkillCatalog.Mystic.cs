@@ -166,7 +166,7 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = "bog_of_niflheim", Name = "Bog of Niflheim", Job = JobId.Sage, MaxLevel = 5,
-                Description = "Turn the ground into a freezing bog: enemies in it lose AGI and DEX and move at half speed.",
+                Description = "Turn the ground into a freezing bog: enemies in it lose AGI and DEX (monsters: FLEE and HIT) and move at half speed.",
                 IconLabel = "BOG", IconColorHex = "#566573",
                 Target = SkillTarget.Ground, Special = SkillSpecial.Zone, Motion = SkillMotion.Cast,
                 Range = 9f, Radius = 2.2f, SpCost = L(5f, 5f),

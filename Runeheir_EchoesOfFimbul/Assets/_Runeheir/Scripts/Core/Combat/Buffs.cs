@@ -146,7 +146,8 @@ namespace Runeheir.Combat
                 existing.ExpiresAt = now + seconds;
                 existing.ChargesLeft = chargeCount;
                 existing.Level = Math.Max(1, level);
-                existing.Stacks = Math.Min(maxStacks, existing.Stacks + 1);
+                // A lower-level recast (smaller limit) never takes away stacks already there.
+                existing.Stacks = Math.Max(existing.Stacks, Math.Min(maxStacks, existing.Stacks + 1));
             }
             else
             {

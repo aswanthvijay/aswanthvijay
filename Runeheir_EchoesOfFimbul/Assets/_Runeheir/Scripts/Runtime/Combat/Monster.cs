@@ -168,9 +168,14 @@ namespace Runeheir.Combat
                 return null;
             }
 
-            _stolenFrom = true;
             reason = null;
             return StealRules.PickItem(Definition.Drops, SystemRandomSource.Shared);
+        }
+
+        /// <summary>Called once the stolen item is actually in the thief's inventory: no second steal from this monster.</summary>
+        public void MarkStolenFrom()
+        {
+            _stolenFrom = true;
         }
 
         protected override void OnModifiersChanged()
