@@ -390,10 +390,11 @@ namespace Runeheir.EditorTools
                 rock.transform.rotation = Quaternion.Euler(0f, Range(random, 0f, 360f), 0f);
 
                 // A SphereCollider ignores non-uniform scale (it uses the largest axis), so it would be far bigger
-                // than the squashed rock. A convex MeshCollider follows the visible shape for clicks and the NavMesh.
+                // than the squashed rock. A MeshCollider follows the visible shape for clicks and the NavMesh.
+                // Not convex: rocks are static (no Rigidbody), and the sphere's 768 triangles exceed the
+                // 255-polygon convex limit, which would make Unity warn and use a partial hull.
                 var rockCollider = rock.AddComponent<MeshCollider>();
                 rockCollider.sharedMesh = rock.GetComponent<MeshFilter>().sharedMesh;
-                rockCollider.convex = true;
                 rock.AddComponent<NavBlocker>();
                 SetStatic(rock);
             }
