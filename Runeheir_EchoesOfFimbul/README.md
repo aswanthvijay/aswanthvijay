@@ -27,7 +27,7 @@ Assets/_Runeheir/
   Scripts/Runtime/   Unity layer: camera rig, NavMesh movement, combat, skills, HUD, login/char select
   Scripts/Editor/    "Runeheir" menu: scene generator, player builds, debug tools
   Resources/         RuneheirToon.shader (URP cel shader + ink outline)
-  Tests/EditMode/    60 Core rule tests
+  Tests/EditMode/    66 Core rule tests
   Tests/Editor/      Scene generator + shader import tests
   Tests/PlayMode/    Smoke tests: walk, fight, cast, hotkeys, death/respawn, login screens
 Assets/Settings/     URP assets (from the Unity 6.3 Universal 3D template)
