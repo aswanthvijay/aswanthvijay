@@ -30,6 +30,13 @@ namespace Runeheir.Movement
 
         public Bounds WorldBounds => new Bounds(transform.position, boundsSize);
 
+        /// <summary>Volume collected for the bake, centered on this object (set it before the bake).</summary>
+        public Vector3 BoundsSize
+        {
+            get => boundsSize;
+            set => boundsSize = value;
+        }
+
         private bool _checked;
 
         // Start, not Awake: NavMeshSurface registers its baked data in OnEnable, which may run after this

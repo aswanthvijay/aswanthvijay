@@ -19,6 +19,8 @@ namespace Runeheir.UI
 
         private readonly Dictionary<CombatEntity, Plate> _plates = new Dictionary<CombatEntity, Plate>();
         private readonly Dictionary<NpcActor, Text> _npcLabels = new Dictionary<NpcActor, Text>();
+        private readonly Dictionary<WorldLabel, Text> _worldLabels = new Dictionary<WorldLabel, Text>();
+        private readonly List<WorldLabel> _staleLabels = new List<WorldLabel>();
         private readonly List<CombatEntity> _stale = new List<CombatEntity>();
         private readonly List<NpcActor> _staleNpcs = new List<NpcActor>();
         private readonly List<Floater> _floaters = new List<Floater>();
@@ -161,6 +163,7 @@ namespace Runeheir.UI
             SyncPlates();
             UpdatePlates();
             UpdateNpcLabels();
+            UpdateWorldLabels();
             UpdateFloaters();
         }
 
@@ -208,12 +211,22 @@ namespace Runeheir.UI
             plate.Name.horizontalOverflow = HorizontalWrapMode.Overflow;
             UIFactory.AddOutline(plate.Name, new Color(0f, 0f, 0f, 0.9f), 1f);
 
+            var monster = entity as Monster;
+            plate.IsBoss = monster != null && monster.Definition != null && monster.Definition.IsBoss;
             plate.Hp = UIFactory.CreateBar(root, UITheme.Hp, 1);
-            plate.Hp.Root.SetRect(15f, isPlayer ? 0f : 20f, 60f, 7f);
+            plate.Hp.Root.SetRect(plate.IsBoss ? -5f : 15f, isPlayer ? 0f : 20f, plate.IsBoss ? 100f : 60f, plate.IsBoss ? 9f : 7f);
             if (isPlayer)
             {
                 plate.Sp = UIFactory.CreateBar(root, UITheme.Sp, 1);
                 plate.Sp.Root.SetRect(15f, 8f, 60f, 7f);
+            }
+
+            if (monster != null)
+            {
+                // Monster skill casts: the bar fills toward the moment it goes off (Ragnarok's red cast bar).
+                plate.Cast = UIFactory.CreateBar(root, new Color(1f, 0.45f, 0.3f, 1f), 11);
+                plate.Cast.Root.SetRect(-10f, 31f, 110f, 13f);
+                plate.Cast.Root.gameObject.SetActive(false);
             }
 
             return plate;
@@ -229,7 +242,9 @@ namespace Runeheir.UI
                 Vector3 anchor = plate.IsPlayer ? entity.Position - Vector3.up * 0.05f : entity.Position + Vector3.up * (entity.Height + 0.55f);
                 Vector3 screen = _camera.WorldToScreenPoint(anchor);
                 bool hoveredNow = entity == hovered;
-                bool showHp = plate.IsPlayer || hoveredNow || Time.time < plate.ShowHpUntil;
+                var monster = entity as Monster;
+                bool casting = monster != null && monster.IsCasting;
+                bool showHp = plate.IsPlayer || hoveredNow || plate.IsBoss || casting || Time.time < plate.ShowHpUntil;
                 bool visible = screen.z > 0f && !entity.IsDead && (showHp || hoveredNow);
                 plate.Root.gameObject.SetActive(visible);
                 if (!visible)
@@ -248,13 +263,24 @@ namespace Runeheir.UI
                     plate.Sp.Set(entity.MaxSp > 0 ? entity.Sp / (float)entity.MaxSp : 0f);
                 }
 
-                plate.Name.gameObject.SetActive(hoveredNow || plate.IsPlayer);
+                plate.Name.gameObject.SetActive(hoveredNow || plate.IsPlayer || plate.IsBoss || casting);
                 if (plate.Name.gameObject.activeSelf)
                 {
                     plate.Name.text = plate.IsPlayer ? string.Empty : $"{entity.DisplayName} <size=12>Lv {entity.Level}</size>";
-                    plate.Name.color = entity is Monster monster && monster.Definition != null && monster.Definition.Aggressive
-                        ? new Color(1f, 0.6f, 0.55f)
-                        : UITheme.Text;
+                    plate.Name.color = plate.IsBoss
+                        ? monster.Definition.IsMvp ? new Color(1f, 0.82f, 0.3f) : new Color(0.85f, 0.88f, 1f)
+                        : monster != null && monster.Definition != null && monster.Definition.Aggressive
+                            ? new Color(1f, 0.6f, 0.55f)
+                            : UITheme.Text;
+                }
+
+                if (plate.Cast != null)
+                {
+                    plate.Cast.Root.gameObject.SetActive(casting && monster.CastingSkill.CastTime > 0f);
+                    if (casting)
+                    {
+                        plate.Cast.Set(monster.CastProgress, monster.CastingSkill.Name);
+                    }
                 }
             }
         }
@@ -296,6 +322,51 @@ namespace Runeheir.UI
             foreach (var npc in _staleNpcs)
             {
                 _npcLabels.Remove(npc);
+            }
+        }
+
+        // ------------------------------------------------------------ portal and tombstone labels
+        private void UpdateWorldLabels()
+        {
+            foreach (var label in WorldLabel.All)
+            {
+                if (!_worldLabels.ContainsKey(label))
+                {
+                    var text = UIFactory.CreateText(_plateRoot, label.Text, label.FontSize, label.Color, TextAnchor.LowerCenter, FontStyle.Bold);
+                    text.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    text.verticalOverflow = VerticalWrapMode.Overflow;
+                    text.rectTransform.anchorMin = text.rectTransform.anchorMax = Vector2.zero;
+                    text.rectTransform.pivot = new Vector2(0.5f, 0f);
+                    text.rectTransform.sizeDelta = new Vector2(260f, 40f);
+                    UIFactory.AddOutline(text, new Color(0f, 0f, 0f, 0.9f), 1f);
+                    _worldLabels[label] = text;
+                }
+            }
+
+            _staleLabels.Clear();
+            foreach (var pair in _worldLabels)
+            {
+                if (pair.Key == null || !pair.Key.isActiveAndEnabled)
+                {
+                    _staleLabels.Add(pair.Key);
+                    Destroy(pair.Value.gameObject);
+                    continue;
+                }
+
+                if (pair.Value.text != pair.Key.Text)
+                {
+                    pair.Value.text = pair.Key.Text;
+                }
+
+                pair.Value.color = pair.Key.Color;
+                Vector3 screen = _camera.WorldToScreenPoint(pair.Key.transform.position + Vector3.up * pair.Key.Height);
+                pair.Value.gameObject.SetActive(screen.z > 0f);
+                pair.Value.rectTransform.position = new Vector3(screen.x, screen.y, 0f);
+            }
+
+            foreach (var label in _staleLabels)
+            {
+                _worldLabels.Remove(label);
             }
         }
 
@@ -351,7 +422,9 @@ namespace Runeheir.UI
             public Text Name;
             public UIBar Hp;
             public UIBar Sp;
+            public UIBar Cast;
             public bool IsPlayer;
+            public bool IsBoss;
             public float ShowHpUntil;
         }
 

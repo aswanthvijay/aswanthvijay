@@ -11,6 +11,7 @@ using Runeheir.Session;
 using Runeheir.Skills;
 using Runeheir.Stats;
 using Runeheir.Visuals;
+using Runeheir.WorldBuilding;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -535,9 +536,33 @@ namespace Runeheir.Player
             }
         }
 
+        /// <summary>
+        /// A monster skill rolled to smash the worn weapon (Ancient Golem Card protects it). A broken weapon stays in your
+        /// hands but does nothing until Brokk repairs it.
+        /// </summary>
+        public bool TryBreakWeapon(float chancePercent)
+        {
+            var broken = WeaponBreakRules.TryBreak(Record, chancePercent, SystemRandomSource.Shared);
+            if (broken == null)
+            {
+                return false;
+            }
+
+            Equipment.NotifyChanged();
+            WorldFeedback.Announce(this, "Weapon Broken!", new Color(1f, 0.35f, 0.3f));
+            ChatLog.Error($"Your {broken.Definition.Name} broke! Brokk at Vigrid Haven's forge can repair it.");
+            return true;
+        }
+
         /// <summary>Dead Branch / Blood Branch: a monster bursts out next to you, already hunting you.</summary>
         private bool SummonFromBranch(bool boss)
         {
+            if (!FieldContext.AllowsBranches)
+            {
+                ChatLog.Error("Branches can't be cracked inside Vigrid Haven. Take them to the Hall of Branches.");
+                return false;
+            }
+
             var definition = MonsterCatalog.PickForBranch(boss, SystemRandomSource.Shared);
             Vector2 offset = UnityEngine.Random.insideUnitCircle.normalized * 2.5f;
             Vector3 point = Position + new Vector3(offset.x, 0f, offset.y);
@@ -563,9 +588,15 @@ namespace Runeheir.Player
                 case ItemSpecialEffect.SummonBoss:
                     return SummonFromBranch(boss: true);
                 case ItemSpecialEffect.ReturnToSavePoint:
-                    TeleportTo(FieldContext.SavePoint, "You return to your save point.");
+                    WorldTravel.ToSavePoint(this, "You return to your save point.");
                     return true;
                 case ItemSpecialEffect.RandomTeleport:
+                    if (!FieldContext.AllowsRandomTeleport)
+                    {
+                        ChatLog.Error("The wind rune won't carry you here.");
+                        return false;
+                    }
+
                     if (!FieldContext.TryGetRandomPoint(out var point))
                     {
                         ChatLog.Error("The rune fizzles: nowhere to go.");
@@ -634,8 +665,7 @@ namespace Runeheir.Player
             }
 
             _motor.SetLocked(false);
-            _motor.Warp(FieldContext.SavePoint);
-            ChatLog.System("You have been revived at your save point.");
+            WorldTravel.ToSavePoint(this, "You have been revived at your save point.");
         }
 
         protected override void OnDamaged(DamageResult result, CombatEntity attacker)
@@ -707,6 +737,13 @@ namespace Runeheir.Player
             Record.Hp = IsDead ? Mathf.Max(1, MaxHp / 2) : Hp;
             Record.Sp = Sp;
             Record.MapId = FieldContext.MapId ?? Record.MapId;
+
+            // Leaving while dead (generated world): you wake at your save point, on your save map.
+            if (IsDead && FieldContext.Layout != null && World.MapCatalog.Get(Record.SaveMapId) != null)
+            {
+                Record.MapId = Record.SaveMapId;
+            }
+
             Record.HasSavedPosition = !IsDead;
             Vector3 position = IsDead ? FieldContext.SavePoint : transform.position;
             Record.PosX = position.x;

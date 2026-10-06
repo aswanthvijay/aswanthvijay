@@ -10,6 +10,8 @@ using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.Skills;
 using Runeheir.Stats;
+using Runeheir.World;
+using Runeheir.WorldBuilding;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -55,6 +57,7 @@ namespace Runeheir.Field
                     ChatLog.Gm("@reset  @heal  @item <id> [amount]  @items  @monster <id> [count]  @monsters  @aspd  @save  @where");
                     ChatLog.Gm("@skills  @allskills  @learn <skill> [lv]  @skillpoint <n>  @skillreset  @status <name> [seconds]  @statuses  @cleanse");
                     ChatLog.Gm("@zeny <amount>  @items [weapons|gear|cards|text]  @refine <0-20> (worn weapon)");
+                    ChatLog.Gm("@maps  @warp <map> [portal]  @bosses  @bossrespawn  @bosstime <scale>  @breakweapon");
                     break;
 
                 case "blvl":
@@ -234,12 +237,87 @@ namespace Runeheir.Field
 
                 case "where":
                     var p = player.Position;
-                    ChatLog.Gm($"{FieldContext.MapName} ({p.x:0.0}, {p.z:0.0})");
+                    ChatLog.Gm($"{FieldContext.MapName} [{FieldContext.MapId}] ({p.x:0.0}, {p.z:0.0}) · save map: {player.Record.SaveMapId}");
+                    break;
+
+                case "maps":
+                    ChatLog.Gm("Maps: " + string.Join(", ", MapCatalog.All.Select(m => $"{m.Id} ({m.LevelLabel})")));
+                    break;
+
+                case "warp":
+                case "go":
+                    Warp(player, parts);
+                    break;
+
+                case "bosses":
+                    ListBosses();
+                    break;
+
+                case "bossrespawn":
+                    WorldState.Bosses.ResetAll();
+                    ChatLog.Gm("Every boss timer cleared: dead bosses return within a second on their maps.");
+                    break;
+
+                case "bosstime":
+                    if (float.TryParse(rest, NumberStyles.Float, CultureInfo.InvariantCulture, out float scale) && scale >= 0f)
+                    {
+                        WorldState.Bosses.RespawnScale = scale;
+                        ChatLog.Gm($"Boss respawn times x{scale:0.###} (1 = GDD: MVPs 1 h, mini-bosses 2 h).");
+                    }
+                    else
+                    {
+                        ChatLog.Error("Usage: @bosstime <scale>, e.g. @bosstime 0.01 for 36-second MVPs.");
+                    }
+
+                    break;
+
+                case "breakweapon":
+                    if (!player.TryBreakWeapon(100f))
+                    {
+                        ChatLog.Error("Nothing to break (no weapon, already broken, or unbreakable).");
+                    }
+
                     break;
 
                 default:
                     ChatLog.Error($"Unknown command @{command}. Type @help.");
                     break;
+            }
+        }
+
+        private static void Warp(PlayerCharacter player, string[] parts)
+        {
+            var map = parts.Length > 1 ? MapCatalog.Get(parts[1]) ?? MapCatalog.All.FirstOrDefault(m => m.Name.StartsWith(parts[1], StringComparison.OrdinalIgnoreCase)) : null;
+            if (map == null)
+            {
+                ChatLog.Error("Usage: @warp <map id> [portal id]. Maps: @maps.");
+                return;
+            }
+
+            string portal = parts.Length > 2 ? parts[2] : null;
+            if (portal != null && map.Portal(portal) == null)
+            {
+                ChatLog.Error($"{map.Name} has no portal '{portal}': {string.Join(", ", map.Portals.Select(x => x.Id))}.");
+                return;
+            }
+
+            WorldTravel.Warp(player, map.Id, portal, $"Warping to {map.Name}...");
+        }
+
+        private static void ListBosses()
+        {
+            double now = WorldState.Now;
+            foreach (var map in MapCatalog.All)
+            {
+                foreach (var boss in map.Bosses)
+                {
+                    var definition = MonsterCatalog.Get(boss.MonsterId);
+                    var status = WorldState.Bosses.Status(map.Id, boss.MonsterId);
+                    string state = status == null || status.Alive || now >= status.RespawnAt
+                        ? "up"
+                        : $"returns in {BossTracker.FormatDuration(status.RespawnAt - now)} (slain by {status.KilledBy ?? "someone"})";
+                    ChatLog.Gm($"{definition?.Name ?? boss.MonsterId} · {map.Name}: {state}");
+                }
             }
         }
 

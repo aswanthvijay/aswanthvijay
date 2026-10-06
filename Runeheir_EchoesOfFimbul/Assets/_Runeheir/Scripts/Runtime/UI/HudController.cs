@@ -5,6 +5,8 @@ using Runeheir.Field;
 using Runeheir.Items;
 using Runeheir.Player;
 using Runeheir.Session;
+using Runeheir.World;
+using Runeheir.WorldBuilding;
 using UnityEngine;
 
 namespace Runeheir.UI
@@ -12,7 +14,8 @@ namespace Runeheir.UI
     /// <summary>
     /// Builds and drives the in-game HUD. Keys (when not typing in chat):
     /// A or Alt+A status · S / Alt+S skills · E / Alt+E items · Q / Alt+Q equipment · Enter chat · Esc close / menu.
-    /// Also routes town NPCs (shop, forge, storage) to their windows.
+    /// Ctrl+Tab cycles the minimap. Also routes NPCs (shops, forge and repairs, courier storage/save/teleport, job master)
+    /// to their windows.
     /// </summary>
     public sealed class HudController : MonoBehaviour
     {
@@ -37,6 +40,8 @@ namespace Runeheir.UI
         private ChatWindow _chat;
         private CastBarView _castBar;
         private BuffTray _buffs;
+        private MinimapView _minimap;
+        private MapBanner _banner;
         private UIWindow _menu;
         private UIWindow _deathDialog;
         private bool _chatFocusedLastFrame;
@@ -122,23 +127,121 @@ namespace Runeheir.UI
             switch (npc.Kind)
             {
                 case NpcKind.Merchant:
-                    var store = ShopCatalog.Get(ShopCatalog.GeneralStore);
+                    var store = ShopCatalog.Get(npc.ShopId) ?? ShopCatalog.Get(ShopCatalog.GeneralStore);
                     options.Add(Option("Buy", () => _shop.Open(store, selling: false)));
                     options.Add(Option("Sell", () => _shop.Open(store, selling: true)));
                     break;
                 case NpcKind.Forge:
+                    int repair = RepairRules.TotalCost(_player.Record);
+                    if (repair > 0)
+                    {
+                        options.Add(Option($"Repair broken weapons ({repair:N0} z)", RepairWeapons));
+                    }
+
                     options.Add(Option("Refine equipment", () => _forge.Open(ForgeWindow.Mode.Refine)));
                     options.Add(Option("Runic Fuller: carve glyphs", () => _forge.Open(ForgeWindow.Mode.Etch)));
                     options.Add(Option("Extract Soul Cards", () => _forge.Open(ForgeWindow.Mode.Extract)));
                     options.Add(Option("Buy ores, runes and glyphs", () => _shop.Open(ShopCatalog.Get(ShopCatalog.ForgeSupplies), selling: false)));
                     break;
+                case NpcKind.JobMaster:
+                    options.Add(Option("Change job", () => _jobChange.Window.Show()));
+                    break;
                 default:
                     options.Add(Option("Open storage", _storage.Open));
+                    if (FieldContext.Map != null)
+                    {
+                        bool saved = _player.Record.SaveMapId == FieldContext.MapId;
+                        options.Add(Option(saved ? $"Save point: {FieldContext.MapName} (current)" : $"Save my return point at {FieldContext.MapName}", SaveHere));
+                        options.Add(Option("Teleport", () => OpenTeleportMenu(npc)));
+                    }
+
                     break;
             }
 
             options.Add(Option("Goodbye", null));
             _npcDialog.Open(npc, options);
+        }
+
+        private void RepairWeapons()
+        {
+            if (!IsAtNpc(NpcKind.Forge))
+            {
+                return;
+            }
+
+            if (RepairRules.TryRepairAll(_player.Record, out _, out string message))
+            {
+                _player.Equipment.NotifyChanged();
+                _player.Inventory.NotifyChanged(); // zeny
+                ChatLog.System(message);
+                _player.SaveNow();
+            }
+            else
+            {
+                ChatLog.Error(message);
+            }
+        }
+
+        private void SaveHere()
+        {
+            if (!IsAtNpc(NpcKind.Storage) || FieldContext.Map == null)
+            {
+                return;
+            }
+
+            _player.Record.SaveMapId = FieldContext.MapId;
+            _player.SaveNow();
+            ChatLog.System($"Your return point is now {FieldContext.MapName}. You'll revive here, and Raven Feathers bring you back.");
+        }
+
+        private void OpenTeleportMenu(NpcActor npc)
+        {
+            var options = new List<KeyValuePair<string, Action>>();
+            foreach (var destination in MapCatalog.TeleportDestinations)
+            {
+                var map = MapCatalog.Get(destination.MapId);
+                if (map == null || map.Id == FieldContext.MapId)
+                {
+                    continue;
+                }
+
+                var target = destination;
+                string level = map.MinLevel > 0 ? $" · {map.LevelLabel}" : string.Empty;
+                options.Add(Option($"{map.Name}{level} ({destination.Zeny:N0} z)", () => Teleport(target)));
+            }
+
+            options.Add(Option("Back", () => OnNpcInteracted(npc)));
+            _activeNpc = npc;
+            _npcDialog.Open(npc, options);
+        }
+
+        private void Teleport(TeleportDestination destination)
+        {
+            if (!IsAtNpc(NpcKind.Storage))
+            {
+                return;
+            }
+
+            if (_player.Record.Zeny < destination.Zeny)
+            {
+                ChatLog.Error($"The trip costs {destination.Zeny:N0} zeny.");
+                return;
+            }
+
+            var map = MapCatalog.Get(destination.MapId);
+            _player.Record.Zeny -= destination.Zeny;
+            _player.Inventory.NotifyChanged(); // zeny
+            if (!WorldTravel.Warp(_player, destination.MapId, null, $"The Norn Courier carries you to {map.Name}."))
+            {
+                _player.Record.Zeny += destination.Zeny; // couldn't travel: refund
+                _player.Inventory.NotifyChanged();
+            }
+        }
+
+        /// <summary>The big title when a map loads ("Whispering Woods · Lv 61–120").</summary>
+        public void ShowMapBanner(MapDefinition map)
+        {
+            _banner?.Show(map);
         }
 
         private static KeyValuePair<string, Action> Option(string label, Action action)
@@ -179,6 +282,11 @@ namespace Runeheir.UI
             _hotkeyBar = new HotkeyBarView(this, _player);
             _castBar = new CastBarView(this, _player);
             _buffs = new BuffTray(this, _player);
+            _banner = new MapBanner(this);
+            if (FieldContext.Layout != null)
+            {
+                _minimap = new MinimapView(this, _player, FieldContext.Layout);
+            }
             _status = new StatusWindow(this, _player);
             _skills = new SkillWindow(this, _player);
             _inventory = new InventoryWindow(this, _player);
@@ -239,6 +347,8 @@ namespace Runeheir.UI
             _hotkeyBar.Tick();
             _castBar.Tick();
             _buffs.Tick();
+            _minimap?.Tick();
+            _banner?.Tick();
 
             if (_player.IsDead != _deathDialog.IsOpen)
             {
@@ -281,6 +391,12 @@ namespace Runeheir.UI
             if (GameInput.KeyDown(GameKey.Enter) && _chat.LastSubmitFrame != Time.frameCount && !_typingLastFrame)
             {
                 _chat.Focus();
+                return;
+            }
+
+            if (GameInput.KeyDown(GameKey.Tab) && GameInput.KeyHeld(GameKey.Ctrl))
+            {
+                _minimap?.CycleSize();
                 return;
             }
 

@@ -28,7 +28,8 @@ namespace Runeheir.UI
         {
             _player = player;
             _root = UIFactory.CreateRect("Buffs", hud.Canvas.transform);
-            _root.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-14f, -14f), new Vector2(PerRow * (Size + Gap), 140f));
+            // Left of the minimap (top-right corner).
+            _root.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-220f, -14f), new Vector2(PerRow * (Size + Gap), 140f));
             player.Buffs.Changed += Rebuild;
             player.Statuses.Changed += Rebuild;
             Rebuild();

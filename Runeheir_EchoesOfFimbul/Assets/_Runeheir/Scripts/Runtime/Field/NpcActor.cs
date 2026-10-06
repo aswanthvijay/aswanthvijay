@@ -4,26 +4,16 @@ using Runeheir.Characters;
 using Runeheir.Combat;
 using Runeheir.Items;
 using Runeheir.Visuals;
+using Runeheir.World;
 using UnityEngine;
 using UnityEngine.AI;
 
 namespace Runeheir.Field
 {
-    public enum NpcKind
-    {
-        /// <summary>Ásta's Trading Post: consumables, Dead Branches, starter gear; buys anything.</summary>
-        Merchant = 0,
-
-        /// <summary>Brokk's Dwarven Forge: ores and runes, refining, Runic Fuller etching, card extraction.</summary>
-        Forge = 1,
-
-        /// <summary>The Norn Courier: account-wide storage.</summary>
-        Storage = 2,
-    }
-
     /// <summary>
-    /// A clickable town NPC (GDD Phase 4 services). Click it to walk over; in range the HUD opens its dialog.
-    /// Built from primitives like the rest of the prototype; spawned next to the save point by <see cref="FieldBootstrap"/>.
+    /// A clickable NPC (GDD Phase 4 services, placed per map in Phase 5): merchants, Brokk's forge, the Norn Couriers and the
+    /// guild's job master. Click it to walk over; in range the HUD opens its dialog. Built from primitives like the rest of
+    /// the prototype, from the map's <see cref="MapNpc"/> data.
     /// </summary>
     public sealed class NpcActor : MonoBehaviour
     {
@@ -47,6 +37,11 @@ namespace Runeheir.Field
 
         public string Greeting { get; private set; }
 
+        /// <summary>Merchants: the shop they run.</summary>
+        public string ShopId { get; private set; }
+
+        public MapNpc Definition { get; private set; }
+
         public float Radius { get; private set; } = 0.45f;
 
         public float Height { get; private set; } = 1.9f;
@@ -58,22 +53,33 @@ namespace Runeheir.Field
             Interacted?.Invoke(this);
         }
 
-        /// <summary>The three Phase 4 service NPCs in a half-circle a few meters from the save point.</summary>
+        /// <summary>
+        /// Hand-built scenes (the PlayMode test field): Vigrid's shopkeeper, smith and courier in a half-circle a few meters
+        /// from the save point. Generated maps place their own NPCs (<see cref="Spawn(MapNpc, Vector3, Vector3)"/>).
+        /// </summary>
         public static void SpawnTownNpcs(Vector3 savePoint)
         {
-            Spawn(NpcKind.Merchant, savePoint + new Vector3(-4.5f, 0f, 3.5f), savePoint);
-            Spawn(NpcKind.Forge, savePoint + new Vector3(0f, 0f, 5.5f), savePoint);
-            Spawn(NpcKind.Storage, savePoint + new Vector3(4.5f, 0f, 3.5f), savePoint);
+            var vigrid = MapCatalog.Get(MapCatalog.VigridHaven);
+            var offsets = new[] { new Vector3(-4.5f, 0f, 3.5f), new Vector3(0f, 0f, 5.5f), new Vector3(4.5f, 0f, 3.5f) };
+            var kinds = new[] { NpcKind.Merchant, NpcKind.Forge, NpcKind.Storage };
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                var npc = vigrid.Npcs.Find(n => n.Kind == kinds[i]);
+                if (npc != null)
+                {
+                    Spawn(npc, savePoint + offsets[i], savePoint);
+                }
+            }
         }
 
-        public static NpcActor Spawn(NpcKind kind, Vector3 position, Vector3 faceTowards)
+        public static NpcActor Spawn(MapNpc definition, Vector3 position, Vector3 faceTowards)
         {
             if (NavMesh.SamplePosition(position, out NavMeshHit hit, 4f, NavMesh.AllAreas))
             {
                 position = hit.position;
             }
 
-            var go = new GameObject("NPC_" + kind);
+            var go = new GameObject("NPC_" + definition.Name);
             go.transform.position = position;
             Vector3 facing = faceTowards - position;
             facing.y = 0f;
@@ -83,37 +89,22 @@ namespace Runeheir.Field
             }
 
             var npc = go.AddComponent<NpcActor>();
-            npc.Configure(kind);
+            npc.Configure(definition);
             return npc;
         }
 
-        private void Configure(NpcKind kind)
+        private void Configure(MapNpc definition)
         {
-            Kind = kind;
-            AvatarLook look;
-            float scale = 1f;
-            switch (kind)
-            {
-                case NpcKind.Merchant:
-                    DisplayName = "Ásta";
-                    Title = "Trading Post";
-                    Greeting = "Welcome, traveller! Mead, tonics and steel. And I'll buy whatever the wolves left you.";
-                    look = Look(new Color(0.78f, 0.47f, 0.18f), Gender.Female, 3, 2, head: "feathered_beret", garment: "traveler_cloak");
-                    break;
-                case NpcKind.Forge:
-                    DisplayName = "Brokk";
-                    Title = "Dwarven Forge";
-                    Greeting = "Hrmph. Bring ore and zeny and I'll hammer your gear harder. Past the safe line, Starmetal sings, or it shatters.";
-                    look = Look(new Color(0.42f, 0.30f, 0.22f), Gender.Male, 7, 3, head: "grand_horned_viking_crest", lower: "braided_beard", shield: "round_viking_shield", weapon: WeaponType.Mace);
-                    scale = 0.82f;
-                    break;
-                default:
-                    DisplayName = "Verdandi's Courier";
-                    Title = "Norn Storage";
-                    Greeting = "The Norns keep what you leave with me, for every hero on your account, across every age of the world.";
-                    look = Look(new Color(0.20f, 0.26f, 0.42f), Gender.Female, 2, 4, head: "raven_hood", garment: "valkyrian_feather_wings");
-                    break;
-            }
+            Definition = definition;
+            Kind = definition.Kind;
+            DisplayName = definition.Name;
+            Title = definition.Title;
+            Greeting = definition.Greeting;
+            ShopId = definition.ShopId;
+            float scale = Mathf.Max(0.5f, definition.Scale);
+            int hash = Mathf.Abs((definition.Name ?? string.Empty).GetHashCode());
+            var look = Look(RuntimeMaterials.Hex(definition.OutfitHex), definition.Gender == 1 ? Gender.Female : Gender.Male, hash % 8, hash / 8 % 9,
+                definition.Head, definition.Lower, definition.Shield, definition.Garment, Kind == NpcKind.Forge ? WeaponType.Mace : WeaponType.Unarmed);
 
             Height *= scale;
             var avatar = PlaceholderAvatar.CreateHumanoid(transform, look);
@@ -130,8 +121,18 @@ namespace Runeheir.Field
             obstacle.center = new Vector3(0f, Height * 0.5f, 0f);
 
             // A service marker on the ground, like a Kafra's carpet.
-            GroundRing.Create("NpcRing_" + kind, kind == NpcKind.Forge ? new Color(1f, 0.55f, 0.2f, 0.8f) : new Color(0.95f, 0.8f, 0.35f, 0.8f), 0.85f, 0.05f)
-                .ShowAt(transform.position);
+            GroundRing.Create("NpcRing_" + definition.Name, RingColor(Kind), 0.85f, 0.05f).ShowAt(transform.position);
+        }
+
+        private static Color RingColor(NpcKind kind)
+        {
+            switch (kind)
+            {
+                case NpcKind.Forge: return new Color(1f, 0.55f, 0.2f, 0.8f);
+                case NpcKind.Storage: return new Color(0.45f, 0.7f, 1f, 0.8f);
+                case NpcKind.JobMaster: return new Color(0.75f, 0.45f, 1f, 0.8f);
+                default: return new Color(0.95f, 0.8f, 0.35f, 0.8f);
+            }
         }
 
         private static AvatarLook Look(Color outfit, Gender gender, int hairStyle, int hairColor, string head = null, string lower = null,

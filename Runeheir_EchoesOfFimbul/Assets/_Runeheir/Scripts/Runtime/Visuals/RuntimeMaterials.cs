@@ -18,6 +18,8 @@ namespace Runeheir.Visuals
         public const float CharacterOutline = 2f;
 
         private static readonly Dictionary<(Color32, int), Material> LitCache = new Dictionary<(Color32, int), Material>();
+        private static readonly Dictionary<(Color32, Color32), Material> GlowCache = new Dictionary<(Color32, Color32), Material>();
+        private static readonly Dictionary<Color32, Material> TranslucentCache = new Dictionary<Color32, Material>();
         private static Shader s_litShader;
         private static Shader s_toonShader;
         private static bool s_toonResolved;
@@ -62,6 +64,37 @@ namespace Runeheir.Visuals
             return material;
         }
 
+        /// <summary>A self-lit material for flames, rune glyphs, crystals and forge glow (no outline).</summary>
+        public static Material Glow(Color color, Color emission)
+        {
+            var key = ((Color32)color, (Color32)emission);
+            if (GlowCache.TryGetValue(key, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var toon = ToonShader;
+            var material = new Material(toon != null ? toon : LitShader)
+            {
+                name = $"RH_Glow_{ColorUtility.ToHtmlStringRGB(color)}_{ColorUtility.ToHtmlStringRGB(emission)}",
+                color = color,
+            };
+
+            if (toon != null)
+            {
+                material.SetFloat("_OutlineWidth", 0f);
+            }
+
+            if (material.HasProperty("_EmissionColor"))
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", emission);
+            }
+
+            GlowCache[key] = material;
+            return material;
+        }
+
         /// <summary>Unlit, vertex-colored material for LineRenderer rings and markers.</summary>
         public static Material Unlit
         {
@@ -75,6 +108,20 @@ namespace Runeheir.Visuals
 
                 return s_unlit;
             }
+        }
+
+        /// <summary>Unlit see-through color (water, telegraph discs, portal light), cached per color.</summary>
+        public static Material Translucent(Color color)
+        {
+            Color32 key = color;
+            if (TranslucentCache.TryGetValue(key, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var material = new Material(Unlit) { name = "RH_Translucent_" + ColorUtility.ToHtmlStringRGBA(color), color = color };
+            TranslucentCache[key] = material;
+            return material;
         }
 
         /// <summary>Dark translucent silhouette for hidden (stealthed) characters.</summary>

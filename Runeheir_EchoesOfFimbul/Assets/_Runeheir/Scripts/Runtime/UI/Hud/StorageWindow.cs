@@ -67,7 +67,7 @@ namespace Runeheir.UI
             }
 
             // Loading may take a moment with a networked service: only open if you're still standing at the courier.
-            if (_storage == null || _player == null || !_hud.IsAtNpc(Field.NpcKind.Storage))
+            if (_storage == null || _player == null || !_hud.IsAtNpc(World.NpcKind.Storage))
             {
                 return;
             }

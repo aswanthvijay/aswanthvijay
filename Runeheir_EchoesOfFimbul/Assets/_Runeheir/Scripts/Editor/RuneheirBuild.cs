@@ -82,7 +82,7 @@ namespace Runeheir.EditorTools
 
         private static void BuildPlayer(BuildTarget target, string path)
         {
-            (string login, string field) scenes;
+            (string login, string world) scenes;
             try
             {
                 scenes = RuneheirSetupWizard.GenerateScenes();
@@ -106,7 +106,7 @@ namespace Runeheir.EditorTools
 
             var options = new BuildPlayerOptions
             {
-                scenes = new[] { scenes.login, scenes.field },
+                scenes = new[] { scenes.login, scenes.world },
                 locationPathName = path,
                 target = target,
                 targetGroup = BuildPipeline.GetBuildTargetGroup(target),

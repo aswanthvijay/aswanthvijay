@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -8,10 +9,13 @@ using Runeheir.FrontEnd;
 using Runeheir.Monsters;
 using Runeheir.Movement;
 using Runeheir.Visuals;
+using Runeheir.World;
+using Runeheir.WorldBuilding;
 using UnityEditor;
 using UnityEditor.Rendering;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Runeheir.Tests
 {
@@ -28,32 +32,61 @@ namespace Runeheir.Tests
         }
 
         [Test]
-        public void SceneWizard_GeneratesPlayableLoginAndFieldScenes()
+        public void SceneWizard_GeneratesLoginAndWorldScenes()
         {
-            var (login, field) = RuneheirSetupWizard.GenerateScenes(TempRoot + "/Scenes", TempRoot + "/Materials", registerInBuildSettings: false);
+            var (login, world) = RuneheirSetupWizard.GenerateScenes(TempRoot + "/Scenes", registerInBuildSettings: false);
             Assert.IsTrue(File.Exists(login), login);
-            Assert.IsTrue(File.Exists(field), field);
+            Assert.IsTrue(File.Exists(world), world);
+            StringAssert.EndsWith(MapCatalog.WorldScene + ".unity", world);
 
-            EditorSceneManager.OpenScene(field, OpenSceneMode.Single);
+            EditorSceneManager.OpenScene(world, OpenSceneMode.Single);
             var bootstrap = Object.FindFirstObjectByType<FieldBootstrap>();
-            Assert.IsNotNull(bootstrap, "FieldBootstrap");
+            Assert.IsNotNull(bootstrap, "WorldBootstrap");
+            Assert.IsTrue(bootstrap.GeneratesMap, "RH_World builds the character's map at load time");
+            Assert.AreEqual(MapCatalog.StartingMapId, bootstrap.MapId, "played directly, it starts in Vigrid Haven");
             var settings = new SerializedObject(bootstrap);
-            Assert.IsNotNull(settings.FindProperty("savePoint").objectReferenceValue, "save point wired");
             Assert.IsNotNull(settings.FindProperty("cameraRig").objectReferenceValue, "camera rig wired");
-            Assert.IsNotNull(Object.FindFirstObjectByType<RuntimeNavMeshBaker>(), "NavMesh baker");
             Assert.IsNotNull(Camera.main, "main camera tagged");
-
-            var spawners = Object.FindObjectsByType<MonsterSpawner>(FindObjectsSortMode.None);
-            Assert.GreaterOrEqual(spawners.Length, 9, "6 monster spawners + 3 training dummies");
-            foreach (var spawner in spawners)
-            {
-                Assert.IsNotNull(MonsterCatalog.Get(spawner.MonsterId), spawner.MonsterId);
-            }
-
-            Assert.Greater(Object.FindObjectsByType<NavBlocker>(FindObjectsSortMode.None).Length, 20, "props carve the NavMesh");
+            Assert.IsNull(Object.FindFirstObjectByType<RuntimeNavMeshBaker>(), "no hand-built environment: each map brings its own");
+            Assert.IsEmpty(Object.FindObjectsByType<MonsterSpawner>(FindObjectsSortMode.None), "spawners come from the map data");
 
             EditorSceneManager.OpenScene(login, OpenSceneMode.Single);
             Assert.IsNotNull(Object.FindFirstObjectByType<FrontEndController>(), "FrontEndController");
+        }
+
+        /// <summary>Every one of the 14 maps builds, bakes, and lets you walk from its save point to every portal, NPC and boss.</summary>
+        [Test]
+        public void WorldBuilder_BuildsEveryMap_WithAConnectedNavMesh()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            foreach (var map in MapCatalog.All)
+            {
+                NavMesh.RemoveAllNavMeshData();
+                var world = WorldBuilder.Build(map, null);
+                try
+                {
+                    Assert.Greater(Object.FindObjectsByType<NavBlocker>(FindObjectsSortMode.None).Length, 0, $"{map.Id}: scenery carves the NavMesh");
+                    Assert.IsTrue(NavMesh.SamplePosition(world.SavePoint, out NavMeshHit save, 1.5f, NavMesh.AllAreas), $"{map.Id}: save point on the NavMesh");
+                    var path = new NavMeshPath();
+                    var targets = new List<(Vector3 point, string what)>();
+                    targets.AddRange(world.Layout.Portals.Select(p => (WorldBuilder.ToWorld(p.At), "portal " + p.Portal.Id)));
+                    targets.AddRange(world.Layout.Portals.Select(p => (WorldBuilder.ToWorld(p.Arrival), "arrival " + p.Portal.Id)));
+                    targets.AddRange(world.Layout.Npcs.Select(n => (WorldBuilder.ToWorld(n.At), n.Npc.Name)));
+                    targets.AddRange(world.Layout.Bosses.Select(b => (WorldBuilder.ToWorld(b.At), b.Boss.MonsterId)));
+                    foreach (var (point, what) in targets)
+                    {
+                        Assert.IsTrue(NavMesh.SamplePosition(point, out NavMeshHit hit, 2.5f, NavMesh.AllAreas), $"{map.Id}: no NavMesh at the {what}");
+                        Assert.IsTrue(NavMesh.CalculatePath(save.position, hit.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete,
+                            $"{map.Id}: can't walk from the save point to the {what}");
+                    }
+                }
+                finally
+                {
+                    Object.DestroyImmediate(world.Root.gameObject);
+                }
+            }
+
+            NavMesh.RemoveAllNavMeshData();
         }
 
         [Test]
