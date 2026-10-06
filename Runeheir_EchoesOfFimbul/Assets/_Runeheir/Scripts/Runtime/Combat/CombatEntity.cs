@@ -16,6 +16,9 @@ namespace Runeheir.Combat
     {
         private static readonly List<CombatEntity> Registry = new List<CombatEntity>();
 
+        /// <summary>How long Isa's shield freezes a melee attacker.</summary>
+        private const float IsaFreezeSeconds = 3f;
+
         [SerializeField, Min(0.1f)] protected float bodyRadius = 0.45f;
         [SerializeField, Min(0.1f)] protected float bodyHeight = 1.8f;
 
@@ -127,6 +130,12 @@ namespace Runeheir.Combat
         /// <summary>Percent chance to block a physical melee hit.</summary>
         protected virtual float BlockChance => ActiveModifiers.BlockChance;
 
+        /// <summary>Percent of physical melee damage sent back to the attacker (Draugr Warlord Card).</summary>
+        protected virtual float ReflectMeleePercent => ActiveModifiers.ReflectMeleePercent;
+
+        /// <summary>Percent of spell damage sent back to the caster (Hagalaz Rebound).</summary>
+        protected virtual float ReflectMagicPercent => ActiveModifiers.ReflectMagicPercent;
+
         /// <summary>Buffs + statuses combined (cached). Monsters build their profiles from it.</summary>
         protected StatModifiers ActiveModifiers
         {
@@ -187,8 +196,10 @@ namespace Runeheir.Combat
 
         /// <summary>
         /// Applies a hit. Melee hits can be blocked (Runic Aegis charges, Guardian's Oath chance); damage-taken
-        /// modifiers scale it; hits that deal damage wake sleepers, shatter stone and chip <paramref name="poiseDamage"/>.
-        /// Returns the result as applied (blocked, scaled), so callers skip on-hit effects for blocked hits.
+        /// modifiers scale it; absorb shields (Isa) soak it; reflect cards and buffs bounce part back; hits that deal
+        /// damage wake sleepers, shatter stone and chip <paramref name="poiseDamage"/>.
+        /// Returns the result as applied (blocked, scaled), so callers skip on-hit effects for blocked hits
+        /// (a hit the shield soaked up completely counts as blocked).
         /// </summary>
         public DamageResult ReceiveDamage(DamageResult result, CombatEntity attacker, bool physicalMelee, float poiseDamage = 0f)
         {
@@ -206,12 +217,27 @@ namespace Runeheir.Combat
                 }
             }
 
+            // Isa's glacial shield freezes whoever strikes it in melee, even on the blow that breaks it.
+            if (physicalMelee && !result.IsMiss && attacker != null && attacker != this && !attacker.IsDead
+                && Buffs.HasTrait(BuffTraits.FreezeMeleeAttackers))
+            {
+                attacker.TryApplyStatus(StatusEffect.Freeze, 100f, IsaFreezeSeconds);
+            }
+
             if (result.Amount > 0 && !result.IsDamageOverTime)
             {
                 float taken = DamageTakenPercent;
                 if (taken != 0f)
                 {
                     result.Amount = Mathf.Max(1, Mathf.RoundToInt(result.Amount * Mathf.Max(0.1f, 1f + taken / 100f)));
+                }
+
+                int through = Buffs.AbsorbDamage(result.Amount);
+                result.Absorbed = result.Amount - through;
+                result.Amount = through;
+                if (through <= 0 && result.Absorbed > 0)
+                {
+                    result.IsBlocked = true;
                 }
             }
 
@@ -224,6 +250,7 @@ namespace Runeheir.Combat
             Damaged?.Invoke(result, attacker);
             AnyDamaged?.Invoke(this, result, attacker);
             RaiseVitalsChanged();
+            Reflect(result, attacker, physicalMelee);
 
             if (Hp <= 0 && result.Amount > 0)
             {
@@ -240,10 +267,29 @@ namespace Runeheir.Combat
             return result;
         }
 
+        /// <summary>Sends part of a melee hit or spell back at its source as fixed damage (which never reflects again).</summary>
+        private void Reflect(DamageResult result, CombatEntity attacker, bool physicalMelee)
+        {
+            if (attacker == null || attacker == this || attacker.IsDead || result.Amount <= 0 || result.IsDamageOverTime)
+            {
+                return;
+            }
+
+            float percent = (physicalMelee ? ReflectMeleePercent : 0f) + (result.IsMagical ? ReflectMagicPercent : 0f);
+            if (percent <= 0f)
+            {
+                return;
+            }
+
+            int amount = Mathf.Max(1, Mathf.RoundToInt(result.Amount * percent / 100f));
+            attacker.ReceiveDamage(DamageResult.Fixed(amount), this, physicalMelee: false);
+        }
+
         /// <summary>Chips poise; at zero the entity is staggered (unless immune).</summary>
         public void ApplyPoiseDamage(float amount)
         {
-            if (IsDead || amount <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune) || StatusResistances.Immune)
+            if (IsDead || amount <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune)
+                || StatusResistances.IsImmuneTo(StatusEffect.Stagger))
             {
                 return;
             }
@@ -317,6 +363,19 @@ namespace Runeheir.Combat
             RaiseVitalsChanged();
         }
 
+        /// <summary>Removes up to <paramref name="amount"/> SP (Abyssal Leech); returns how much was taken.</summary>
+        public int DrainSp(int amount)
+        {
+            int drained = Mathf.Clamp(amount, 0, Sp);
+            if (drained > 0)
+            {
+                Sp -= drained;
+                RaiseVitalsChanged();
+            }
+
+            return drained;
+        }
+
         /// <summary>Empties SP and returns how much there was (Fist of Odin).</summary>
         public int DrainAllSp()
         {
@@ -345,12 +404,12 @@ namespace Runeheir.Combat
 
         /// <summary>
         /// Applies a status with no chance roll (stagger, guaranteed stuns). Sowilo's ward always blocks it; status-immune
-        /// targets (MVPs) block it unless <paramref name="ignoreImmunity"/> (GM commands).
+        /// targets (MVPs, or a card's immunity to that one status) block it unless <paramref name="ignoreImmunity"/> (GM commands).
         /// </summary>
         public bool ApplyStatus(StatusEffect status, float seconds, bool ignoreImmunity = false)
         {
             if (IsDead || seconds <= 0f || status == StatusEffect.None || Buffs.HasTrait(BuffTraits.CrowdControlImmune)
-                || (!ignoreImmunity && StatusResistances.Immune))
+                || (!ignoreImmunity && StatusResistances.IsImmuneTo(status)))
             {
                 return false;
             }

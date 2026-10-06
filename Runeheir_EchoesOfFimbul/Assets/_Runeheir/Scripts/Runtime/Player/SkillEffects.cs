@@ -226,6 +226,11 @@ namespace Runeheir.Player
             float poise = poiseBase * skill.PoiseMultiplier.At(level) * powerScale * (result.IsCritical ? PoiseRules.CriticalPoiseMultiplier : 1f);
 
             result = target.ReceiveDamage(result, caster, physicalMelee: skill.IsMelee(level), poise);
+            if (!skill.IsMagic && !result.IsMiss && !result.IsBlocked)
+            {
+                caster.OnPhysicalHitLanded(target, result);
+            }
+
             if (result.IsMiss || result.IsBlocked || target.IsDead)
             {
                 return false;

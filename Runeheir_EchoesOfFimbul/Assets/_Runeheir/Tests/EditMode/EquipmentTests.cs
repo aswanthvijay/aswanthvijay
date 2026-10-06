@@ -6,6 +6,8 @@ using Runeheir.Characters;
 using Runeheir.Combat;
 using Runeheir.Items;
 using Runeheir.Jobs;
+using Runeheir.Monsters;
+using Runeheir.Skills;
 using Runeheir.Stats;
 
 namespace Runeheir.Tests
@@ -434,6 +436,94 @@ namespace Runeheir.Tests
             attacker.CritDamagePercent = 20f;
             var bigCrit = DamageCalculator.Physical(attacker, defender, 100f, true, new SequenceRandom(0.5));
             Assert.AreEqual((int)System.Math.Round(crit.Amount * 1.2), bigCrit.Amount, "Dire Wolf: +20% crit damage");
+        }
+
+        [Test]
+        public void JobChange_GiftsAndEquipsTheNewJobWeaponWhenTheOldOneCantBeUsed()
+        {
+            var record = NewRecord(JobId.Initiate, 20);
+            var bag = new Inventory(record.Inventory);
+            var set = new EquipmentSet(record, bag);
+            var mace = Give(bag, ItemCatalog.IronMace);
+            Assert.IsTrue(set.TryEquip(mace, out string reason), reason);
+
+            record.Job = JobId.Mystic; // Mystics can't swing maces
+            Assert.AreEqual(1, set.RemoveUnwearable());
+            var gift = set.GiftJobWeapon();
+            Assert.AreSame(gift, set.Get(EquipPosition.Weapon));
+            Assert.AreEqual(JobDatabase.Get(JobId.Mystic).StarterWeaponId, gift.ItemId);
+            Assert.IsTrue(bag.Contains(mace), "the mace went back to the bag");
+
+            record.Job = JobId.Sage;
+            var second = set.GiftJobWeapon();
+            Assert.AreSame(second, set.Get(EquipPosition.Weapon), "a plain starter weapon is swapped for the new job's");
+            Assert.IsTrue(bag.Contains(gift));
+
+            second.Refine = 1;
+            record.Job = JobId.Chronomancer;
+            var third = set.GiftJobWeapon();
+            Assert.IsTrue(bag.Contains(third), "a weapon you refined stays in your hands; the gift goes to the bag");
+            Assert.AreSame(second, set.Get(EquipPosition.Weapon));
+        }
+
+        [Test]
+        public void MonsterDrops_AreRealItems_AndEveryFieldMonsterCanDropItsCard()
+        {
+            foreach (var monster in MonsterCatalog.All)
+            {
+                foreach (var drop in monster.Drops)
+                {
+                    Assert.IsNotNull(ItemCatalog.Get(drop.ItemId), $"{monster.Id} drops unknown {drop.ItemId}");
+                    if (ItemCatalog.Get(drop.ItemId).IsCard)
+                    {
+                        Assert.That(drop.ChancePercent, Is.InRange(0.01f, 1f), $"{drop.ItemId}: GDD card rates are 0.5–1%");
+                    }
+                }
+
+                if (!monster.Immortal)
+                {
+                    Assert.IsTrue(monster.Drops.Any(d => ItemCatalog.Get(d.ItemId).IsCard), $"{monster.Id} has no card");
+                }
+            }
+        }
+
+        [Test]
+        public void Pilfer_NeverStealsCards()
+        {
+            var drops = new[] { new DropEntry("dire_wolf_card", 1000f), new DropEntry("wolf_pelt", 0.001f) };
+            for (int i = 0; i < 20; i++)
+            {
+                Assert.AreEqual("wolf_pelt", StealRules.PickItem(drops, new SequenceRandom(i / 20.0)));
+            }
+
+            Assert.IsNull(StealRules.PickItem(new[] { new DropEntry("dire_wolf_card", 1f) }, new SequenceRandom(0.5)));
+        }
+
+        [Test]
+        public void Branches_SummonFieldMonstersOrTheStrongestTier()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                var dead = MonsterCatalog.PickForBranch(false, new SequenceRandom(i / 10.0));
+                Assert.IsNotNull(dead);
+                Assert.Less(dead.Level, MonsterCatalog.BloodBranchMinLevel);
+                Assert.IsFalse(dead.Immortal);
+                var blood = MonsterCatalog.PickForBranch(true, new SequenceRandom(i / 10.0));
+                Assert.GreaterOrEqual(blood.Level, MonsterCatalog.BloodBranchMinLevel);
+            }
+        }
+
+        [Test]
+        public void RefineCostCheck_WorksOnWornPieces()
+        {
+            var record = NewRecord(JobId.Warrior);
+            var bag = new Inventory(record.Inventory);
+            var weapon = record.Equipment[(int)EquipPosition.Weapon];
+            Assert.IsFalse(RefineRules.CanRefine(record, bag, weapon, false, out _), "worn: not in the bag");
+            Assert.IsFalse(RefineRules.CheckCosts(record, bag, weapon, false, out string reason));
+            StringAssert.Contains("Bog Iron", reason);
+            bag.Add(ItemCatalog.BogIron, 1);
+            Assert.IsTrue(RefineRules.CheckCosts(record, bag, weapon, false, out reason), reason);
         }
 
         [Test]

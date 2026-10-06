@@ -198,6 +198,77 @@ namespace Runeheir.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator Gear_Cards_Npcs_Branches_AndStorage()
+        {
+            BuildMiniField();
+            yield return null;
+            yield return null;
+
+            var player = PlayerCharacter.Local;
+            Assert.AreEqual(3, NpcActor.All.Count, "shop, forge and storage NPCs stand by the save point");
+            Assert.AreEqual(ItemCatalog.RustySeax, player.Equipment.Get(EquipPosition.Weapon).ItemId, "new characters hold the Rusty Seax");
+            Assert.AreEqual(WeaponType.Dagger, player.Weapon.Type);
+
+            // --- Wear the tunic (DEF up, model rebuilt), compound a card into it while worn (Max HP +10%)
+            int def = player.Stats.Def;
+            Assert.IsTrue(player.Equip(player.Inventory.FindFirst("cotton_tunic")));
+            Assert.Greater(player.Stats.Def, def);
+            var tunic = player.Equipment.Get(EquipPosition.Armor);
+            player.Inventory.Add("field_beetle_card", 1);
+            int maxHp = player.MaxHp;
+            Assert.IsTrue(player.WorkOnPiece(tunic, () => CardRules.TryCompound(player.Inventory, "field_beetle_card", tunic, out _)));
+            Assert.AreSame(tunic, player.Equipment.Get(EquipPosition.Armor), "the worn piece went back on");
+            Assert.Greater(player.MaxHp, maxHp, "Field Beetle Card: +10% Max HP");
+
+            // --- On-hit card: Jormungandr's Brood frostbites the target on every melee hit
+            var seax = player.Equipment.Get(EquipPosition.Weapon);
+            seax.Cards[0] = "jormungandrs_brood_card";
+            player.Equipment.NotifyChanged();
+            var dummy = EntityFactory.CreateMonster(MonsterCatalog.Get("training_dummy"), player.Position + new Vector3(2.5f, 0f, 0f));
+            player.GetComponent<AutoAttacker>().Engage(dummy);
+            float timeout = Time.time + 5f;
+            while (!dummy.Statuses.Has(StatusEffect.Frostbite) && Time.time < timeout)
+            {
+                yield return null;
+            }
+
+            Assert.IsTrue(dummy.Statuses.Has(StatusEffect.Frostbite), "gear on-hit procs reach the target");
+            player.GetComponent<AutoAttacker>().Disengage();
+
+            // --- Talk to every NPC (dialogs build without errors), then walk away (windows close)
+            foreach (var npc in NpcActor.All)
+            {
+                npc.Interact();
+                yield return null;
+            }
+
+            player.GetComponent<NavMotor>().Warp(player.Position + new Vector3(15f, 0f, -15f));
+            yield return null;
+
+            // --- Dead Branch summons a monster that hunts the reader
+            int monsters = Object.FindObjectsByType<Monster>(FindObjectsSortMode.None).Length;
+            player.Inventory.Add(ItemCatalog.DeadBranch, 1);
+            Assert.IsTrue(player.UseItem(ItemCatalog.DeadBranch));
+            Assert.AreEqual(monsters + 1, Object.FindObjectsByType<Monster>(FindObjectsSortMode.None).Length);
+
+            // --- Storage (temporary character: an unsaved box) keeps refine through a round trip
+            var storageTask = GameSession.Instance.LoadStorage();
+            while (!storageTask.IsCompleted)
+            {
+                yield return null;
+            }
+
+            var storage = storageTask.Result;
+            var sandals = player.Inventory.FindFirst("sandals");
+            sandals.Refine = 4;
+            Assert.IsTrue(StorageRules.TryDeposit(player.Inventory, storage, sandals, 1, out _));
+            Assert.IsFalse(player.Inventory.Has("sandals"));
+            Assert.IsTrue(StorageRules.TryWithdraw(storage, player.Inventory, storage[0], 1, player.Stats.WeightCapacity, player.CurrentWeight, out _));
+            Assert.AreEqual(4, player.Inventory.FindFirst("sandals").Refine);
+            yield return new WaitForSeconds(0.3f);
+        }
+
         private static void BuildMiniField()
         {
             new GameObject("Main Camera") { tag = "MainCamera" }.AddComponent<Camera>();

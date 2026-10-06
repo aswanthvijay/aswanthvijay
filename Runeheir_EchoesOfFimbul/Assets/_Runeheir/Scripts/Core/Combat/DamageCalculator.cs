@@ -108,6 +108,12 @@ namespace Runeheir.Combat
 
         public float ElementMultiplier;
 
+        /// <summary>A spell (Hagalaz Rebound reflects these).</summary>
+        public bool IsMagical;
+
+        /// <summary>Part of the hit was soaked up by a shield (Isa); <see cref="Amount"/> is what got through.</summary>
+        public int Absorbed;
+
         public static DamageResult Miss()
         {
             return new DamageResult { IsMiss = true, ElementMultiplier = 1f };
@@ -268,6 +274,7 @@ namespace Runeheir.Combat
             {
                 Amount = Finalize(damage, elementMultiplier),
                 ElementMultiplier = elementMultiplier,
+                IsMagical = true,
             };
         }
 

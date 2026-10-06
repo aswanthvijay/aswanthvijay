@@ -5,18 +5,20 @@ using Runeheir.Field;
 using Runeheir.Hotkeys;
 using Runeheir.Items;
 using Runeheir.Jobs;
+using Runeheir.Monsters;
 using Runeheir.Movement;
 using Runeheir.Session;
 using Runeheir.Skills;
 using Runeheir.Stats;
 using Runeheir.Visuals;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Runeheir.Player
 {
     /// <summary>
     /// The playable character: binds the Base 255 / Job 120 stat engine (<see cref="CharacterProgression"/>,
-    /// <see cref="DerivedStats"/>) to HP/SP, regen, EXP, items, buffs and death/respawn.
+    /// <see cref="DerivedStats"/>) to HP/SP, regen, EXP, items, equipment, buffs and death/respawn.
     /// </summary>
     [RequireComponent(typeof(NavMotor))]
     public sealed class PlayerCharacter : CombatEntity
@@ -30,6 +32,7 @@ namespace Runeheir.Player
         private CharacterAnimationBridge _animation;
         private float _nextHpRegenAt;
         private float _nextSpRegenAt;
+        private WeaponProfile _weapon = WeaponProfile.BareHands;
 
         /// <summary>The local player (Phase 6 will have many PlayerCharacters, one of them local).</summary>
         public static PlayerCharacter Local { get; private set; }
@@ -39,6 +42,12 @@ namespace Runeheir.Player
         public CharacterProgression Progression { get; private set; }
 
         public Inventory Inventory { get; private set; }
+
+        /// <summary>The 10-slot paperdoll (GDD §5).</summary>
+        public EquipmentSet Equipment { get; private set; }
+
+        /// <summary>What the worn gear, its cards and runeword add up to (recomputed with the stats).</summary>
+        public EquipmentStats Gear { get; private set; } = new EquipmentStats();
 
         public HotkeyLayout Hotkeys { get; private set; }
 
@@ -63,7 +72,15 @@ namespace Runeheir.Player
 
         protected override float BlockChance => Stats?.BlockChance ?? 0f;
 
-        public WeaponProfile Weapon => Job.StarterWeapon;
+        protected override float ReflectMeleePercent => Stats?.ReflectMeleePercent ?? 0f;
+
+        protected override float ReflectMagicPercent => Stats?.ReflectMagicPercent ?? 0f;
+
+        /// <summary>The equipped weapon with its refine and runeword element; bare hands when none is equipped.</summary>
+        public WeaponProfile Weapon => _weapon;
+
+        /// <summary>Bag plus worn gear.</summary>
+        public int CurrentWeight => Inventory.TotalWeight() + Equipment.TotalWeight();
 
         /// <summary>Derived stats were recomputed (level, stat points, buffs, job).</summary>
         public event Action StatsRecalculated;
@@ -92,6 +109,7 @@ namespace Runeheir.Player
             Record.Sanitize();
             Progression = new CharacterProgression(record);
             Inventory = new Inventory(record.Inventory);
+            Equipment = new EquipmentSet(record, Inventory);
             Hotkeys = new HotkeyLayout(record.Hotkeys);
             SkillBook = new SkillBook(record);
 
@@ -102,6 +120,7 @@ namespace Runeheir.Player
             Buffs.Changed += Recalculate;
             Statuses.Changed += Recalculate;
             SkillBook.Changed += Recalculate;
+            Equipment.Changed += OnEquipmentChanged;
 
             Recalculate();
             SetVitals(record.Hp < 0 ? MaxHp : record.Hp, MaxHp, record.Sp < 0 ? MaxSp : record.Sp, MaxSp);
@@ -113,10 +132,14 @@ namespace Runeheir.Player
             Local = this;
         }
 
-        /// <summary>Stat engine input: buffs + statuses + learned passives (for the current job and weapon).</summary>
+        /// <summary>Stat engine input: gear + cards + buffs + statuses + learned passives (for the current job and weapon).</summary>
         public void Recalculate()
         {
+            Gear = EquipmentStats.Compute(Record);
+            _weapon = Gear.HasWeapon ? Gear.Weapon : WeaponProfile.BareHands;
+
             var modifiers = StatModifiers.Empty();
+            modifiers.Add(Gear.Modifiers);
             modifiers.Add(Buffs.Aggregate);
             modifiers.Add(Statuses.Aggregate);
             if (SkillBook != null)
@@ -125,6 +148,11 @@ namespace Runeheir.Player
             }
 
             Stats = DerivedStats.Compute(Record.BaseLevel, Record.Stats, modifiers, Weapon);
+            var resist = Stats.StatusResistances;
+            resist.ImmunityMask = Gear.ImmunityMask;
+            resist.ExtraResistStatus = Gear.ExtraResistStatus;
+            resist.ExtraResistPercent = Gear.ExtraResistPercent;
+            Stats.StatusResistances = resist;
             SetVitals(Mathf.Min(Hp, Stats.MaxHp), Stats.MaxHp, Mathf.Min(Sp, Stats.MaxSp), Stats.MaxSp);
             Poise.SetMax(Stats.MaxPoise);
             ApplyMoveSpeed();
@@ -163,6 +191,11 @@ namespace Runeheir.Player
                 MatkMax = Stats.MatkMax,
                 PhysicalDamagePercent = Stats.PhysicalDamagePercent,
                 MagicDamagePercent = Stats.MagicDamagePercent,
+                DefBypassPercent = Stats.DefBypassPercent,
+                MdefBypassPercent = Stats.MdefBypassPercent,
+                CritDamagePercent = Stats.CritDamagePercent,
+                Race = Race.DemiHuman,
+                Bonuses = Gear.Bonuses,
             };
         }
 
@@ -175,10 +208,11 @@ namespace Runeheir.Player
                 Mdef = Stats.Mdef,
                 SoftMdef = Stats.SoftMdef,
                 Flee = Stats.Flee,
-                Element = Element.Neutral,
+                Element = Gear.ArmorElement,
                 Race = Race.DemiHuman,
                 Size = Size.Medium,
                 BluntDamageTakenMultiplier = BluntDamageTakenMultiplier,
+                Resist = Gear.Bonuses,
             };
         }
 
@@ -209,10 +243,17 @@ namespace Runeheir.Player
             return result;
         }
 
-        /// <summary>Passive and buff procs: Storm Fists, Keen Edge, Auto Rune.</summary>
+        /// <summary>Card leech and on-hit cards, then passive and buff procs: Storm Fists, Keen Edge, Auto Rune.</summary>
         public override void OnBasicAttackLanded(CombatEntity target, DamageResult result)
         {
-            if (_caster == null || target == null || target.IsDead)
+            OnPhysicalHitLanded(target, result);
+            if (target == null || target.IsDead || IsDead)
+            {
+                return;
+            }
+
+            TriggerGearProcs(target, melee: !IsRangedAttacker);
+            if (_caster == null || target.IsDead)
             {
                 return;
             }
@@ -230,6 +271,77 @@ namespace Runeheir.Player
                 if (buff.Definition.Proc != null && TryProc(buff.Definition.Proc, buff.Level, target))
                 {
                     return;
+                }
+            }
+        }
+
+        /// <summary>Crypt Bat, Corrupted Einherjar and Abyssal Leech: heal and restore SP from physical hits that connect.</summary>
+        public void OnPhysicalHitLanded(CombatEntity target, DamageResult applied)
+        {
+            if (IsDead || Stats == null || applied.Amount <= 0 || applied.IsDamageOverTime)
+            {
+                return;
+            }
+
+            if (Stats.LifeStealPercent > 0f)
+            {
+                Heal(Mathf.Max(1, Mathf.RoundToInt(applied.Amount * Stats.LifeStealPercent / 100f)), showNumber: false);
+            }
+
+            int sp = Stats.SpStealPercent > 0f ? Mathf.Max(1, Mathf.RoundToInt(applied.Amount * Stats.SpStealPercent / 100f)) : 0;
+            if (Stats.SpDrainOnHit > 0)
+            {
+                // Monsters have no SP pool in Phase 4: the leech pulls its full amount; players (Phase 6) lose what you gain.
+                sp += Stats.SpDrainOnHit;
+                if (target != null && target.MaxSp > 1)
+                {
+                    target.DrainSp(Stats.SpDrainOnHit);
+                }
+            }
+
+            RestoreSp(sp, showNumber: false);
+        }
+
+        /// <summary>Chance-on-hit effects from cards and runewords (Toxic Spore, Fenrir, Hel's Executioner, Jormungandr's Brood...).</summary>
+        private void TriggerGearProcs(CombatEntity target, bool melee)
+        {
+            foreach (var effect in Gear.OnHit)
+            {
+                if (target.IsDead || (effect.MeleeOnly && !melee))
+                {
+                    continue;
+                }
+
+                switch (effect.Kind)
+                {
+                    case OnHitKind.Status when effect.Guaranteed:
+                        // "Unblockable": no resistance roll, but status-immune bosses still shrug it off.
+                        if (SystemRandomSource.Shared.Chance(effect.ChancePercent))
+                        {
+                            target.ApplyStatus(effect.Status, effect.Duration);
+                        }
+
+                        break;
+                    case OnHitKind.Status:
+                        target.TryApplyStatus(effect.Status, effect.ChancePercent, effect.Duration);
+                        break;
+                    case OnHitKind.SelfBuff:
+                        var buff = BuffCatalog.Get(effect.BuffId);
+                        if (buff != null && !Buffs.Has(buff.Id) && SystemRandomSource.Shared.Chance(effect.ChancePercent))
+                        {
+                            Buffs.Apply(buff, Time.timeAsDouble);
+                            WorldFeedback.Announce(this, buff.Name + "!", new Color(1f, 0.55f, 0.3f));
+                        }
+
+                        break;
+                    case OnHitKind.PoiseBreak:
+                        if (SystemRandomSource.Shared.Chance(effect.ChancePercent) && !target.IsStaggered)
+                        {
+                            WorldFeedback.Announce(target, "Mortal Stagger!", new Color(1f, 0.35f, 0.3f));
+                            target.ApplyPoiseDamage(target.Poise.Max + 1f);
+                        }
+
+                        break;
                 }
             }
         }
@@ -283,6 +395,12 @@ namespace Runeheir.Player
         public bool UseItem(string itemId)
         {
             var item = ItemCatalog.Get(itemId);
+            if (item != null && item.IsEquipment)
+            {
+                // Hotkeyed or double-clicked gear: wear the first matching piece in the bag.
+                return Equip(Inventory.FindFirst(item.Id));
+            }
+
             if (item == null || !item.IsUsable)
             {
                 return false;
@@ -314,10 +432,129 @@ namespace Runeheir.Player
             return true;
         }
 
+        /// <summary>Wears a piece from the bag; whatever it displaces goes back into the bag.</summary>
+        public bool Equip(ItemStack entry)
+        {
+            if (entry == null || IsDead)
+            {
+                return false;
+            }
+
+            if (!Equipment.TryEquip(entry, out string reason))
+            {
+                ChatLog.Error(reason);
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool Unequip(EquipPosition position)
+        {
+            if (!Equipment.TryUnequip(position, out string reason))
+            {
+                ChatLog.Error(reason);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Forge and card work happen on pieces in the bag (Core rules). A worn piece is taken off for the work and put back
+        /// on if it survived (a shattered piece doesn't). Returns the work's result, or default when it couldn't be taken off.
+        /// </summary>
+        public T WorkOnPiece<T>(ItemStack entry, Func<T> work)
+        {
+            EquipPosition? worn = null;
+            foreach (var pair in Equipment.Worn())
+            {
+                if (pair.Value == entry)
+                {
+                    worn = pair.Key;
+                }
+            }
+
+            if (worn.HasValue && !Equipment.TryUnequip(worn.Value, out string reason))
+            {
+                ChatLog.Error(reason);
+                return default;
+            }
+
+            try
+            {
+                return work();
+            }
+            finally
+            {
+                if (worn.HasValue && Inventory.Contains(entry))
+                {
+                    Equipment.TryEquip(entry, out _);
+                }
+            }
+        }
+
+        public bool IsWorn(ItemStack entry)
+        {
+            foreach (var pair in Equipment.Worn())
+            {
+                if (pair.Value == entry)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void OnEquipmentChanged()
+        {
+            Recalculate();
+            RebuildAvatar();
+        }
+
+        private void RebuildAvatar()
+        {
+            var avatar = GetComponentInChildren<PlaceholderAvatar>();
+            if (avatar == null)
+            {
+                return;
+            }
+
+            avatar.RebuildHumanoid(AvatarLook.FromRecord(Record));
+            if (_animation != null)
+            {
+                _animation.RefreshHidden(); // the rebuilt parts need the stealth look too
+            }
+        }
+
+        /// <summary>Dead Branch / Blood Branch: a monster bursts out next to you, already hunting you.</summary>
+        private bool SummonFromBranch(bool boss)
+        {
+            var definition = MonsterCatalog.PickForBranch(boss, SystemRandomSource.Shared);
+            Vector2 offset = UnityEngine.Random.insideUnitCircle.normalized * 2.5f;
+            Vector3 point = Position + new Vector3(offset.x, 0f, offset.y);
+            if (definition == null || !NavMesh.SamplePosition(point, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+            {
+                ChatLog.Error("The branch crumbles: nothing can grow here.");
+                return false;
+            }
+
+            var monster = EntityFactory.CreateMonster(definition, hit.position, UnityEngine.Random.Range(0f, 360f));
+            monster.Provoke(this);
+            GroundRing.SpawnPulse(hit.position, boss ? new Color(0.9f, 0.15f, 0.2f, 1f) : new Color(0.55f, 0.4f, 0.25f, 1f), 0.3f, 2.5f, 0.7f);
+            ChatLog.Notice($"The branch splinters and a {definition.Name} (Lv {definition.Level}) bursts out!");
+            return true;
+        }
+
         private bool ApplyItemEffect(ItemDefinition item)
         {
             switch (item.Special)
             {
+                case ItemSpecialEffect.SummonMonster:
+                    return SummonFromBranch(boss: false);
+                case ItemSpecialEffect.SummonBoss:
+                    return SummonFromBranch(boss: true);
                 case ItemSpecialEffect.ReturnToSavePoint:
                     TeleportTo(FieldContext.SavePoint, "You return to your save point.");
                     return true;
@@ -506,18 +743,28 @@ namespace Runeheir.Player
 
         private void OnJobChanged()
         {
-            Recalculate();
-            var avatar = GetComponentInChildren<PlaceholderAvatar>();
-            if (avatar != null)
+            ChatLog.Notice($"{DisplayName} is now a {Job.Name}!");
+
+            // Gear the new job can't use goes to the bag; the guild hands over the job's own weapon.
+            int removed = Equipment.RemoveUnwearable();
+            if (removed > 0)
             {
-                avatar.RebuildHumanoid(AvatarLook.FromRecord(Record));
-                if (_animation != null)
-                {
-                    _animation.RefreshHidden(); // the rebuilt parts need the stealth look too
-                }
+                ChatLog.System($"{removed} piece(s) of gear went back to your bag: a {Job.Name} can't use them.");
             }
 
-            ChatLog.Notice($"{DisplayName} is now a {Job.Name}!");
+            var gift = Equipment.GiftJobWeapon();
+            if (gift != null)
+            {
+                ChatLog.Loot($"Job change gift: {gift.DisplayName}{(Equipment.Get(EquipPosition.Weapon) == gift ? " (equipped)" : " (in your bag)")}.");
+            }
+            else
+            {
+                ChatLog.Error("Your bag is full: the job change gift weapon was lost.");
+            }
+
+            Recalculate();
+            RebuildAvatar();
+            SaveNow();
         }
 
         // ------------------------------------------------------------ Unity
@@ -598,6 +845,11 @@ namespace Runeheir.Player
 
             Buffs.Changed -= Recalculate;
             Statuses.Changed -= Recalculate;
+            if (Equipment != null)
+            {
+                Equipment.Changed -= OnEquipmentChanged;
+            }
+
             if (SkillBook != null)
             {
                 SkillBook.Changed -= Recalculate;

@@ -87,10 +87,22 @@ namespace Runeheir.Items
 
         public static bool CanRefine(CharacterRecord record, Inventory inventory, ItemStack entry, bool usePreservation, out string reason)
         {
-            var item = entry?.Definition;
-            if (item == null || !item.IsEquipment || !inventory.Contains(entry))
+            if (entry?.Definition == null || !inventory.Contains(entry))
             {
                 reason = "Choose a piece of equipment from your bag (unequip it first).";
+                return false;
+            }
+
+            return CheckCosts(record, inventory, entry, usePreservation, out reason);
+        }
+
+        /// <summary>Every refine rule except "it must be in the bag" (the forge UI checks worn pieces before taking them off).</summary>
+        public static bool CheckCosts(CharacterRecord record, Inventory inventory, ItemStack entry, bool usePreservation, out string reason)
+        {
+            var item = entry?.Definition;
+            if (item == null || !item.IsEquipment)
+            {
+                reason = "That isn't equipment.";
                 return false;
             }
 

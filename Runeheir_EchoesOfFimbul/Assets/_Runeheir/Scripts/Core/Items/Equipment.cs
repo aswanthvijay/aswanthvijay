@@ -211,6 +211,54 @@ namespace Runeheir.Items
             return removed;
         }
 
+        /// <summary>
+        /// Job-change gift: a new copy of the job's starter weapon goes into the bag. It is equipped (the old weapon goes to the
+        /// bag) when the hands are empty, the old weapon can't be wielded by the new job, or the old weapon is just an earlier
+        /// job's plain starter weapon. A weapon you invested in (refined, carded, etched) stays in your hands. Null when the
+        /// bag is full.
+        /// </summary>
+        public ItemStack GiftJobWeapon()
+        {
+            var item = ItemCatalog.Get(JobDatabase.Get(_record.Job).StarterWeaponId);
+            if (item == null)
+            {
+                return null;
+            }
+
+            var gift = ItemStack.NewInstance(item);
+            if (!_inventory.AddEntry(gift))
+            {
+                return null;
+            }
+
+            var current = Get(EquipPosition.Weapon);
+            if (current == null || !CanWear(_record, current.Definition, out _) || IsPlainStarterWeapon(current))
+            {
+                TryEquip(gift, out _);
+            }
+
+            return gift;
+        }
+
+        /// <summary>Some job's starter weapon with no refine, cards or glyphs.</summary>
+        public static bool IsPlainStarterWeapon(ItemStack entry)
+        {
+            if (entry == null || entry.Refine > 0 || entry.CardCount > 0 || Array.Exists(entry.Glyphs ?? Array.Empty<string>(), g => !string.IsNullOrEmpty(g)))
+            {
+                return false;
+            }
+
+            foreach (var job in JobDatabase.All)
+            {
+                if (job.StarterWeaponId == entry.ItemId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public void NotifyChanged()
         {
             Changed?.Invoke();

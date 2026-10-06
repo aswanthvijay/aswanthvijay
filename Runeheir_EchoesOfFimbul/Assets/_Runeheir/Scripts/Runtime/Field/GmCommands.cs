@@ -54,6 +54,7 @@ namespace Runeheir.Field
                     ChatLog.Gm("@blvl <1-255>  @jlvl <1-120>  @job <name>  @jobs  @allstats <n>  @str|agi|vit|int|dex|luk <n>");
                     ChatLog.Gm("@reset  @heal  @item <id> [amount]  @items  @monster <id> [count]  @monsters  @aspd  @save  @where");
                     ChatLog.Gm("@skills  @allskills  @learn <skill> [lv]  @skillpoint <n>  @skillreset  @status <name> [seconds]  @statuses  @cleanse");
+                    ChatLog.Gm("@zeny <amount>  @items [weapons|gear|cards|text]  @refine <0-20> (worn weapon)");
                     break;
 
                 case "blvl":
@@ -137,7 +138,34 @@ namespace Runeheir.Field
                     break;
 
                 case "items":
-                    ChatLog.Gm("Items: " + string.Join(", ", ItemCatalog.All.Select(i => i.Id)));
+                    ListItems(rest);
+                    break;
+
+                case "zeny":
+                    if (TryInt(rest, out int zeny))
+                    {
+                        player.Record.Zeny = Math.Max(0, Math.Min(2000000000L, player.Record.Zeny + zeny));
+                        player.Inventory.NotifyChanged();
+                        ChatLog.Gm($"Zeny: {player.Record.Zeny:N0}.");
+                    }
+
+                    break;
+
+                case "refine":
+                    if (TryInt(rest, out int refine))
+                    {
+                        var weapon = player.Equipment.Get(EquipPosition.Weapon);
+                        if (weapon == null)
+                        {
+                            ChatLog.Error("Equip a weapon first.");
+                            break;
+                        }
+
+                        weapon.Refine = Mathf.Clamp(refine, 0, RefineRules.MaxRefine);
+                        player.Equipment.NotifyChanged();
+                        ChatLog.Gm($"{weapon.DisplayName}: ATK {player.Stats.WeaponAtk}.");
+                    }
+
                     break;
 
                 case "monster":
@@ -243,6 +271,31 @@ namespace Runeheir.Field
 
             int added = player.Inventory.Add(item.Id, amount);
             ChatLog.Loot($"You got {item.Name} ({added}).");
+        }
+
+        /// <summary>@items alone prints the categories; @items weapons|gear|cards|consumables|etc or any text filters ids and names.</summary>
+        private static void ListItems(string filter)
+        {
+            filter = filter.Trim().ToLowerInvariant();
+            if (filter.Length == 0)
+            {
+                ChatLog.Gm($"{ItemCatalog.All.Count()} items. Try @items weapons, @items gear, @items cards, @items consumables, @items etc, or @items <text>.");
+                return;
+            }
+
+            System.Func<ItemDefinition, bool> match;
+            switch (filter)
+            {
+                case "weapons": match = i => i.IsWeapon; break;
+                case "gear": match = i => i.IsEquipment && !i.IsWeapon; break;
+                case "cards": match = i => i.IsCard; break;
+                case "consumables": match = i => i.Kind == ItemKind.Consumable; break;
+                case "etc": match = i => !i.IsEquipment && !i.IsCard && i.Kind != ItemKind.Consumable; break;
+                default: match = i => i.Id.Contains(filter) || i.Name.ToLowerInvariant().Contains(filter); break;
+            }
+
+            var found = ItemCatalog.All.Where(match).Select(i => i.Id).ToList();
+            ChatLog.Gm(found.Count == 0 ? "No items match." : $"{found.Count}: " + string.Join(", ", found));
         }
 
         private static void SpawnMonsters(PlayerCharacter player, string[] parts)

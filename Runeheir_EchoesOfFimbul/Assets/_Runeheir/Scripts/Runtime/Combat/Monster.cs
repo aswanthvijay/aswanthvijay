@@ -110,6 +110,7 @@ namespace Runeheir.Combat
                 MatkMax = max,
                 PhysicalDamagePercent = mods.PhysicalDamagePercent,
                 MagicDamagePercent = mods.MagicDamagePercent,
+                Race = Definition.Race, // Horned Grazer / Draugr Footman cards cut damage by attacker race
             };
         }
 
@@ -168,8 +169,9 @@ namespace Runeheir.Combat
                 return null;
             }
 
-            reason = null;
-            return StealRules.PickItem(Definition.Drops, SystemRandomSource.Shared);
+            string itemId = StealRules.PickItem(Definition.Drops, SystemRandomSource.Shared);
+            reason = itemId == null ? "It has nothing you can steal." : null;
+            return itemId;
         }
 
         /// <summary>Called once the stolen item is actually in the thief's inventory: no second steal from this monster.</summary>
@@ -420,14 +422,40 @@ namespace Runeheir.Combat
 
             foreach (var drop in Definition.Drops)
             {
-                float chance = Mathf.Min(100f, drop.ChancePercent * rates.Drop);
-                if (chance >= 100f || Random.value * 100f < chance) // Random.value includes 1.0
+                var item = ItemCatalog.Get(drop.ItemId);
+                if (item == null)
                 {
-                    var item = ItemCatalog.Get(drop.ItemId);
-                    if (item != null && killer.Inventory.Add(item.Id, 1) > 0)
-                    {
-                        ChatLog.Loot($"You got {item.Name} (1).");
-                    }
+                    continue;
+                }
+
+                // Server card rate applies to Soul Cards, the item rate to everything else.
+                float rate = item.IsCard ? rates.CardDrop : rates.Drop;
+                float chance = Mathf.Min(100f, drop.ChancePercent * rate);
+                if (chance < 100f && Random.value * 100f >= chance) // Random.value includes 1.0
+                {
+                    continue;
+                }
+
+                if (killer.CurrentWeight + item.Weight > killer.Stats.WeightCapacity)
+                {
+                    ChatLog.Error($"You are carrying too much to pick up {item.Name}.");
+                    continue;
+                }
+
+                if (killer.Inventory.Add(item.Id, 1) <= 0)
+                {
+                    ChatLog.Error($"Your bag is full: {item.Name} was left behind.");
+                    continue;
+                }
+
+                if (item.IsCard)
+                {
+                    WorldFeedback.Announce(killer, item.Name + "!", new Color(1f, 0.82f, 0.25f));
+                    ChatLog.Notice($"★ {killer.DisplayName} got a {item.Name}! ({drop.ChancePercent:0.##}% drop)");
+                }
+                else
+                {
+                    ChatLog.Loot($"You got {item.Name} (1).");
                 }
             }
         }

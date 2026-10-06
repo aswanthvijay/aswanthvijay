@@ -1,5 +1,6 @@
 using Runeheir.Combat;
 using Runeheir.Controls;
+using Runeheir.Field;
 using Runeheir.Movement;
 using Runeheir.Skills;
 using Runeheir.Visuals;
@@ -11,6 +12,7 @@ namespace Runeheir.Player
     /// GDD Phase 2 Step 3 — NavMesh click-to-move, XileRO style:
     ///  • Left-click ground: walk there (hold the button to keep steering toward the cursor).
     ///  • Left-click a monster: walk into range and auto-attack until it dies or you click elsewhere.
+    ///  • Left-click a town NPC: walk over and talk to it.
     ///  • While a skill's target cursor is up: left-click picks the target/spot, right-click cancels.
     /// Picking prefers monsters under the cursor and falls back to the nearest one within a few pixels,
     /// so small targets are easy to click at isometric zoom.
@@ -40,12 +42,16 @@ namespace Runeheir.Player
         private GroundRing _targetRing;
         private GroundRing _hoverRing;
         private GroundRing _aoePreview;
+        private NpcActor _pendingNpc;
 
         /// <summary>Monster/player currently under the cursor (for nameplates and quick-cast).</summary>
         public CombatEntity HoveredEntity { get; private set; }
 
         /// <summary>Walkable point under the cursor, if any.</summary>
         public Vector3? HoveredGround { get; private set; }
+
+        /// <summary>Town NPC under the cursor (not while a skill cursor is up).</summary>
+        public NpcActor HoveredNpc { get; private set; }
 
         private void Awake()
         {
@@ -97,8 +103,11 @@ namespace Runeheir.Player
             if (_player.IsDead)
             {
                 _holdingMove = false;
+                _pendingNpc = null;
                 return;
             }
+
+            UpdatePendingNpc();
 
             if (_caster.IsTargeting)
             {
@@ -129,6 +138,13 @@ namespace Runeheir.Player
 
         private void HandlePrimaryClick()
         {
+            _pendingNpc = null;
+            if (HoveredNpc != null && HoveredEntity == null)
+            {
+                TalkTo(HoveredNpc);
+                return;
+            }
+
             if (HoveredEntity != null && _player.IsHostileTo(HoveredEntity))
             {
                 _holdingMove = false;
@@ -153,6 +169,49 @@ namespace Runeheir.Player
 
             _holdingMove = true;
             _nextHoldRepath = Time.time + holdRepathInterval;
+        }
+
+        /// <summary>Walk up to an NPC; the dialog opens on arrival (or at once when already close).</summary>
+        private void TalkTo(NpcActor npc)
+        {
+            _holdingMove = false;
+            _attacker.Disengage();
+            _caster.CancelApproach();
+            _pendingNpc = npc;
+            if (npc.EdgeDistanceTo(_player) > NpcActor.TalkRange)
+            {
+                _motor.MoveTo(npc.Position);
+            }
+
+            UpdatePendingNpc();
+        }
+
+        private void UpdatePendingNpc()
+        {
+            if (_pendingNpc == null)
+            {
+                return;
+            }
+
+            if (!_pendingNpc.isActiveAndEnabled)
+            {
+                _pendingNpc = null;
+                return;
+            }
+
+            if (_pendingNpc.EdgeDistanceTo(_player) <= NpcActor.TalkRange)
+            {
+                var npc = _pendingNpc;
+                _pendingNpc = null;
+                _motor.Stop();
+                _motor.FaceTowards(npc.Position);
+                npc.Interact();
+            }
+            else if (!_motor.IsMoving)
+            {
+                // Blocked or the path ended short: give up quietly, like a click on unreachable ground.
+                _pendingNpc = null;
+            }
         }
 
         private void HandleTargeting(bool overUI)
@@ -190,11 +249,13 @@ namespace Runeheir.Player
         {
             HoveredEntity = null;
             HoveredGround = null;
+            HoveredNpc = null;
             if (overUI)
             {
                 return;
             }
 
+            float bestNpc = float.MaxValue;
             Ray ray = _camera.ScreenPointToRay(GameInput.PointerPosition);
             int count = Physics.RaycastNonAlloc(ray, Hits, maxRayDistance, ~0, QueryTriggerInteraction.Collide);
             float bestEntity = float.MaxValue;
@@ -204,6 +265,18 @@ namespace Runeheir.Player
             for (int i = 0; i < count; i++)
             {
                 var hit = Hits[i];
+                var npc = hit.collider.GetComponentInParent<NpcActor>();
+                if (npc != null)
+                {
+                    if (!_caster.IsTargeting && hit.distance < bestNpc)
+                    {
+                        HoveredNpc = npc;
+                        bestNpc = hit.distance;
+                    }
+
+                    continue;
+                }
+
                 var entity = hit.collider.GetComponentInParent<CombatEntity>();
                 if (entity != null)
                 {
@@ -289,6 +362,11 @@ namespace Runeheir.Player
             {
                 _hoverRing.SetRadius(HoveredEntity.Radius + 0.2f);
                 _hoverRing.Follow(HoveredEntity.transform);
+            }
+            else if (HoveredNpc != null)
+            {
+                _hoverRing.SetRadius(HoveredNpc.Radius + 0.3f);
+                _hoverRing.Follow(HoveredNpc.transform);
             }
             else
             {

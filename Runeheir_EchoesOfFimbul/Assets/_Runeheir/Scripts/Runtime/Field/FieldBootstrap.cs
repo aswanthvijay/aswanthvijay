@@ -44,7 +44,7 @@ namespace Runeheir.Field
         {
             var settings = RuneheirSettings.Instance;
             ServerRates.Current = settings != null && settings.overrideRates
-                ? new ServerRates { BaseExp = settings.baseExpRate, JobExp = settings.jobExpRate, Drop = settings.dropRate }
+                ? new ServerRates { BaseExp = settings.baseExpRate, JobExp = settings.jobExpRate, Drop = settings.dropRate, CardDrop = settings.cardDropRate }
                 : new ServerRates { BaseExp = baseExpRate, JobExp = jobExpRate, Drop = dropRate };
             EventSystemBootstrap.Ensure();
 
@@ -100,9 +100,11 @@ namespace Runeheir.Field
 
             WorldUiLayer.Create();
             HudController.Create(_player, this);
+            NpcActor.SpawnTownNpcs(save);
 
             ChatLog.System($"Welcome to {FieldContext.MapName}, {record.Name}! Midgard shivers under the Fimbulwinter.");
-            ChatLog.System("Left-click to move/attack · F1–F10 hotkeys · Alt+A status · Alt+S skills · Alt+E items · Enter to chat · @help");
+            ChatLog.System("Left-click to move/attack/talk · F1–F10 hotkeys · Alt+A status · Alt+S skills · Alt+E items · Alt+Q equipment · Enter to chat · @help");
+            ChatLog.System("Ásta (shop), Brokk (forge) and the Norn Courier (storage) wait by the save point.");
             if (session.IsTemporaryCharacter)
             {
                 ChatLog.Notice("Temporary character (scene played directly). Start from RH_Login to use saved characters.");

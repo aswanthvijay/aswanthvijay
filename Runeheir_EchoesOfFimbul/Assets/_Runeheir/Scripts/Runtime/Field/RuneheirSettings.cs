@@ -25,6 +25,7 @@ namespace Runeheir.Field
         [Min(0f)] public float baseExpRate = 50f;
         [Min(0f)] public float jobExpRate = 50f;
         [Min(0f)] public float dropRate = 5f;
+        [Min(0f)] public float cardDropRate = 1f;
 
         private static RuneheirSettings s_cached;
         private static bool s_loaded;

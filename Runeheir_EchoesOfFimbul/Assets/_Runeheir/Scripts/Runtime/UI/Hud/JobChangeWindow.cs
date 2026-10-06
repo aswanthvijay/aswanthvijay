@@ -104,7 +104,7 @@ namespace Runeheir.UI
             }
 
             string detail = eligible
-                ? $"{target.StarterWeapon.Name} · new skills: {(newSkills.Count > 0 ? string.Join(", ", newSkills) : "—")}"
+                ? $"Gift: {target.StarterWeapon.Name} · new skills: {(newSkills.Count > 0 ? string.Join(", ", newSkills) : "—")}"
                 : reason;
             // Two lines at 12 pt: third-class skill lists ("Vortex Cleave, Two-Hand Surge, Rage of Thor") wrap.
             var info = UIFactory.CreateText(button.transform, detail, 12, eligible ? UITheme.Text : UITheme.Error, TextAnchor.UpperLeft);

@@ -1,11 +1,12 @@
 using Runeheir.Characters;
 using Runeheir.Combat;
+using Runeheir.Items;
 using Runeheir.Jobs;
 using UnityEngine;
 
 namespace Runeheir.Visuals
 {
-    /// <summary>Appearance inputs for the placeholder humanoid (job outfit, hair, weapon).</summary>
+    /// <summary>Appearance inputs for the placeholder humanoid (job outfit, hair, weapon and worn gear).</summary>
     public struct AvatarLook
     {
         public Color Outfit;
@@ -14,6 +15,14 @@ namespace Runeheir.Visuals
         public int HairStyle;
         public Gender Gender;
         public WeaponType Weapon;
+
+        /// <summary>Worn pieces drawn on the model (item ids; null when nothing is worn there).</summary>
+        public string HeadUpper;
+
+        public string HeadMid;
+        public string HeadLower;
+        public string Shield;
+        public string Garment;
 
         public static readonly string[] HairStyleNames =
         {
@@ -43,6 +52,9 @@ namespace Runeheir.Visuals
         public static AvatarLook FromRecord(CharacterRecord record)
         {
             var job = JobDatabase.Get(record.Job);
+
+            // A record that never had equipment (the creation preview) shows the job's starter weapon.
+            bool hasGear = record.EquipmentDataVersion >= EquipmentSet.CurrentDataVersion;
             return new AvatarLook
             {
                 Outfit = RuntimeMaterials.Hex(job.ColorHex),
@@ -50,8 +62,22 @@ namespace Runeheir.Visuals
                 Hair = HairPalette[CharacterFactory.Wrap(record.HairColor, HairPalette.Length)],
                 HairStyle = CharacterFactory.Wrap(record.HairStyle, CharacterFactory.HairStyleCount),
                 Gender = record.Gender,
-                Weapon = job.StarterWeapon.Type,
+                Weapon = hasGear ? Worn(record, EquipPosition.Weapon)?.WeaponType ?? WeaponType.Unarmed : job.StarterWeapon.Type,
+                HeadUpper = Worn(record, EquipPosition.HeadUpper)?.Id,
+                HeadMid = Worn(record, EquipPosition.HeadMid)?.Id,
+                HeadLower = Worn(record, EquipPosition.HeadLower)?.Id,
+                Shield = Worn(record, EquipPosition.Shield)?.Id,
+                Garment = Worn(record, EquipPosition.Garment)?.Id,
             };
+        }
+
+        private static ItemDefinition Worn(CharacterRecord record, EquipPosition position)
+        {
+            var equipment = record.Equipment;
+            int index = (int)position;
+            return equipment != null && index < equipment.Length && equipment[index] != null && !equipment[index].IsEmpty
+                ? equipment[index].Definition
+                : null;
         }
     }
 }

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Runeheir.Accounts;
 using Runeheir.Characters;
+using Runeheir.Items;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -92,6 +94,7 @@ namespace Runeheir.Session
         public void Logout()
         {
             ChatLog.Clear();
+            _storage = null;
             Username = null;
             Server = null;
             ActiveCharacter = null;
@@ -185,6 +188,69 @@ namespace Runeheir.Session
         }
 
         private bool _returning;
+
+        private List<ItemStack> _storage;
+
+        /// <summary>
+        /// The account's shared storage (Norn Courier), loaded once per login. A temporary character gets an empty box that is
+        /// never saved. Null when loading failed (the error is in chat).
+        /// </summary>
+        public async Task<List<ItemStack>> LoadStorage()
+        {
+            if (_storage != null)
+            {
+                return _storage;
+            }
+
+            if (!IsLoggedIn || IsTemporaryCharacter)
+            {
+                return _storage = new List<ItemStack>();
+            }
+
+            OpResult<List<ItemStack>> result;
+            try
+            {
+                result = await Accounts.GetStorageAsync(Username);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                result = OpResult<List<ItemStack>>.Fail(exception.Message);
+            }
+
+            if (!result.Success)
+            {
+                ChatLog.Error("Storage could not be opened: " + result.Error);
+                return null;
+            }
+
+            return _storage = result.Value ?? new List<ItemStack>();
+        }
+
+        /// <summary>
+        /// Saves the active character and the storage in one write (an item moved between them is never lost or duplicated).
+        /// A temporary character's storage is not saved and reports success.
+        /// </summary>
+        public Task<OpResult> SaveActiveCharacterAndStorage(List<ItemStack> storage)
+        {
+            if (ActiveCharacter == null || IsTemporaryCharacter || !IsLoggedIn)
+            {
+                return Task.FromResult(OpResult.Ok());
+            }
+
+            Task<OpResult> save;
+            try
+            {
+                save = Accounts.SaveCharacterAndStorageAsync(Username, ActiveCharacter.Clone(), storage);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                save = Task.FromResult(OpResult.Fail(exception.Message));
+            }
+
+            return ReportFailures(save);
+        }
 
         private string _lastReportedSaveError;
 

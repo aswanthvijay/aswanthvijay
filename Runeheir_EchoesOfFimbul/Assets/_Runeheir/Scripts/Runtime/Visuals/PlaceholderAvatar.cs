@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Runeheir.Characters;
 using Runeheir.Combat;
+using Runeheir.Items;
 using Runeheir.Monsters;
 using Runeheir.Skills;
 using UnityEngine;
@@ -20,6 +21,9 @@ namespace Runeheir.Visuals
         private const float StrikeAngle = 300f;
 
         private readonly List<Transform> _wings = new List<Transform>();
+
+        // Garment wings (Valkyrian Feather Wings...): slow glide flap, unlike a flyer monster's buzz.
+        private readonly List<Transform> _gearWings = new List<Transform>();
         private Transform _model;
         private Transform _weaponPivot;
         private bool _lungeAttack;
@@ -122,6 +126,7 @@ namespace Runeheir.Visuals
             }
 
             _wings.Clear();
+            _gearWings.Clear();
             _weaponPivot = null;
             _model = new GameObject("Model").transform;
             _model.SetParent(transform, false);
@@ -160,6 +165,188 @@ namespace Runeheir.Visuals
             Part(PrimitiveType.Capsule, _weaponPivot, "ArmR", new Vector3(0f, -0.22f, 0f), new Vector3(0.13f, 0.28f, 0.13f), dark);
             BuildWeapon(look.Weapon);
             _weaponPivot.localRotation = Quaternion.Euler(RestAngle, 0f, 0f);
+            BuildGear(look);
+        }
+
+        // ------------------------------------------------------------------ worn gear (GDD §5 visible headgear, shields, wings)
+        private void BuildGear(AvatarLook look)
+        {
+            BuildUpperHeadgear(ItemCatalog.Get(look.HeadUpper));
+            BuildMidHeadgear(ItemCatalog.Get(look.HeadMid));
+            BuildLowerHeadgear(ItemCatalog.Get(look.HeadLower));
+            BuildShield(ItemCatalog.Get(look.Shield));
+            BuildGarment(ItemCatalog.Get(look.Garment));
+        }
+
+        private static Color ViewColor(ItemDefinition item)
+        {
+            return RuntimeMaterials.Hex(item.ViewColorHex ?? item.IconColorHex ?? "#BDC3C7");
+        }
+
+        private void BuildUpperHeadgear(ItemDefinition item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Color color = ViewColor(item);
+            Color trim = Color.Lerp(color, Color.white, 0.4f);
+            string id = item.Id;
+            if (id.Contains("wizard_hat"))
+            {
+                Part(PrimitiveType.Cylinder, _model, "HatBrim", new Vector3(0f, 1.7f, 0f), new Vector3(0.7f, 0.02f, 0.7f), color);
+                Part(PrimitiveType.Capsule, _model, "HatCone", new Vector3(0f, 1.98f, -0.04f), new Vector3(0.3f, 0.3f, 0.3f), color, new Vector3(-12f, 0f, 0f));
+                Part(PrimitiveType.Sphere, _model, "HatTip", new Vector3(0f, 2.22f, -0.12f), Vector3.one * 0.1f, new Color(0.96f, 0.82f, 0.25f));
+            }
+            else if (id.Contains("crown") || id.Contains("circlet"))
+            {
+                Part(PrimitiveType.Cylinder, _model, "Band", new Vector3(0f, 1.7f, 0f), new Vector3(0.47f, 0.035f, 0.47f), color);
+                if (id.Contains("antler"))
+                {
+                    Part(PrimitiveType.Cylinder, _model, "AntlerL", new Vector3(-0.2f, 1.9f, 0f), new Vector3(0.04f, 0.2f, 0.04f), color, new Vector3(0f, 0f, 30f));
+                    Part(PrimitiveType.Cylinder, _model, "AntlerR", new Vector3(0.2f, 1.9f, 0f), new Vector3(0.04f, 0.2f, 0.04f), color, new Vector3(0f, 0f, -30f));
+                }
+                else
+                {
+                    for (int i = -1; i <= 1; i++)
+                    {
+                        Part(PrimitiveType.Cube, _model, "Point", new Vector3(i * 0.12f, 1.77f, 0.2f), new Vector3(0.05f, 0.1f, 0.03f), trim, new Vector3(0f, 0f, 45f));
+                    }
+                }
+            }
+            else if (id.Contains("hood"))
+            {
+                Part(PrimitiveType.Sphere, _model, "Hood", new Vector3(0f, 1.6f, -0.04f), new Vector3(0.52f, 0.46f, 0.52f), color);
+                if (id.Contains("wolf"))
+                {
+                    Part(PrimitiveType.Cube, _model, "EarL", new Vector3(-0.14f, 1.86f, 0f), new Vector3(0.08f, 0.14f, 0.05f), color);
+                    Part(PrimitiveType.Cube, _model, "EarR", new Vector3(0.14f, 1.86f, 0f), new Vector3(0.08f, 0.14f, 0.05f), color);
+                }
+            }
+            else if (id.Contains("beret") || id.Contains("cap") || id.Contains("bandana"))
+            {
+                Part(PrimitiveType.Sphere, _model, "Cap", new Vector3(0.03f, 1.74f, 0f), new Vector3(0.5f, 0.16f, 0.48f), color, new Vector3(0f, 0f, -8f));
+                if (id.Contains("feather"))
+                {
+                    Part(PrimitiveType.Cube, _model, "Feather", new Vector3(-0.18f, 1.86f, -0.05f), new Vector3(0.03f, 0.22f, 0.06f), Color.white, new Vector3(-20f, 0f, 25f));
+                }
+            }
+            else
+            {
+                // Helms and crests.
+                Part(PrimitiveType.Sphere, _model, "Helm", new Vector3(0f, 1.63f, 0f), new Vector3(0.48f, 0.36f, 0.48f), color);
+                if (id.Contains("horned") || id.Contains("viking") || id.Contains("awe"))
+                {
+                    Part(PrimitiveType.Capsule, _model, "HornL", new Vector3(-0.27f, 1.78f, 0f), new Vector3(0.07f, 0.16f, 0.07f), trim, new Vector3(0f, 0f, 40f));
+                    Part(PrimitiveType.Capsule, _model, "HornR", new Vector3(0.27f, 1.78f, 0f), new Vector3(0.07f, 0.16f, 0.07f), trim, new Vector3(0f, 0f, -40f));
+                }
+                else if (id.Contains("winged"))
+                {
+                    Part(PrimitiveType.Cube, _model, "WingletL", new Vector3(-0.27f, 1.7f, -0.05f), new Vector3(0.04f, 0.16f, 0.24f), trim, new Vector3(-25f, 0f, 15f));
+                    Part(PrimitiveType.Cube, _model, "WingletR", new Vector3(0.27f, 1.7f, -0.05f), new Vector3(0.04f, 0.16f, 0.24f), trim, new Vector3(-25f, 0f, -15f));
+                }
+
+                if ((item.Slots & EquipSlot.HeadMid) != 0)
+                {
+                    Part(PrimitiveType.Cube, _model, "NasalGuard", new Vector3(0f, 1.55f, 0.21f), new Vector3(0.04f, 0.14f, 0.03f), color);
+                }
+            }
+        }
+
+        private void BuildMidHeadgear(ItemDefinition item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Color color = ViewColor(item);
+            if (item.Id.Contains("eyepatch"))
+            {
+                Part(PrimitiveType.Sphere, _model, "Patch", new Vector3(0.08f, 1.55f, 0.2f), new Vector3(0.1f, 0.09f, 0.04f), color);
+            }
+            else if (item.Id.Contains("monocle"))
+            {
+                Part(PrimitiveType.Cylinder, _model, "Monocle", new Vector3(-0.08f, 1.55f, 0.21f), new Vector3(0.1f, 0.01f, 0.1f), color, new Vector3(90f, 0f, 0f));
+            }
+            else
+            {
+                Part(PrimitiveType.Cube, _model, "Eyewear", new Vector3(0f, 1.56f, 0.2f), new Vector3(0.34f, 0.07f, 0.04f), color);
+            }
+        }
+
+        private void BuildLowerHeadgear(ItemDefinition item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Color color = ViewColor(item);
+            if (item.Id.Contains("pipe"))
+            {
+                Part(PrimitiveType.Cylinder, _model, "Pipe", new Vector3(0.06f, 1.42f, 0.27f), new Vector3(0.03f, 0.08f, 0.03f), color, new Vector3(80f, 0f, 0f));
+                Part(PrimitiveType.Cylinder, _model, "Bowl", new Vector3(0.06f, 1.44f, 0.36f), new Vector3(0.07f, 0.05f, 0.07f), color);
+            }
+            else if (item.Id.Contains("beard"))
+            {
+                Part(PrimitiveType.Capsule, _model, "Beard", new Vector3(0f, 1.32f, 0.14f), new Vector3(0.22f, 0.16f, 0.12f), color);
+            }
+            else
+            {
+                Part(PrimitiveType.Cube, _model, "Mask", new Vector3(0f, 1.43f, 0.19f), new Vector3(0.26f, 0.1f, 0.05f), color);
+            }
+        }
+
+        private void BuildShield(ItemDefinition item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Color color = ViewColor(item);
+            if (item.Id.Contains("kite"))
+            {
+                Part(PrimitiveType.Cube, _model, "Shield", new Vector3(-0.44f, 0.92f, 0.08f), new Vector3(0.04f, 0.5f, 0.32f), color);
+            }
+            else
+            {
+                Part(PrimitiveType.Cylinder, _model, "Shield", new Vector3(-0.44f, 0.95f, 0.08f), new Vector3(0.44f, 0.025f, 0.44f), color, new Vector3(0f, 0f, 90f));
+                Part(PrimitiveType.Sphere, _model, "Boss", new Vector3(-0.47f, 0.95f, 0.08f), Vector3.one * 0.1f, Color.Lerp(color, Color.white, 0.5f));
+            }
+        }
+
+        private void BuildGarment(ItemDefinition item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Color color = ViewColor(item);
+            if (item.Id.Contains("wings"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var pivot = new GameObject(side < 0 ? "WingPivotL" : "WingPivotR").transform;
+                    pivot.SetParent(_model, false);
+                    pivot.localPosition = new Vector3(side * 0.1f, 1.18f, -0.22f);
+                    Part(PrimitiveType.Cube, pivot, "Wing", new Vector3(side * 0.36f, 0.1f, 0f), new Vector3(0.62f, 0.3f, 0.03f), color, new Vector3(0f, 0f, side * 18f));
+                    Part(PrimitiveType.Cube, pivot, "WingTip", new Vector3(side * 0.62f, 0.28f, 0f), new Vector3(0.24f, 0.18f, 0.03f), Color.Lerp(color, Color.white, 0.3f), new Vector3(0f, 0f, side * 40f));
+                    _gearWings.Add(pivot);
+                }
+            }
+            else if (item.Id.Contains("muffler"))
+            {
+                Part(PrimitiveType.Cylinder, _model, "Scarf", new Vector3(0f, 1.28f, 0f), new Vector3(0.4f, 0.06f, 0.38f), color);
+                Part(PrimitiveType.Cube, _model, "ScarfTail", new Vector3(0.1f, 1.08f, -0.2f), new Vector3(0.1f, 0.34f, 0.03f), color, new Vector3(10f, 0f, 8f));
+            }
+            else
+            {
+                Part(PrimitiveType.Cube, _model, "Cape", new Vector3(0f, 0.86f, -0.23f), new Vector3(0.52f, 0.86f, 0.04f), color, new Vector3(8f, 0f, 0f));
+            }
         }
 
         private void BuildHair(int style, Color hair)
@@ -400,6 +587,13 @@ namespace Runeheir.Visuals
             {
                 float flap = Mathf.Sin(Time.time * 18f) * 35f;
                 _wings[i].localRotation = Quaternion.Euler(0f, 0f, i == 0 ? flap : -flap);
+            }
+
+            float glide = Mathf.Sin(Time.time * (_speed > 0.1f ? 6f : 2.2f)) * 14f;
+            for (int i = 0; i < _gearWings.Count; i++)
+            {
+                float side = i == 0 ? 1f : -1f;
+                _gearWings[i].localRotation = Quaternion.Euler(0f, -side * (22f + glide), side * glide * 0.5f); // swept back, gently beating
             }
         }
 

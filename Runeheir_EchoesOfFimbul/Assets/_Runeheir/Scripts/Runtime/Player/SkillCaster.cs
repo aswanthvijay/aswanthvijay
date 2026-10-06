@@ -509,7 +509,8 @@ namespace Runeheir.Player
             float delay = skill.AfterCastDelay.At(level);
             _globalDelayTotal = delay;
             _globalDelayEnds = now + delay;
-            float cooldown = skill.Cooldown.At(level);
+            // Naga Queen Card and similar: shorter (or longer) cooldowns.
+            float cooldown = skill.Cooldown.At(level) * Mathf.Max(0.1f, 1f + _owner.Stats.CooldownPercent / 100f);
             if (cooldown > 0f)
             {
                 _cooldownEnds[skill.Id] = now + cooldown;

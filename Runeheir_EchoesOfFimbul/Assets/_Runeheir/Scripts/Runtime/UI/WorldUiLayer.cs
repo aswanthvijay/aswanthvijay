@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Runeheir.Combat;
+using Runeheir.Field;
 using Runeheir.Player;
 using Runeheir.Visuals;
 using UnityEngine;
@@ -17,7 +18,9 @@ namespace Runeheir.UI
         private const float HpBarShowSeconds = 5f;
 
         private readonly Dictionary<CombatEntity, Plate> _plates = new Dictionary<CombatEntity, Plate>();
+        private readonly Dictionary<NpcActor, Text> _npcLabels = new Dictionary<NpcActor, Text>();
         private readonly List<CombatEntity> _stale = new List<CombatEntity>();
+        private readonly List<NpcActor> _staleNpcs = new List<NpcActor>();
         private readonly List<Floater> _floaters = new List<Floater>();
         private readonly Stack<Floater> _pool = new Stack<Floater>();
 
@@ -107,6 +110,10 @@ namespace Runeheir.UI
             {
                 ShowText(target, "Miss", new Color(0.6f, 0.85f, 1f), 22, 0.9f);
             }
+            else if (result.IsBlocked && result.Absorbed > 0)
+            {
+                ShowText(target, "Absorbed", new Color(0.6f, 0.85f, 1f), 22, 0.9f);
+            }
             else if (result.IsBlocked)
             {
                 ShowText(target, "Blocked", new Color(0.55f, 0.85f, 1f), 22, 0.9f);
@@ -153,6 +160,7 @@ namespace Runeheir.UI
 
             SyncPlates();
             UpdatePlates();
+            UpdateNpcLabels();
             UpdateFloaters();
         }
 
@@ -248,6 +256,46 @@ namespace Runeheir.UI
                         ? new Color(1f, 0.6f, 0.55f)
                         : UITheme.Text;
                 }
+            }
+        }
+
+        // ------------------------------------------------------------ NPC names (always shown, Ragnarok style)
+        private void UpdateNpcLabels()
+        {
+            foreach (var npc in NpcActor.All)
+            {
+                if (!_npcLabels.ContainsKey(npc))
+                {
+                    var label = UIFactory.CreateText(_plateRoot, $"{npc.DisplayName}\n<size=12><color=#EBC466>[{npc.Title}]</color></size>", 15,
+                        new Color(0.75f, 0.9f, 1f), TextAnchor.LowerCenter, FontStyle.Bold);
+                    label.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    label.verticalOverflow = VerticalWrapMode.Overflow;
+                    label.rectTransform.anchorMin = label.rectTransform.anchorMax = Vector2.zero;
+                    label.rectTransform.pivot = new Vector2(0.5f, 0f);
+                    label.rectTransform.sizeDelta = new Vector2(220f, 40f);
+                    UIFactory.AddOutline(label, new Color(0f, 0f, 0f, 0.9f), 1f);
+                    _npcLabels[npc] = label;
+                }
+            }
+
+            _staleNpcs.Clear();
+            foreach (var pair in _npcLabels)
+            {
+                if (pair.Key == null || !pair.Key.isActiveAndEnabled)
+                {
+                    _staleNpcs.Add(pair.Key);
+                    Destroy(pair.Value.gameObject);
+                    continue;
+                }
+
+                Vector3 screen = _camera.WorldToScreenPoint(pair.Key.Position + Vector3.up * (pair.Key.Height + 0.35f));
+                pair.Value.gameObject.SetActive(screen.z > 0f);
+                pair.Value.rectTransform.position = new Vector3(screen.x, screen.y, 0f);
+            }
+
+            foreach (var npc in _staleNpcs)
+            {
+                _npcLabels.Remove(npc);
             }
         }
 

@@ -81,6 +81,9 @@ namespace Runeheir.Characters
         public float JobExp = 50f;
         public float Drop = 5f;
 
+        /// <summary>Soul Cards keep the GDD §6 rates (0.5–1%, MVPs 0.01%) unless a server raises this.</summary>
+        public float CardDrop = 1f;
+
         public static ServerRates Current { get; set; } = new ServerRates();
     }
 }
