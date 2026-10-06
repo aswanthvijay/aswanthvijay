@@ -45,6 +45,7 @@ namespace Runeheir.UI
             player.Hotkeys.Changed += Refresh;
             player.Inventory.Changed += Refresh;
             player.Progression.JobChanged += Refresh;
+            player.SkillBook.Changed += Refresh;
             _controller.PageChanged += Refresh;
             _controller.SlotActivated += OnSlotActivated;
             Refresh();
@@ -55,6 +56,7 @@ namespace Runeheir.UI
             _player.Hotkeys.Changed -= Refresh;
             _player.Inventory.Changed -= Refresh;
             _player.Progression.JobChanged -= Refresh;
+            _player.SkillBook.Changed -= Refresh;
             _controller.PageChanged -= Refresh;
             _controller.SlotActivated -= OnSlotActivated;
         }
@@ -86,7 +88,9 @@ namespace Runeheir.UI
                 }
                 else if (slot.Kind == HotkeyKind.Skill)
                 {
-                    usable = Skills.SkillCatalog.CanUse(_player.Record.Job, slot.Id);
+                    var skill = Skills.SkillCatalog.Get(slot.Id);
+                    usable = skill != null && _player.SkillBook.UsableLevel(slot.Id) > 0 && !skill.Passive
+                             && Combat.WeaponMasks.Allows(skill.Weapons, _player.Weapon.Type);
                 }
 
                 var tint = view.Icon.color;
@@ -189,7 +193,7 @@ namespace Runeheir.UI
             var pointer = background.gameObject.AddComponent<UIPointerHandler>();
             pointer.LeftClick = () => _controller.Activate(FlatIndex(index));
             pointer.RightClick = () => _player.Hotkeys.Clear(FlatIndex(index));
-            pointer.PointerEnter = () => UITooltip.Show(HudIcons.Tooltip(_player.Hotkeys.Get(FlatIndex(index)), _player.Stats.CastTimeMultiplier));
+            pointer.PointerEnter = () => UITooltip.Show(HudIcons.Tooltip(_player.Hotkeys.Get(FlatIndex(index)), _player));
             pointer.PointerExit = UITooltip.Hide;
             return view;
         }

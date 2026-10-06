@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Runeheir.Characters;
 using Runeheir.Jobs;
+using Runeheir.Skills;
 using Runeheir.Stats;
 
 namespace Runeheir.Tests
@@ -99,6 +100,7 @@ namespace Runeheir.Tests
         {
             var progression = NewCharacter();
             progression.GainExperience(0, long.MaxValue / 4); // Initiate Job 10: 9 points
+            new SkillBook(progression.Record).SetLevel(SkillBook.BasicTrainingId, 9); // GM-set: keeps the 9 points
             Assert.IsTrue(progression.TryChangeJob(JobId.Warrior, out _));
             progression.SetJobLevel(2);
             Assert.AreEqual(10, progression.Record.SkillPoints);
@@ -178,6 +180,16 @@ namespace Runeheir.Tests
 
             progression.SetJobLevel(10);
             Assert.IsFalse(progression.TryChangeJob(JobId.Berserker, out _), "cannot skip a tier");
+            Assert.IsFalse(progression.TryChangeJob(JobId.Warrior, out string reason), "needs Basic Training 9");
+            StringAssert.Contains("Basic Training", reason);
+
+            var book = new SkillBook(progression.Record);
+            for (int i = 0; i < 9; i++)
+            {
+                Assert.IsTrue(book.TryLearn(SkillBook.BasicTrainingId, out string why), why);
+            }
+
+            Assert.AreEqual(0, progression.Record.SkillPoints, "Job 10 gives exactly the 9 points Basic Training needs");
             Assert.IsTrue(progression.TryChangeJob(JobId.Warrior, out _));
             Assert.AreEqual(1, progression.Record.JobLevel);
             Assert.AreEqual(50, progression.Job.MaxJobLevel);

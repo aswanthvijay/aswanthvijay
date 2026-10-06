@@ -99,7 +99,11 @@ namespace Runeheir.UI
                 plate.ShowHpUntil = Time.time + HpBarShowSeconds;
             }
 
-            if (result.IsMiss)
+            if (result.IsDamageOverTime)
+            {
+                ShowText(target, result.Amount.ToString("N0"), new Color(0.75f, 0.45f, 0.95f), 20, 0.9f);
+            }
+            else if (result.IsMiss)
             {
                 ShowText(target, "Miss", new Color(0.6f, 0.85f, 1f), 22, 0.9f);
             }

@@ -131,20 +131,34 @@ namespace Runeheir.Tests
         public void GddConstants_SkillsBuffsAndRunestones()
         {
             // GDD §3 signature skills.
+            // Signature skills keep the GDD numbers at their max level.
             var barrage = SkillCatalog.Get("phantom_barrage");
-            Assert.AreEqual(8, barrage.Hits);
+            Assert.AreEqual(8, barrage.Hits.AtInt(barrage.MaxLevel));
+            Assert.AreEqual(110f, barrage.Power.At(barrage.MaxLevel));
             Assert.AreEqual(StatusEffect.Stun, barrage.Status);
-            Assert.AreEqual(100f, barrage.StatusChance);
+            Assert.AreEqual(100f, barrage.StatusChance.At(1), "guaranteed stun at every level");
+            Assert.IsTrue(barrage.GuaranteedStatus, "resistance can't weaken the GDD's guaranteed stun");
 
             var tempest = SkillCatalog.Get("glacial_tempest");
-            Assert.Greater(tempest.Hits, 1);
+            Assert.AreEqual(5, tempest.Hits.AtInt(tempest.MaxLevel));
+            Assert.AreEqual(200f, tempest.Power.At(tempest.MaxLevel));
+            Assert.AreEqual(35f, tempest.StatusChance.At(tempest.MaxLevel));
             Assert.AreEqual(StatusEffect.Freeze, tempest.Status);
 
+            var aegisSkill = SkillCatalog.Get("runic_aegis");
+            Assert.AreEqual(10, aegisSkill.BuffCharges.AtInt(aegisSkill.MaxLevel), "GDD: blocks 10 hits");
             var aegis = BuffCatalog.Get(BuffCatalog.RunicAegis);
-            Assert.AreEqual(10, aegis.Charges);
             Assert.AreEqual(BuffTraits.MeleeBlockCharges, aegis.Traits & BuffTraits.MeleeBlockCharges);
 
             Assert.AreEqual(40f, BuffCatalog.Get(BuffCatalog.MiasmaWeapon).Duration);
+            var surge = SkillCatalog.Get("two_hand_surge");
+            Assert.AreEqual(60f, surge.BuffDuration.At(surge.MaxLevel));
+            var rageSkill = SkillCatalog.Get("rage_of_thor");
+            Assert.AreEqual(30f, rageSkill.BuffDuration.At(rageSkill.MaxLevel));
+            var fist = SkillCatalog.Get("fist_of_odin");
+            Assert.AreEqual(1750f, fist.FlatDamage.At(fist.MaxLevel));
+            var snap = SkillCatalog.Get("aether_snap");
+            Assert.AreEqual(8f, snap.Range.At(snap.MaxLevel));
 
             var rage = BuffCatalog.Get(BuffCatalog.RageOfThor).Modifiers;
             Assert.IsTrue(rage.HyperArmor && rage.UninterruptibleCasting && rage.ItemsLocked);
@@ -210,8 +224,11 @@ namespace Runeheir.Tests
         [Test]
         public void MiasmaWeapon_QuadruplesPhysicalDamage()
         {
+            // GDD: x4 (400%) at max level (Lv 5).
+            var buffs = new BuffContainer();
+            buffs.Apply(BuffCatalog.Get(BuffCatalog.MiasmaWeapon), now: 0, level: SkillCatalog.Get("miasma_weapon").MaxLevel);
             var attacker = Attacker();
-            attacker.PhysicalDamagePercent = BuffCatalog.Get(BuffCatalog.MiasmaWeapon).Modifiers.PhysicalDamagePercent;
+            attacker.PhysicalDamagePercent = buffs.Aggregate.PhysicalDamagePercent;
             var result = DamageCalculator.Physical(attacker, Defender(), 100f, false, new SequenceRandom(0.0, 0.5));
             Assert.AreEqual(800, result.Amount);
         }
@@ -240,8 +257,8 @@ namespace Runeheir.Tests
         public void Buffs_ExpireAndAggregate()
         {
             var buffs = new BuffContainer();
-            buffs.Apply(BuffCatalog.Get(BuffCatalog.TwoHandSurge), now: 0);
-            Assert.AreEqual(7f, buffs.Aggregate.AspdFlat);
+            buffs.Apply(BuffCatalog.Get(BuffCatalog.TwoHandSurge), now: 0, level: 10);
+            Assert.AreEqual(7f, buffs.Aggregate.AspdFlat, 0.001f, "GDD: +7 ASPD at Lv 10");
             Assert.IsTrue(buffs.Aggregate.CancelAttackRecovery);
 
             buffs.Tick(59.9);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Runeheir.Hotkeys;
 using Runeheir.Items;
 using Runeheir.Jobs;
+using Runeheir.Skills;
 using Runeheir.Stats;
 
 namespace Runeheir.Characters
@@ -11,6 +12,24 @@ namespace Runeheir.Characters
     {
         Male = 0,
         Female = 1,
+    }
+
+    /// <summary>One learned skill and its level.</summary>
+    [Serializable]
+    public sealed class LearnedSkill
+    {
+        public string Id;
+        public int Level;
+
+        public LearnedSkill()
+        {
+        }
+
+        public LearnedSkill(string id, int level)
+        {
+            Id = id;
+            Level = level;
+        }
     }
 
     /// <summary>
@@ -50,6 +69,12 @@ namespace Runeheir.Characters
         public List<ItemStack> Inventory = new List<ItemStack>();
         public HotkeySlot[] Hotkeys = HotkeyLayout.CreateEmptyArray();
 
+        /// <summary>Learned skills and levels (Phase 3). Granted skills (First Aid) are always present.</summary>
+        public List<LearnedSkill> Skills = new List<LearnedSkill>();
+
+        /// <summary>0 = saved before skill levels existed; <see cref="Sanitize"/> migrates it to <see cref="SkillBook.CurrentDataVersion"/>.</summary>
+        public int SkillDataVersion;
+
         public long CreatedUnixMs;
         public long LastPlayedUnixMs;
 
@@ -67,6 +92,18 @@ namespace Runeheir.Characters
             }
 
             copy.Hotkeys = (HotkeySlot[])HotkeyLayout.Normalize(Hotkeys).Clone();
+            copy.Skills = new List<LearnedSkill>();
+            if (Skills != null)
+            {
+                foreach (var skill in Skills)
+                {
+                    if (skill != null)
+                    {
+                        copy.Skills.Add(new LearnedSkill(skill.Id, skill.Level));
+                    }
+                }
+            }
+
             return copy;
         }
 
@@ -108,6 +145,9 @@ namespace Runeheir.Characters
                 MapId = MapCatalog.StartingMapId;
                 HasSavedPosition = false;
             }
+
+            SkillPoints = Math.Max(0, SkillPoints);
+            SkillBook.SanitizeSkills(this);
         }
     }
 

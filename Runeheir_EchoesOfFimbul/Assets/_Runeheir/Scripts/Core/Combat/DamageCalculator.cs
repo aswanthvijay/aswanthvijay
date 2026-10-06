@@ -78,6 +78,10 @@ namespace Runeheir.Combat
         public bool IsCritical;
         public bool IsMiss;
         public bool IsBlocked;
+
+        /// <summary>Poison/bleeding tick: no hit reaction, no cast interrupt, shown smaller.</summary>
+        public bool IsDamageOverTime;
+
         public float ElementMultiplier;
 
         public static DamageResult Miss()

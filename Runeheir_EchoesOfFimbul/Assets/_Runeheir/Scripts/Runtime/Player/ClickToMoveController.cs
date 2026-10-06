@@ -137,7 +137,8 @@ namespace Runeheir.Player
                 return;
             }
 
-            if (!HoveredGround.HasValue || _caster.IsCasting)
+            // Walking cancels nothing mid-cast, so it is only allowed with Free Cast.
+            if (!HoveredGround.HasValue || (_caster.IsCasting && !_caster.CanMoveWhileCasting))
             {
                 return;
             }
@@ -297,7 +298,8 @@ namespace Runeheir.Player
             var skill = _caster.TargetingSkill;
             if (skill != null && skill.Target == SkillTarget.Ground && HoveredGround.HasValue)
             {
-                _aoePreview.SetRadius(skill.Radius > 0f ? skill.Radius : 0.6f);
+                float radius = skill.Radius.At(_caster.TargetingLevel);
+                _aoePreview.SetRadius(radius > 0f ? radius : 0.6f);
                 _aoePreview.ShowAt(HoveredGround.Value);
             }
             else

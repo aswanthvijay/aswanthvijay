@@ -21,6 +21,11 @@ namespace Runeheir.Stats
         public int Flee;
         public float Crit;
 
+        /// <summary>Percent HIT / FLEE (Blind -25).</summary>
+        public float HitPercent;
+
+        public float FleePercent;
+
         public int MaxHp;
         public int MaxSp;
         public float MaxHpPercent;
@@ -57,8 +62,38 @@ namespace Runeheir.Stats
         /// <summary>Casting cannot be interrupted by damage (Naga Scout / Phen).</summary>
         public bool UninterruptibleCasting;
 
-        /// <summary>Rage of Thor "hyper-armor": no flinch, no knockback.</summary>
+        /// <summary>Rage of Thor "hyper-armor": no flinch, no knockback, never staggered.</summary>
         public bool HyperArmor;
+
+        /// <summary>Percent hard and soft DEF (Provoke and Poison lower it).</summary>
+        public float DefPercent;
+
+        public float MdefPercent;
+
+        /// <summary>Flat HP/SP per regen tick (Iron Constitution, Mana Focus).</summary>
+        public int HpRegenFlat;
+
+        public int SpRegenFlat;
+
+        /// <summary>Extra basic-attack reach in meters (Vulture Eye).</summary>
+        public float AttackRange;
+
+        /// <summary>Percent damage taken; negative = less (Freyja's Shield, Divine Bulwark).</summary>
+        public float DamageTakenPercent;
+
+        /// <summary>Percent chance to block a physical melee hit outright (Guardian's Oath).</summary>
+        public float BlockChance;
+
+        /// <summary>+% poise damage dealt (Thurisaz runestone +200 = x3).</summary>
+        public float PoiseDamagePercent;
+
+        public float MaxPoisePercent;
+
+        /// <summary>Can't be staggered (Endure). Hyper-armor implies it.</summary>
+        public bool StaggerImmune;
+
+        /// <summary>Walk at this percent of normal speed while casting (Free Cast). 0 = rooted while casting.</summary>
+        public float CastMoveSpeedPercent;
 
         public static StatModifiers Empty()
         {
@@ -90,7 +125,17 @@ namespace Runeheir.Stats
 
         public void Add(StatModifiers other)
         {
-            if (other == null)
+            AddScaled(other, 1f);
+        }
+
+        /// <summary>
+        /// Adds <paramref name="other"/> <paramref name="times"/> times over (per skill level / per stack).
+        /// Flat values and percents scale; a multiplier m scales as 1 + (m - 1) x times; overrides and flags
+        /// apply once when <paramref name="times"/> &gt; 0.
+        /// </summary>
+        public void AddScaled(StatModifiers other, float times)
+        {
+            if (other == null || times == 0f)
             {
                 return;
             }
@@ -98,61 +143,77 @@ namespace Runeheir.Stats
             EnsureStatArray();
             for (int i = 0; i < StatTypes.Count; i++)
             {
-                FlatStats[i] += other.GetStat((StatType)i);
+                FlatStats[i] += Scale(other.GetStat((StatType)i), times);
             }
 
-            Atk += other.Atk;
-            Matk += other.Matk;
-            Def += other.Def;
-            Mdef += other.Mdef;
-            Hit += other.Hit;
-            Flee += other.Flee;
-            Crit += other.Crit;
-            MaxHp += other.MaxHp;
-            MaxSp += other.MaxSp;
-            MaxHpPercent += other.MaxHpPercent;
-            MaxSpPercent += other.MaxSpPercent;
-            MaxHpMultiplier *= other.MaxHpMultiplier;
-            AspdFlat += other.AspdFlat;
-            AspdPercent += other.AspdPercent;
-            AspdOverride = Math.Max(AspdOverride, other.AspdOverride);
-            CastTimePercent += other.CastTimePercent;
-            MoveSpeedPercent += other.MoveSpeedPercent;
-            PhysicalDamagePercent += other.PhysicalDamagePercent;
-            MagicDamagePercent += other.MagicDamagePercent;
-            CancelAttackRecovery |= other.CancelAttackRecovery;
-            ItemsLocked |= other.ItemsLocked;
-            UninterruptibleCasting |= other.UninterruptibleCasting;
-            HyperArmor |= other.HyperArmor;
+            Atk += Scale(other.Atk, times);
+            Matk += Scale(other.Matk, times);
+            Def += Scale(other.Def, times);
+            Mdef += Scale(other.Mdef, times);
+            Hit += Scale(other.Hit, times);
+            Flee += Scale(other.Flee, times);
+            Crit += other.Crit * times;
+            HitPercent += other.HitPercent * times;
+            FleePercent += other.FleePercent * times;
+            MaxHp += Scale(other.MaxHp, times);
+            MaxSp += Scale(other.MaxSp, times);
+            MaxHpPercent += other.MaxHpPercent * times;
+            MaxSpPercent += other.MaxSpPercent * times;
+            MaxHpMultiplier *= 1f + (other.MaxHpMultiplier - 1f) * times;
+            AspdFlat += other.AspdFlat * times;
+            AspdPercent += other.AspdPercent * times;
+            CastTimePercent += other.CastTimePercent * times;
+            MoveSpeedPercent += other.MoveSpeedPercent * times;
+            PhysicalDamagePercent += other.PhysicalDamagePercent * times;
+            MagicDamagePercent += other.MagicDamagePercent * times;
+            DefPercent += other.DefPercent * times;
+            MdefPercent += other.MdefPercent * times;
+            HpRegenFlat += Scale(other.HpRegenFlat, times);
+            SpRegenFlat += Scale(other.SpRegenFlat, times);
+            AttackRange += other.AttackRange * times;
+            DamageTakenPercent += other.DamageTakenPercent * times;
+            BlockChance += other.BlockChance * times;
+            PoiseDamagePercent += other.PoiseDamagePercent * times;
+            MaxPoisePercent += other.MaxPoisePercent * times;
+            CastMoveSpeedPercent += other.CastMoveSpeedPercent * times;
+            if (times > 0f)
+            {
+                AspdOverride = Math.Max(AspdOverride, other.AspdOverride);
+                CancelAttackRecovery |= other.CancelAttackRecovery;
+                ItemsLocked |= other.ItemsLocked;
+                UninterruptibleCasting |= other.UninterruptibleCasting;
+                HyperArmor |= other.HyperArmor;
+                StaggerImmune |= other.StaggerImmune;
+            }
         }
 
         public void Clear()
         {
-            var empty = new StatModifiers();
             FlatStats = new int[StatTypes.Count];
-            Atk = empty.Atk;
-            Matk = empty.Matk;
-            Def = empty.Def;
-            Mdef = empty.Mdef;
-            Hit = empty.Hit;
-            Flee = empty.Flee;
-            Crit = empty.Crit;
-            MaxHp = empty.MaxHp;
-            MaxSp = empty.MaxSp;
-            MaxHpPercent = empty.MaxHpPercent;
-            MaxSpPercent = empty.MaxSpPercent;
-            MaxHpMultiplier = empty.MaxHpMultiplier;
-            AspdFlat = empty.AspdFlat;
-            AspdPercent = empty.AspdPercent;
-            AspdOverride = empty.AspdOverride;
-            CastTimePercent = empty.CastTimePercent;
-            MoveSpeedPercent = empty.MoveSpeedPercent;
-            PhysicalDamagePercent = empty.PhysicalDamagePercent;
-            MagicDamagePercent = empty.MagicDamagePercent;
-            CancelAttackRecovery = empty.CancelAttackRecovery;
-            ItemsLocked = empty.ItemsLocked;
-            UninterruptibleCasting = empty.UninterruptibleCasting;
-            HyperArmor = empty.HyperArmor;
+            Atk = Matk = Def = Mdef = Hit = Flee = 0;
+            Crit = HitPercent = FleePercent = 0f;
+            MaxHp = MaxSp = 0;
+            MaxHpPercent = MaxSpPercent = 0f;
+            MaxHpMultiplier = 1f;
+            AspdFlat = AspdPercent = AspdOverride = 0f;
+            CastTimePercent = MoveSpeedPercent = 0f;
+            PhysicalDamagePercent = MagicDamagePercent = 0f;
+            CancelAttackRecovery = ItemsLocked = UninterruptibleCasting = HyperArmor = StaggerImmune = false;
+            DefPercent = MdefPercent = 0f;
+            HpRegenFlat = SpRegenFlat = 0;
+            AttackRange = DamageTakenPercent = BlockChance = PoiseDamagePercent = MaxPoisePercent = CastMoveSpeedPercent = 0f;
+        }
+
+        public StatModifiers Clone()
+        {
+            var copy = new StatModifiers();
+            copy.Add(this);
+            return copy;
+        }
+
+        private static int Scale(int value, float times)
+        {
+            return (int)Math.Round(value * times, MidpointRounding.AwayFromZero);
         }
 
         private void EnsureStatArray()

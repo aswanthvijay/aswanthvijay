@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Runeheir.Characters;
 using Runeheir.Combat;
 using Runeheir.Monsters;
+using Runeheir.Skills;
 using UnityEngine;
 
 namespace Runeheir.Visuals
@@ -32,6 +33,10 @@ namespace Runeheir.Visuals
         private float _castBlend;
         private bool _dead;
         private float _deadBlend;
+        private SkillMotion _skillMotion;
+        private float _skillStart = -10f;
+        private float _skillDuration = 0.4f;
+        private float _staggerUntil;
 
         public static PlaceholderAvatar CreateHumanoid(Transform parent, AvatarLook look)
         {
@@ -79,6 +84,26 @@ namespace Runeheir.Visuals
             _hitUntil = Time.time + 0.15f;
         }
 
+        /// <summary>Skill motion (spin, thrust, cast, shoot, punch, leap, buff) lasting <paramref name="duration"/> seconds.</summary>
+        public void PlaySkill(SkillMotion motion, float duration)
+        {
+            if (motion == SkillMotion.Swing)
+            {
+                PlayAttack(duration);
+                return;
+            }
+
+            _skillMotion = motion;
+            _skillStart = Time.time;
+            _skillDuration = Mathf.Max(0.1f, motion == SkillMotion.Spin || motion == SkillMotion.Leap ? duration * 1.4f : duration);
+        }
+
+        /// <summary>Poise broken: rock back for the stagger.</summary>
+        public void PlayStagger()
+        {
+            _staggerUntil = Time.time + Combat.PoiseRules.StaggerSeconds;
+        }
+
         private static PlaceholderAvatar CreateRoot(Transform parent)
         {
             var root = new GameObject("PlaceholderAvatar");
@@ -86,8 +111,11 @@ namespace Runeheir.Visuals
             return root.AddComponent<PlaceholderAvatar>();
         }
 
+        private float _baseScale = 1f;
+
         private void ResetModel()
         {
+            _baseScale = 1f;
             if (_model != null)
             {
                 Destroy(_model.gameObject);
@@ -289,7 +317,8 @@ namespace Runeheir.Visuals
                     break;
             }
 
-            _model.localScale = Vector3.one * Mathf.Max(0.2f, definition.Scale);
+            _baseScale = Mathf.Max(0.2f, definition.Scale);
+            _model.localScale = Vector3.one * _baseScale;
         }
 
         // ------------------------------------------------------------------ animation
@@ -313,12 +342,58 @@ namespace Runeheir.Visuals
 
             float shake = Time.time < _hitUntil ? Mathf.Sin(Time.time * 90f) * 6f : 0f;
 
-            _model.localPosition = new Vector3(0f, (bob + hover) * (1f - _deadBlend) - _deadBlend * 0.15f, lunge);
-            _model.localRotation = Quaternion.Euler(-85f * _deadBlend, 0f, shake);
+            // Stagger: rock back and wobble.
+            float stagger = Time.time < _staggerUntil ? (_staggerUntil - Time.time) / Combat.PoiseRules.StaggerSeconds : 0f;
+            float staggerTilt = -18f * stagger;
+            shake += stagger > 0f ? Mathf.Sin(Time.time * 40f) * 8f * stagger : 0f;
+
+            // Skill motions.
+            float skillT = (Time.time - _skillStart) / _skillDuration;
+            bool skillActive = skillT >= 0f && skillT <= 1f && _deadBlend <= 0f;
+            float spin = 0f, jump = 0f, scale = 1f;
+            float? weaponOverride = null;
+            if (skillActive)
+            {
+                float arc = Mathf.Sin(skillT * Mathf.PI);
+                switch (_skillMotion)
+                {
+                    case SkillMotion.Spin:
+                        spin = 360f * Smooth(skillT);
+                        weaponOverride = 270f;
+                        break;
+                    case SkillMotion.Thrust:
+                        lunge += arc * 0.5f;
+                        weaponOverride = 270f;
+                        break;
+                    case SkillMotion.Punch:
+                        lunge += arc * 0.4f;
+                        weaponOverride = Mathf.Lerp(RestAngle, 280f, arc);
+                        break;
+                    case SkillMotion.Shoot:
+                        lunge -= arc * 0.12f;
+                        weaponOverride = 270f;
+                        break;
+                    case SkillMotion.Leap:
+                        jump = arc * 0.9f;
+                        weaponOverride = Mathf.Lerp(WindupAngle, StrikeAngle, Smooth(skillT));
+                        break;
+                    case SkillMotion.Cast:
+                        weaponOverride = Mathf.Lerp(RestAngle, 200f, arc);
+                        scale = 1f + arc * 0.04f;
+                        break;
+                    case SkillMotion.Buff:
+                        scale = 1f + arc * 0.1f;
+                        break;
+                }
+            }
+
+            _model.localPosition = new Vector3(0f, (bob + hover + jump) * (1f - _deadBlend) - _deadBlend * 0.15f, lunge);
+            _model.localRotation = Quaternion.Euler(-85f * _deadBlend + staggerTilt, spin, shake);
+            _model.localScale = Vector3.one * (_baseScale * scale);
 
             if (_weaponPivot != null)
             {
-                _weaponPivot.localRotation = Quaternion.Euler(WeaponAngle(attackT), 0f, 0f);
+                _weaponPivot.localRotation = Quaternion.Euler(weaponOverride ?? WeaponAngle(attackT), 0f, 0f);
             }
 
             for (int i = 0; i < _wings.Count; i++)

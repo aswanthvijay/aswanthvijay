@@ -7,9 +7,10 @@ using UnityEngine;
 namespace Runeheir.Combat
 {
     /// <summary>
-    /// Anything that has HP and can fight: players and monsters. Owns HP/SP, buffs, stun/freeze and
-    /// damage intake. Damage math itself lives in the engine-free <see cref="DamageCalculator"/>, so it
-    /// can move to a Mirror server unchanged in Phase 6.
+    /// Anything that has HP and can fight: players and monsters. Owns HP/SP, buffs, statuses, poise and
+    /// damage intake. Damage math itself lives in the engine-free <see cref="DamageCalculator"/>, and the
+    /// status/poise rules in <see cref="StatusContainer"/> / <see cref="PoiseMeter"/>, so they can move to a
+    /// Mirror server unchanged in Phase 6.
     /// </summary>
     public abstract class CombatEntity : MonoBehaviour
     {
@@ -18,8 +19,10 @@ namespace Runeheir.Combat
         [SerializeField, Min(0.1f)] protected float bodyRadius = 0.45f;
         [SerializeField, Min(0.1f)] protected float bodyHeight = 1.8f;
 
-        private float _stunnedUntil;
-        private float _frozenUntil;
+        private readonly List<float> _dueDots = new List<float>();
+        private readonly StatModifiers _activeModifiers = StatModifiers.Empty();
+        private bool _modifiersDirty = true;
+        private bool _watchingModifiers;
 
         /// <summary>(target, result, attacker) — floating damage numbers and logs listen here.</summary>
         public static event Action<CombatEntity, DamageResult, CombatEntity> AnyDamaged;
@@ -29,6 +32,9 @@ namespace Runeheir.Combat
 
         /// <summary>(victim, killer).</summary>
         public static event Action<CombatEntity, CombatEntity> AnyDied;
+
+        /// <summary>(target, status) after a status lands (stagger included).</summary>
+        public static event Action<CombatEntity, StatusEffect> AnyStatusApplied;
 
         public event Action<DamageResult, CombatEntity> Damaged;
 
@@ -40,6 +46,10 @@ namespace Runeheir.Combat
         public static IReadOnlyList<CombatEntity> All => Registry;
 
         public BuffContainer Buffs { get; } = new BuffContainer();
+
+        public StatusContainer Statuses { get; } = new StatusContainer();
+
+        public PoiseMeter Poise { get; } = new PoiseMeter(60f);
 
         public abstract Faction Faction { get; }
 
@@ -63,13 +73,34 @@ namespace Runeheir.Combat
 
         public Vector3 Position => transform.position;
 
-        public bool IsStunned => Time.time < _stunnedUntil;
+        public bool IsStunned => Statuses.Has(StatusEffect.Stun);
 
-        public bool IsFrozen => Time.time < _frozenUntil;
+        public bool IsFrozen => Statuses.Has(StatusEffect.Freeze);
 
-        public bool IsIncapacitated => IsDead || IsStunned || IsFrozen;
+        public bool IsStaggered => Statuses.Has(StatusEffect.Stagger);
+
+        /// <summary>Can't move, attack or cast: dead, stunned, frozen, stone, asleep or staggered.</summary>
+        public bool IsIncapacitated => IsDead || Statuses.IsIncapacitated;
+
+        /// <summary>Snared (Ankle Snare) or incapacitated.</summary>
+        public bool CanMove => !IsDead && !Statuses.BlocksMovement;
+
+        /// <summary>Silenced or incapacitated.</summary>
+        public bool CanUseSkills => !IsDead && !Statuses.BlocksSkills;
+
+        /// <summary>Stealth (Shadow Cloak, Shadow Veil): monsters can't see or target this entity.</summary>
+        public bool IsHidden => Buffs.HasTrait(BuffTraits.Stealth);
 
         public virtual bool CanBeKnockedBack => true;
+
+        /// <summary>Hyper-armor, Endure, Holdfast: poise never breaks.</summary>
+        public virtual bool StaggerImmune => false;
+
+        /// <summary>The stats that resist statuses aimed at this entity.</summary>
+        public virtual StatusResistances StatusResistances => default;
+
+        /// <summary>Poise damage of one basic hit by this entity.</summary>
+        public virtual float BasicPoiseDamage => 8f;
 
         // ------------------------------------------------------------ attack timing (ASPD for players)
         /// <summary>Edge-to-edge reach in meters.</summary>
@@ -90,9 +121,45 @@ namespace Runeheir.Combat
 
         public abstract DefenderProfile BuildDefenderProfile();
 
+        /// <summary>Percent damage taken (negative = less). Players read it from their stats.</summary>
+        protected virtual float DamageTakenPercent => ActiveModifiers.DamageTakenPercent;
+
+        /// <summary>Percent chance to block a physical melee hit.</summary>
+        protected virtual float BlockChance => ActiveModifiers.BlockChance;
+
+        /// <summary>Buffs + statuses combined (cached). Monsters build their profiles from it.</summary>
+        protected StatModifiers ActiveModifiers
+        {
+            get
+            {
+                if (!_watchingModifiers)
+                {
+                    _watchingModifiers = true;
+                    Buffs.Changed += MarkModifiersDirty;
+                    Statuses.Changed += MarkModifiersDirty;
+                }
+
+                if (_modifiersDirty)
+                {
+                    _activeModifiers.Clear();
+                    _activeModifiers.Add(Buffs.Aggregate);
+                    _activeModifiers.Add(Statuses.Aggregate);
+                    _modifiersDirty = false;
+                }
+
+                return _activeModifiers;
+            }
+        }
+
         public bool IsHostileTo(CombatEntity other)
         {
             return other != null && other != this && Faction != Faction.Neutral && other.Faction != Faction.Neutral && Faction != other.Faction;
+        }
+
+        /// <summary>Hidden entities can only be seen by their own side.</summary>
+        public bool CanSee(CombatEntity other)
+        {
+            return other != null && (!other.IsHidden || other.Faction == Faction);
         }
 
         /// <summary>Distance between the two bodies' edges, ignoring height.</summary>
@@ -119,16 +186,38 @@ namespace Runeheir.Combat
             return DamageCalculator.Physical(BuildAttackerProfile(), target.BuildDefenderProfile(), 100f, true, SystemRandomSource.Shared);
         }
 
-        public void ReceiveDamage(DamageResult result, CombatEntity attacker, bool physicalMelee)
+        /// <summary>A basic attack connected (procs: Storm Fists, Keen Edge, Auto Rune).</summary>
+        public virtual void OnBasicAttackLanded(CombatEntity target, DamageResult result)
+        {
+        }
+
+        /// <summary>
+        /// Applies a hit. Melee hits can be blocked (Runic Aegis charges, Guardian's Oath chance); damage-taken
+        /// modifiers scale it; hits that deal damage wake sleepers, shatter stone and chip <paramref name="poiseDamage"/>.
+        /// </summary>
+        public void ReceiveDamage(DamageResult result, CombatEntity attacker, bool physicalMelee, float poiseDamage = 0f)
         {
             if (IsDead)
             {
                 return;
             }
 
-            if (physicalMelee && !result.IsMiss && Buffs.TryConsumeCharge(BuffTraits.MeleeBlockCharges))
+            if (physicalMelee && !result.IsMiss && !result.IsBlocked)
             {
-                result = DamageResult.Blocked();
+                if (Buffs.TryConsumeCharge(BuffTraits.MeleeBlockCharges)
+                    || (BlockChance > 0f && SystemRandomSource.Shared.Chance(BlockChance)))
+                {
+                    result = DamageResult.Blocked();
+                }
+            }
+
+            if (result.Amount > 0 && !result.IsDamageOverTime)
+            {
+                float taken = DamageTakenPercent;
+                if (taken != 0f)
+                {
+                    result.Amount = Mathf.Max(1, Mathf.RoundToInt(result.Amount * Mathf.Max(0.1f, 1f + taken / 100f)));
+                }
             }
 
             if (result.Amount > 0)
@@ -144,6 +233,27 @@ namespace Runeheir.Combat
             if (Hp <= 0 && result.Amount > 0)
             {
                 OnHpDepleted(attacker);
+                return;
+            }
+
+            if (result.Amount > 0 && !result.IsDamageOverTime)
+            {
+                Statuses.BreakOnDamage();
+                ApplyPoiseDamage(poiseDamage);
+            }
+        }
+
+        /// <summary>Chips poise; at zero the entity is staggered (unless immune).</summary>
+        public void ApplyPoiseDamage(float amount)
+        {
+            if (IsDead || amount <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune))
+            {
+                return;
+            }
+
+            if (Poise.Apply(amount, Time.timeAsDouble, !StaggerImmune))
+            {
+                ApplyStatus(StatusEffect.Stagger, PoiseRules.StaggerSeconds);
             }
         }
 
@@ -198,6 +308,18 @@ namespace Runeheir.Combat
             return true;
         }
 
+        /// <summary>Pays HP for a skill (Radiant Cross). Never kills: leaves at least 1 HP.</summary>
+        public void PayHp(int amount)
+        {
+            if (IsDead || amount <= 0)
+            {
+                return;
+            }
+
+            Hp = Mathf.Max(1, Hp - amount);
+            RaiseVitalsChanged();
+        }
+
         /// <summary>Empties SP and returns how much there was (Fist of Odin).</summary>
         public int DrainAllSp()
         {
@@ -207,32 +329,51 @@ namespace Runeheir.Combat
             return drained;
         }
 
-        public void ApplyStatus(StatusEffect effect, float duration)
+        /// <summary>Rolls the status against this entity's resistances; on success applies it for the resisted duration.</summary>
+        public bool TryApplyStatus(StatusEffect status, float chancePercent, float seconds)
         {
-            if (IsDead || duration <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune))
+            if (IsDead || status == StatusEffect.None)
             {
-                return;
+                return false;
             }
 
-            switch (effect)
+            var resist = StatusResistances;
+            if (!StatusRules.Roll(status, chancePercent, resist, SystemRandomSource.Shared))
             {
-                case StatusEffect.Stun:
-                    _stunnedUntil = Mathf.Max(_stunnedUntil, Time.time + duration);
-                    break;
-                case StatusEffect.Freeze:
-                    _frozenUntil = Mathf.Max(_frozenUntil, Time.time + duration);
-                    break;
-                default:
-                    return;
+                return false;
             }
 
-            OnStatusApplied(effect);
+            return ApplyStatus(status, StatusRules.EffectiveDuration(status, seconds, resist));
+        }
+
+        /// <summary>Applies a status with no roll (stagger, GM commands). Sowilo's ward blocks everything.</summary>
+        public bool ApplyStatus(StatusEffect status, float seconds)
+        {
+            if (IsDead || seconds <= 0f || status == StatusEffect.None || Buffs.HasTrait(BuffTraits.CrowdControlImmune))
+            {
+                return false;
+            }
+
+            if (!Statuses.Apply(status, seconds, Time.timeAsDouble))
+            {
+                return false;
+            }
+
+            OnStatusApplied(status);
+            AnyStatusApplied?.Invoke(this, status);
+            return true;
         }
 
         public void ClearCrowdControl()
         {
-            _stunnedUntil = 0f;
-            _frozenUntil = 0f;
+            Statuses.Clear();
+        }
+
+        /// <summary>Purify / Sowilo: removes every negative status and every debuff.</summary>
+        public void Cleanse()
+        {
+            Statuses.Clear();
+            Buffs.RemoveWhere(b => b.Definition.IsDebuff);
         }
 
         public void Knockback(Vector3 direction, float distance)
@@ -290,7 +431,8 @@ namespace Runeheir.Combat
             IsDead = true;
             Hp = 0;
             Buffs.Clear();
-            ClearCrowdControl();
+            Statuses.Clear();
+            Poise.Reset();
             OnDied(killer);
             Died?.Invoke(killer);
             AnyDied?.Invoke(this, killer);
@@ -319,9 +461,51 @@ namespace Runeheir.Combat
             Registry.Remove(this);
         }
 
+        protected virtual void OnDestroy()
+        {
+            if (_watchingModifiers)
+            {
+                Buffs.Changed -= MarkModifiersDirty;
+                Statuses.Changed -= MarkModifiersDirty;
+            }
+        }
+
         protected virtual void Update()
         {
-            Buffs.Tick(Time.timeAsDouble);
+            double now = Time.timeAsDouble;
+            Buffs.Tick(now);
+            _dueDots.Clear();
+            Statuses.Tick(now, _dueDots);
+            Poise.Tick(now);
+            foreach (float percent in _dueDots)
+            {
+                TakeDamageOverTime(percent);
+            }
+        }
+
+        /// <summary>Poison/bleeding: percent of max HP, never below 1 HP.</summary>
+        private void TakeDamageOverTime(float percentOfMaxHp)
+        {
+            if (IsDead || Hp <= 1)
+            {
+                return;
+            }
+
+            int amount = Mathf.Min(Hp - 1, Mathf.Max(1, Mathf.RoundToInt(MaxHp * percentOfMaxHp / 100f)));
+            var result = DamageResult.Fixed(amount);
+            result.IsDamageOverTime = true;
+            ReceiveDamage(result, null, physicalMelee: false);
+        }
+
+        private void MarkModifiersDirty()
+        {
+            _modifiersDirty = true;
+            OnModifiersChanged();
+        }
+
+        /// <summary>Buffs or statuses changed (monsters re-apply move speed here).</summary>
+        protected virtual void OnModifiersChanged()
+        {
         }
     }
 }

@@ -42,7 +42,8 @@ namespace Runeheir.Characters
             record.Inventory.Add(new ItemStack(ItemCatalog.RuneTiwaz, 2));
             record.Inventory.Add(new ItemStack(ItemCatalog.RuneSowilo, 2));
 
-            record.Hotkeys[0] = HotkeySlot.Skill("first_aid");
+            Skills.SkillBook.SanitizeSkills(record); // learns the granted skills (First Aid)
+            record.Hotkeys[0] = HotkeySlot.Skill(Skills.SkillCatalog.FirstAid);
             record.Hotkeys[1] = HotkeySlot.Item(ItemCatalog.LingonberryTonic);
             record.Hotkeys[2] = HotkeySlot.Item(ItemCatalog.AetherSap);
             record.Hotkeys[3] = HotkeySlot.Item(ItemCatalog.WindRuneShard);

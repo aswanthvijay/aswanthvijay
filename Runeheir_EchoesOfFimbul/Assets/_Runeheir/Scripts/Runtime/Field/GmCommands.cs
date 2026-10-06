@@ -52,7 +52,8 @@ namespace Runeheir.Field
                 case "help":
                 case "commands":
                     ChatLog.Gm("@blvl <1-255>  @jlvl <1-120>  @job <name>  @jobs  @allstats <n>  @str|agi|vit|int|dex|luk <n>");
-                    ChatLog.Gm("@reset  @heal  @item <id> [amount]  @items  @monster <id> [count]  @monsters  @aspd  @skills  @save  @where");
+                    ChatLog.Gm("@reset  @heal  @item <id> [amount]  @items  @monster <id> [count]  @monsters  @aspd  @save  @where");
+                    ChatLog.Gm("@skills  @allskills  @learn <skill> [lv]  @skillpoint <n>  @skillreset  @status <name> [seconds]  @statuses  @cleanse");
                     break;
 
                 case "blvl":
@@ -84,7 +85,7 @@ namespace Runeheir.Field
                     if (JobDatabase.TryParse(rest, out var job))
                     {
                         progression.ForceChangeJob(job);
-                        ChatLog.Gm($"Job changed to {player.Job.Name}. Open the skill window (Alt+S) to drag new skills onto F1–F10.");
+                        ChatLog.Gm($"Job changed to {player.Job.Name}. Learn skills in the Skill window (Alt+S), or type @allskills.");
                     }
                     else
                     {
@@ -149,7 +150,44 @@ namespace Runeheir.Field
                     break;
 
                 case "skills":
-                    ChatLog.Gm("Skills: " + string.Join(", ", SkillCatalog.ForJob(player.Record.Job).Select(s => s.Name)));
+                    ChatLog.Gm($"Skill points: {player.Record.SkillPoints}. " + string.Join(", ", SkillCatalog.ForJob(player.Record.Job)
+                        .Select(s => $"{s.Name} {player.SkillBook.GetLevel(s.Id)}/{s.MaxLevel} ({s.Id})")));
+                    break;
+
+                case "allskills":
+                    player.SkillBook.LearnEverything();
+                    ChatLog.Gm($"Every {player.Job.Name}-line skill learned at max level (skill points unchanged).");
+                    break;
+
+                case "learn":
+                    LearnSkill(player, parts);
+                    break;
+
+                case "skillpoint":
+                case "skillpoints":
+                    if (TryInt(rest, out int points))
+                    {
+                        player.SkillBook.SetPoints(points);
+                        ChatLog.Gm($"Skill points set to {player.Record.SkillPoints}.");
+                    }
+
+                    break;
+
+                case "skillreset":
+                    ChatLog.Gm($"Skills reset: {player.SkillBook.ResetAll()} points refunded ({player.Record.SkillPoints} available).");
+                    break;
+
+                case "status":
+                    ApplyStatus(player, parts);
+                    break;
+
+                case "statuses":
+                    ChatLog.Gm("Statuses: " + string.Join(", ", Enum.GetNames(typeof(Combat.StatusEffect)).Skip(1)));
+                    break;
+
+                case "cleanse":
+                    player.Cleanse();
+                    ChatLog.Gm("Statuses and debuffs removed.");
                     break;
 
                 case "aspd":
@@ -240,6 +278,46 @@ namespace Runeheir.Field
             }
 
             ChatLog.Gm($"Spawned {spawned}x {definition.Name} (Lv {definition.Level}).");
+        }
+
+        private static void LearnSkill(PlayerCharacter player, string[] parts)
+        {
+            var skill = parts.Length > 1 ? SkillCatalog.All.FirstOrDefault(s => !s.Hidden && (s.Id == parts[1].ToLowerInvariant()
+                || string.Equals(s.Name.Replace(" ", string.Empty).Replace("'", string.Empty), parts[1].Replace("'", string.Empty), StringComparison.OrdinalIgnoreCase))) : null;
+            if (skill == null)
+            {
+                ChatLog.Error("Usage: @learn <skill id or name without spaces> [level]. See @skills.");
+                return;
+            }
+
+            int level = skill.MaxLevel;
+            if (parts.Length > 2 && !TryInt(parts[2], out level))
+            {
+                return;
+            }
+
+            player.SkillBook.SetLevel(skill.Id, level);
+            ChatLog.Gm($"{skill.Name} set to Lv {player.SkillBook.GetLevel(skill.Id)}" +
+                       (SkillCatalog.CanUse(player.Record.Job, skill.Id) ? "." : $" (usable once you are in the {JobDatabase.Get(skill.Job).Name} line)."));
+        }
+
+        private static void ApplyStatus(PlayerCharacter player, string[] parts)
+        {
+            if (parts.Length < 2 || !Enum.TryParse(parts[1], true, out Combat.StatusEffect status) || status == Combat.StatusEffect.None)
+            {
+                ChatLog.Error("Usage: @status <name> [seconds]. See @statuses.");
+                return;
+            }
+
+            float seconds = 5f;
+            if (parts.Length > 2 && float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed))
+            {
+                seconds = Mathf.Clamp(parsed, 0.5f, 120f);
+            }
+
+            ChatLog.Gm(player.ApplyStatus(status, seconds)
+                ? $"{Combat.StatusRules.Get(status).Name} for {seconds:0.#}s."
+                : "Blocked (Sowilo's ward makes you immune).");
         }
 
         private static async void ReportSave(System.Threading.Tasks.Task<Accounts.OpResult> save)

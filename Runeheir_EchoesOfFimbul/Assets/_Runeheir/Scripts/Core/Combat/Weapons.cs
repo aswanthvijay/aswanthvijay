@@ -16,6 +16,60 @@ namespace Runeheir.Combat
         Katar = 9,
     }
 
+    /// <summary>A set of weapon types (skill requirements, weapon-specific passives). None = any weapon.</summary>
+    [Flags]
+    public enum WeaponMask
+    {
+        None = 0,
+        Unarmed = 1 << (int)WeaponType.Unarmed,
+        Dagger = 1 << (int)WeaponType.Dagger,
+        OneHandSword = 1 << (int)WeaponType.OneHandSword,
+        TwoHandSword = 1 << (int)WeaponType.TwoHandSword,
+        Spear = 1 << (int)WeaponType.Spear,
+        Mace = 1 << (int)WeaponType.Mace,
+        Staff = 1 << (int)WeaponType.Staff,
+        Bow = 1 << (int)WeaponType.Bow,
+        Knuckle = 1 << (int)WeaponType.Knuckle,
+        Katar = 1 << (int)WeaponType.Katar,
+
+        Swords = OneHandSword | TwoHandSword,
+        Blades = Dagger | Katar | OneHandSword,
+        AnyMelee = Unarmed | Dagger | OneHandSword | TwoHandSword | Spear | Mace | Staff | Knuckle | Katar,
+    }
+
+    public static class WeaponMasks
+    {
+        public static WeaponMask Of(WeaponType type)
+        {
+            return (WeaponMask)(1 << (int)type);
+        }
+
+        /// <summary>True when <paramref name="mask"/> is None (any weapon) or contains <paramref name="type"/>.</summary>
+        public static bool Allows(WeaponMask mask, WeaponType type)
+        {
+            return mask == WeaponMask.None || (mask & Of(type)) != 0;
+        }
+
+        public static string Describe(WeaponMask mask)
+        {
+            if (mask == WeaponMask.None)
+            {
+                return "any weapon";
+            }
+
+            var names = new System.Collections.Generic.List<string>();
+            foreach (WeaponType type in Enum.GetValues(typeof(WeaponType)))
+            {
+                if ((mask & Of(type)) != 0)
+                {
+                    names.Add(WeaponRules.Label(type));
+                }
+            }
+
+            return string.Join(" / ", names);
+        }
+    }
+
     /// <summary>The weapon a character attacks with. Equipment/refining arrives in Phase 4.</summary>
     [Serializable]
     public struct WeaponProfile
@@ -64,6 +118,40 @@ namespace Runeheir.Combat
                 case WeaponType.TwoHandSword: return 150f;
                 case WeaponType.Staff: return 150f;
                 default: return 150f;
+            }
+        }
+
+        public static string Label(WeaponType type)
+        {
+            switch (type)
+            {
+                case WeaponType.Unarmed: return "Unarmed";
+                case WeaponType.Dagger: return "Dagger";
+                case WeaponType.OneHandSword: return "Sword";
+                case WeaponType.TwoHandSword: return "Greatsword";
+                case WeaponType.Spear: return "Spear";
+                case WeaponType.Mace: return "Mace";
+                case WeaponType.Staff: return "Staff";
+                case WeaponType.Bow: return "Bow";
+                case WeaponType.Knuckle: return "Knuckles";
+                case WeaponType.Katar: return "Katar";
+                default: return type.ToString();
+            }
+        }
+
+        /// <summary>Poise damage of one basic hit (heavier weapons stagger sooner). See <see cref="PoiseRules"/>.</summary>
+        public static float PoiseDamage(WeaponType type)
+        {
+            switch (type)
+            {
+                case WeaponType.TwoHandSword: return 22f;
+                case WeaponType.Mace: return 18f;
+                case WeaponType.Spear: return 16f;
+                case WeaponType.Knuckle: return 14f;
+                case WeaponType.OneHandSword: return 12f;
+                case WeaponType.Katar: return 10f;
+                case WeaponType.Bow: return 6f;
+                default: return 8f;
             }
         }
 

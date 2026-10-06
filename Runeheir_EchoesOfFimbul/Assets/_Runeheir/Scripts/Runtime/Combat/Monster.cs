@@ -5,6 +5,7 @@ using Runeheir.Monsters;
 using Runeheir.Movement;
 using Runeheir.Player;
 using Runeheir.Session;
+using Runeheir.Skills;
 using Runeheir.Visuals;
 using UnityEngine;
 
@@ -33,6 +34,7 @@ namespace Runeheir.Combat
         private bool _returningHome;
         private float _nextThinkAt;
         private float _nextWanderAt;
+        private bool _stolenFrom;
 
         // Training dummy DPS meter.
         private float _dpsSessionStart = -1f;
@@ -53,9 +55,27 @@ namespace Runeheir.Combat
 
         public override float AttackRange => Definition?.AttackRange ?? 0.9f;
 
-        public override float AttackInterval => Definition?.AttackInterval ?? 1.5f;
+        /// <summary>Base interval, slowed or sped up by ASPD% buffs/statuses (Frostbite halves the rate).</summary>
+        public override float AttackInterval => (Definition?.AttackInterval ?? 1.5f) / Mathf.Max(0.1f, 1f + ActiveModifiers.AspdPercent / 100f);
 
         public override bool CanBeKnockedBack => Definition != null && !Definition.Stationary;
+
+        public override float BasicPoiseDamage => Definition != null ? PoiseRules.MonsterPoiseDamage(Definition.Size, Definition.Level) : 10f;
+
+        /// <summary>Phase 3 stand-in until monsters have real stats (Phase 5): Level / 2 for VIT, INT, LUK and AGI.</summary>
+        public override StatusResistances StatusResistances => Definition == null
+            ? default
+            : new StatusResistances
+            {
+                Vit = Definition.Level / 2,
+                Int = Definition.Level / 2,
+                Luk = Definition.Level / 2,
+                Agi = Definition.Level / 2,
+                Mdef = Definition.Mdef,
+            };
+
+        /// <summary>The player this monster is fighting (or null).</summary>
+        public CombatEntity AggroTarget => _aggroTarget;
 
         public void Initialize(MonsterDefinition definition, Vector3 home)
         {
@@ -64,43 +84,105 @@ namespace Runeheir.Combat
             bodyRadius = 0.4f * Mathf.Max(0.5f, definition.Scale);
             bodyHeight = 1.6f * definition.Scale;
             SetVitals(definition.MaxHp, definition.MaxHp, 0, 1);
+            Poise.SetMax(PoiseRules.MonsterMaxPoise(definition.Size, definition.Level));
+            Poise.Reset();
             _motor.BaseMoveSpeed = definition.MoveSpeed;
             _nextWanderAt = Time.time + Random.Range(1f, 4f);
         }
 
         public override AttackerProfile BuildAttackerProfile()
         {
+            var mods = ActiveModifiers;
             int min = Definition.AtkMin;
             int max = Mathf.Max(min, Definition.AtkMax);
             int mid = (min + max) / 2;
             return new AttackerProfile
             {
-                StatusAtk = 0,
+                StatusAtk = mods.Atk,
                 WeaponAtk = mid,
                 WeaponVariance = mid > 0 ? (max - min) / (float)(max + min) : 0f,
                 Weapon = WeaponType.Unarmed,
                 AttackElement = Element.Neutral,
-                Hit = Definition.Hit,
+                Hit = Scaled(Definition.Hit + mods.Hit, mods.HitPercent),
                 CritChance = 0f,
                 MatkMin = min,
                 MatkMax = max,
+                PhysicalDamagePercent = mods.PhysicalDamagePercent,
+                MagicDamagePercent = mods.MagicDamagePercent,
             };
         }
 
+        /// <summary>Monster DEF/FLEE with debuffs applied (Provoke and Poison lower DEF, Blind lowers FLEE).</summary>
         public override DefenderProfile BuildDefenderProfile()
         {
+            var mods = ActiveModifiers;
             return new DefenderProfile
             {
-                Def = Definition.Def,
-                SoftDef = Definition.Level / 4,
-                Mdef = Definition.Mdef,
-                SoftMdef = Definition.Level / 4,
-                Flee = Definition.Flee,
+                Def = Scaled(Definition.Def + mods.Def, mods.DefPercent),
+                SoftDef = Scaled(Definition.Level / 4, mods.DefPercent),
+                Mdef = Scaled(Definition.Mdef + mods.Mdef, mods.MdefPercent),
+                SoftMdef = Scaled(Definition.Level / 4, mods.MdefPercent),
+                Flee = Scaled(Definition.Flee + mods.Flee, mods.FleePercent),
                 Element = Definition.Element,
                 Race = Definition.Race,
                 Size = Definition.Size,
                 BluntDamageTakenMultiplier = BluntDamageTakenMultiplier,
             };
+        }
+
+        /// <summary>Provoke / War Cry: drop whatever it was doing and come after <paramref name="provoker"/>.</summary>
+        public void Provoke(CombatEntity provoker)
+        {
+            if (Definition == null || Definition.Passive || IsDead || provoker == null || provoker.IsDead)
+            {
+                return;
+            }
+
+            _aggroTarget = provoker;
+            _returningHome = false;
+            _nextThinkAt = 0f;
+        }
+
+        /// <summary>
+        /// Pilfer: one success per monster. Returns the stolen item id, or null (already robbed, no drops, or the roll failed;
+        /// <paramref name="reason"/> says which).
+        /// </summary>
+        public string TrySteal(int skillLevel, int dex, out string reason)
+        {
+            if (_stolenFrom)
+            {
+                reason = "There is nothing left to steal.";
+                return null;
+            }
+
+            if (Definition == null || Definition.Drops.Count == 0)
+            {
+                reason = "It has nothing to steal.";
+                return null;
+            }
+
+            if (!SystemRandomSource.Shared.Chance(StealRules.Chance(skillLevel, dex, Definition.Level)))
+            {
+                reason = "Steal failed.";
+                return null;
+            }
+
+            _stolenFrom = true;
+            reason = null;
+            return StealRules.PickItem(Definition.Drops, SystemRandomSource.Shared);
+        }
+
+        protected override void OnModifiersChanged()
+        {
+            if (_motor != null)
+            {
+                _motor.SpeedMultiplier = Mathf.Max(0.1f, 1f + ActiveModifiers.MoveSpeedPercent / 100f);
+            }
+        }
+
+        private static int Scaled(int value, float percent)
+        {
+            return Mathf.Max(0, Mathf.RoundToInt(value * Mathf.Max(0f, 1f + percent / 100f)));
         }
 
         private void Awake()
@@ -120,9 +202,10 @@ namespace Runeheir.Combat
 
             UpdateDpsMeter();
 
+            // Snared or incapacitated: no walking (a snared monster still attacks whatever is in reach).
+            _motor.SetLocked(!CanMove);
             if (IsIncapacitated)
             {
-                _motor.Stop();
                 return;
             }
 
@@ -180,7 +263,7 @@ namespace Runeheir.Combat
 
         private bool ShouldDropTarget(CombatEntity target)
         {
-            if (target == null || target.IsDead || !target.isActiveAndEnabled)
+            if (target == null || target.IsDead || !target.isActiveAndEnabled || !CanSee(target))
             {
                 return true;
             }
@@ -200,7 +283,7 @@ namespace Runeheir.Combat
             float bestDistance = range;
             foreach (var entity in All)
             {
-                if (entity is PlayerCharacter player && !player.IsDead)
+                if (entity is PlayerCharacter player && !player.IsDead && CanSee(player))
                 {
                     float distance = HorizontalDistance(Position, player.Position);
                     if (distance <= bestDistance)
@@ -216,7 +299,7 @@ namespace Runeheir.Combat
 
         protected override void OnDamaged(DamageResult result, CombatEntity attacker)
         {
-            if (_animation != null && result.Amount > 0)
+            if (_animation != null && result.Amount > 0 && !result.IsDamageOverTime)
             {
                 _animation.PlayHit();
             }
@@ -233,11 +316,26 @@ namespace Runeheir.Combat
             }
 
             // Passive monsters still fight back when hit (Ragnarok behaviour); dummies never do.
-            if (attacker != null && !Definition.Passive && _aggroTarget == null && !attacker.IsDead)
+            // A hidden attacker (Underfang from the shadows) can't be retaliated against.
+            if (attacker != null && !Definition.Passive && _aggroTarget == null && !attacker.IsDead && CanSee(attacker))
             {
                 _aggroTarget = attacker;
                 _returningHome = false;
                 _nextThinkAt = 0f;
+            }
+        }
+
+        protected override void OnStatusApplied(StatusEffect effect)
+        {
+            if (effect != StatusEffect.Stagger)
+            {
+                return;
+            }
+
+            WorldFeedback.Announce(this, "Staggered!", new Color(1f, 0.6f, 0.4f));
+            if (_animation != null)
+            {
+                _animation.PlayStagger();
             }
         }
 

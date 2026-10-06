@@ -22,6 +22,7 @@ namespace Runeheir.Visuals
         private static Shader s_toonShader;
         private static bool s_toonResolved;
         private static Material s_unlit;
+        private static Material s_ghost;
 
         /// <summary>True when the toon shader is available and the active pipeline is URP.</summary>
         public static bool ToonAvailable => ToonShader != null;
@@ -73,6 +74,20 @@ namespace Runeheir.Visuals
                 }
 
                 return s_unlit;
+            }
+        }
+
+        /// <summary>Dark translucent silhouette for hidden (stealthed) characters.</summary>
+        public static Material Ghost
+        {
+            get
+            {
+                if (s_ghost == null)
+                {
+                    s_ghost = new Material(Unlit) { name = "RH_Ghost", color = new Color(0.12f, 0.08f, 0.22f, 0.35f) };
+                }
+
+                return s_ghost;
             }
         }
 

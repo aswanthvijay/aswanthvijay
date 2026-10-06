@@ -36,13 +36,6 @@ namespace Runeheir.Combat
         Large = 2,
     }
 
-    public enum StatusEffect
-    {
-        None = 0,
-        Stun = 1,
-        Freeze = 2,
-    }
-
     public enum Faction
     {
         Player = 0,

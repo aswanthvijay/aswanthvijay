@@ -236,6 +236,13 @@ namespace Runeheir.Characters
                 return false;
             }
 
+            // Ragnarok rule: a Novice needs Basic Skill 9 (here Basic Training) before the first job.
+            if (Record.Job == JobId.Initiate && Skills.SkillBook.LevelIn(Record, Skills.SkillBook.BasicTrainingId) < Skills.SkillBook.BasicTrainingForJobChange)
+            {
+                reason = $"Requires Basic Training Lv {Skills.SkillBook.BasicTrainingForJobChange} (open the Skill window, Alt+S, and spend your skill points).";
+                return false;
+            }
+
             ForceChangeJob(target);
             return true;
         }

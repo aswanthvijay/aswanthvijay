@@ -78,13 +78,28 @@ namespace Runeheir.Tests
             Assert.GreaterOrEqual(hits, 2, "auto-attack loop keeps swinging");
             Assert.IsFalse(dummy.IsDead, "training dummy never dies");
 
-            // --- Skills: Two-Hand Surge adds +7 ASPD (stat engine -> buffs -> derived stats)
+            // --- Skills: unlearned skills are refused; Two-Hand Surge Lv 10 adds +7 ASPD (skill tree -> buffs -> derived stats)
             player.Progression.ForceChangeJob(JobId.Einherjar);
+            var caster = player.GetComponent<SkillCaster>();
+            caster.RequestSkill("two_hand_surge", null, null);
+            yield return null;
+            Assert.IsFalse(player.Buffs.Has(BuffCatalog.TwoHandSurge), "not learned yet");
+
+            player.SkillBook.SetLevel("two_hand_surge", 10);
             float aspdBefore = player.Aspd;
-            player.GetComponent<SkillCaster>().RequestSkill("two_hand_surge", null, null);
+            caster.RequestSkill("two_hand_surge", null, null);
             yield return null;
             Assert.IsTrue(player.Buffs.Has(BuffCatalog.TwoHandSurge), "buff applied");
             Assert.AreEqual(Mathf.Min(StatFormulas.MaxAspd, aspdBefore + 7f), player.Aspd, 0.01f);
+
+            // --- Passives feed the stat engine; poise and statuses reach the player
+            int atkBefore = player.Stats.StatusAtk;
+            player.SkillBook.SetLevel("sword_mastery", 10);
+            Assert.AreEqual(atkBefore + 40, player.Stats.StatusAtk, "Sword Mastery Lv 10 with a greatsword");
+            Assert.IsTrue(player.ApplyStatus(StatusEffect.Silence, 1f));
+            Assert.IsFalse(player.CanUseSkills, "silenced");
+            player.Cleanse();
+            Assert.IsTrue(player.CanUseSkills);
 
             // --- Hotkeys: F2 holds Lingonberry Tonic on a new character
             int tonics = player.Inventory.Count(ItemCatalog.LingonberryTonic);

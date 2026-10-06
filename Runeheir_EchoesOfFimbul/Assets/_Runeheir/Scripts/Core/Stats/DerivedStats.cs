@@ -50,6 +50,26 @@ namespace Runeheir.Stats
         public bool UninterruptibleCasting;
         public bool HyperArmor;
 
+        /// <summary>Poise pool (GDD VIT "stagger / poise resilience").</summary>
+        public float MaxPoise;
+
+        /// <summary>Never staggered: Endure, Holdfast, or Rage of Thor's hyper-armor.</summary>
+        public bool StaggerImmune;
+
+        public float PoiseDamagePercent;
+
+        /// <summary>Percent damage taken, negative = less. Never below -90.</summary>
+        public float DamageTakenPercent;
+
+        /// <summary>Percent chance to block a physical melee hit outright.</summary>
+        public float BlockChance;
+
+        /// <summary>Walk speed while casting, percent of normal (0 = rooted while casting).</summary>
+        public float CastMoveSpeedPercent;
+
+        /// <summary>What resists statuses aimed at this character.</summary>
+        public Combat.StatusResistances StatusResistances;
+
         public static DerivedStats Compute(int baseLevel, BaseStats baseStats, StatModifiers modifiers, WeaponProfile weapon)
         {
             if (baseStats == null)
@@ -85,12 +105,14 @@ namespace Runeheir.Stats
             d.MatkMin = StatFormulas.MatkMin(total.Int) + mods.Matk;
             d.MatkMax = Math.Max(d.MatkMin, StatFormulas.MatkMax(total.Int) + mods.Matk);
 
-            d.Def = Math.Max(0, mods.Def);
-            d.SoftDef = StatFormulas.SoftDef(total.Vit);
-            d.Mdef = Math.Max(0, mods.Mdef);
-            d.SoftMdef = StatFormulas.SoftMdef(total.Int);
-            d.Hit = StatFormulas.Hit(level, total.Dex) + mods.Hit;
-            d.Flee = StatFormulas.Flee(level, total.Agi) + mods.Flee;
+            float defScale = Math.Max(0f, 1f + mods.DefPercent / 100f);
+            float mdefScale = Math.Max(0f, 1f + mods.MdefPercent / 100f);
+            d.Def = (int)(Math.Max(0, mods.Def) * defScale);
+            d.SoftDef = (int)(StatFormulas.SoftDef(total.Vit) * defScale);
+            d.Mdef = (int)(Math.Max(0, mods.Mdef) * mdefScale);
+            d.SoftMdef = (int)(StatFormulas.SoftMdef(total.Int) * mdefScale);
+            d.Hit = Math.Max(0, (int)((StatFormulas.Hit(level, total.Dex) + mods.Hit) * (1f + mods.HitPercent / 100f)));
+            d.Flee = Math.Max(0, (int)((StatFormulas.Flee(level, total.Agi) + mods.Flee) * (1f + mods.FleePercent / 100f)));
             d.Crit = StatFormulas.CritChance(total.Luk) + mods.Crit;
 
             d.Aspd = StatFormulas.Aspd(
@@ -107,16 +129,30 @@ namespace Runeheir.Stats
 
             d.CastTimeMultiplier = StatFormulas.CastTimeMultiplier(total.Dex) * Math.Max(0f, 1f + mods.CastTimePercent / 100f);
             d.MoveSpeedMultiplier = Math.Max(0.1f, 1f + mods.MoveSpeedPercent / 100f);
-            d.AttackRange = WeaponRules.AttackRange(weapon.Type);
+            d.AttackRange = WeaponRules.AttackRange(weapon.Type) + Math.Max(0f, mods.AttackRange);
             d.WeightCapacity = StatFormulas.WeightCapacity(total.Str);
-            d.HpRegenPerTick = StatFormulas.HpRegenPerTick(d.MaxHp, total.Vit);
-            d.SpRegenPerTick = StatFormulas.SpRegenPerTick(d.MaxSp, total.Int);
+            d.HpRegenPerTick = StatFormulas.HpRegenPerTick(d.MaxHp, total.Vit) + Math.Max(0, mods.HpRegenFlat);
+            d.SpRegenPerTick = StatFormulas.SpRegenPerTick(d.MaxSp, total.Int) + Math.Max(0, mods.SpRegenFlat);
 
             d.PhysicalDamagePercent = mods.PhysicalDamagePercent;
             d.MagicDamagePercent = mods.MagicDamagePercent;
             d.ItemsLocked = mods.ItemsLocked;
             d.UninterruptibleCasting = mods.UninterruptibleCasting;
             d.HyperArmor = mods.HyperArmor;
+            d.MaxPoise = Combat.PoiseRules.PlayerMaxPoise(total.Vit, level) * Math.Max(0.1f, 1f + mods.MaxPoisePercent / 100f);
+            d.StaggerImmune = mods.StaggerImmune || mods.HyperArmor;
+            d.PoiseDamagePercent = mods.PoiseDamagePercent;
+            d.DamageTakenPercent = Math.Max(-90f, mods.DamageTakenPercent);
+            d.BlockChance = StatFormulas.Clamp(mods.BlockChance, 0f, 95f);
+            d.CastMoveSpeedPercent = StatFormulas.Clamp(mods.CastMoveSpeedPercent, 0f, 100f);
+            d.StatusResistances = new Combat.StatusResistances
+            {
+                Vit = total.Vit,
+                Int = total.Int,
+                Luk = total.Luk,
+                Agi = total.Agi,
+                Mdef = d.Mdef,
+            };
             return d;
         }
     }

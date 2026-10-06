@@ -95,7 +95,8 @@ namespace Runeheir.Combat
                 return;
             }
 
-            if (_owner.IsDead || Target.IsDead || !Target.isActiveAndEnabled)
+            // A target that turned invisible (Shadow Cloak) can't be chased or hit.
+            if (_owner.IsDead || Target.IsDead || !Target.isActiveAndEnabled || !_owner.CanSee(Target))
             {
                 Disengage();
                 return;
@@ -108,7 +109,7 @@ namespace Runeheir.Combat
 
             if (_owner.EdgeDistanceTo(Target) > _owner.AttackRange)
             {
-                if (Time.time >= _nextRepathAt)
+                if (Time.time >= _nextRepathAt && _owner.CanMove)
                 {
                     _motor.MoveTo(Target.Position);
                     _nextRepathAt = Time.time + repathInterval;
@@ -163,12 +164,36 @@ namespace Runeheir.Combat
                 return;
             }
 
-            var result = _owner.RollBasicAttack(target);
-            target.ReceiveDamage(result, _owner, physicalMelee: !_owner.IsRangedAttacker);
-
             if (!Continuous && Target == target)
             {
                 Disengage();
+            }
+
+            var owner = _owner;
+            var result = owner.RollBasicAttack(target);
+            if (owner.IsRangedAttacker)
+            {
+                // Arrows fly: the roll happens at release, the damage when the arrow arrives.
+                ProjectileFx.Launch(owner, target, ProjectileFx.ArrowColor, ProjectileFx.ArrowSpeed, () => Land(owner, target, result), arrow: true);
+            }
+            else
+            {
+                Land(owner, target, result);
+            }
+        }
+
+        private static void Land(CombatEntity owner, CombatEntity target, DamageResult result)
+        {
+            if (owner == null || target == null || target.IsDead)
+            {
+                return;
+            }
+
+            float poise = owner.BasicPoiseDamage * (result.IsCritical ? PoiseRules.CriticalPoiseMultiplier : 1f);
+            target.ReceiveDamage(result, owner, physicalMelee: !owner.IsRangedAttacker, poise);
+            if (!result.IsMiss && !result.IsBlocked && !owner.IsDead)
+            {
+                owner.OnBasicAttackLanded(target, result);
             }
         }
     }

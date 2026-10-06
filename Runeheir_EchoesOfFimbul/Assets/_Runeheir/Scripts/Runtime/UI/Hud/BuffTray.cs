@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using Runeheir.Combat;
 using Runeheir.Player;
 using Runeheir.Visuals;
 using UnityEngine;
@@ -6,10 +8,17 @@ using UnityEngine.UI;
 
 namespace Runeheir.UI
 {
-    /// <summary>Active buffs (top-right) with remaining time and charges, Ragnarok status-icon style.</summary>
+    /// <summary>
+    /// Active buffs and statuses (top-right) with remaining time, charges and stacks, Ragnarok status-icon style.
+    /// Debuffs and negative statuses get a red frame; Spirit Spheres show their count.
+    /// </summary>
     public sealed class BuffTray
     {
         private const float Size = 40f;
+        private const float Gap = 8f;
+        private const int PerRow = 8;
+
+        private static readonly Color Harmful = new Color(0.9f, 0.3f, 0.25f, 1f);
 
         private readonly PlayerCharacter _player;
         private readonly RectTransform _root;
@@ -19,14 +28,16 @@ namespace Runeheir.UI
         {
             _player = player;
             _root = UIFactory.CreateRect("Buffs", hud.Canvas.transform);
-            _root.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-14f, -14f), new Vector2(400f, 70f));
+            _root.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-14f, -14f), new Vector2(PerRow * (Size + Gap), 140f));
             player.Buffs.Changed += Rebuild;
+            player.Statuses.Changed += Rebuild;
             Rebuild();
         }
 
         public void Dispose()
         {
             _player.Buffs.Changed -= Rebuild;
+            _player.Statuses.Changed -= Rebuild;
         }
 
         public void Tick()
@@ -34,9 +45,9 @@ namespace Runeheir.UI
             double now = Time.timeAsDouble;
             foreach (var entry in _entries)
             {
-                double remaining = entry.Buff.Remaining(now);
-                string charges = entry.Buff.ChargesLeft > 0 ? $" ×{entry.Buff.ChargesLeft}" : string.Empty;
-                entry.Timer.text = (remaining >= 60 ? $"{remaining / 60:0}m" : $"{remaining:0}s") + charges;
+                double remaining = entry.Remaining(now);
+                string suffix = entry.Suffix != null ? entry.Suffix() : string.Empty;
+                entry.Timer.text = (remaining >= 60 ? $"{remaining / 60:0}m" : $"{remaining:0}s") + suffix;
             }
         }
 
@@ -44,36 +55,82 @@ namespace Runeheir.UI
         {
             foreach (var entry in _entries)
             {
-                Object.Destroy(entry.Root);
+                UnityEngine.Object.Destroy(entry.Root);
             }
 
             _entries.Clear();
-            var active = _player.Buffs.Active;
-            for (int i = 0; i < active.Count; i++)
+            foreach (var status in _player.Statuses.Active)
             {
-                var buff = active[i];
-                var definition = buff.Definition;
-                var icon = UIFactory.CreateIcon(_root, definition.IconLabel, RuntimeMaterials.Hex(definition.IconColorHex), 12);
-                icon.rectTransform.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-i * (Size + 8f), 0f), new Vector2(Size, Size));
-                icon.raycastTarget = true;
-                var pointer = icon.gameObject.AddComponent<UIPointerHandler>();
-                pointer.PointerEnter = () => UITooltip.Show($"<b><color=#EBC466>{definition.Name}</color></b>\n{definition.Description}");
-                pointer.PointerExit = UITooltip.Hide;
+                var info = status.Info;
+                var captured = status;
+                Add(info.IconLabel, RuntimeMaterials.Hex(info.ColorHex), harmful: true,
+                    $"<b><color=#E6735C>{info.Name}</color></b>\n{StatusHelp(info)}",
+                    now => captured.Remaining(now), null);
+            }
 
-                var timer = UIFactory.CreateText(icon.transform, string.Empty, 12, Color.white, TextAnchor.UpperCenter, FontStyle.Bold);
-                timer.rectTransform.Anchor(new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -2f), new Vector2(70f, 18f));
-                UIFactory.AddOutline(timer, Color.black, 1f);
-                _entries.Add(new Entry { Buff = buff, Root = icon.gameObject, Timer = timer });
+            foreach (var buff in _player.Buffs.Active)
+            {
+                var definition = buff.Definition;
+                var captured = buff;
+                string level = buff.Level > 1 ? $" Lv {buff.Level}" : string.Empty;
+                Add(definition.IconLabel, RuntimeMaterials.Hex(definition.IconColorHex), definition.IsDebuff,
+                    $"<b><color={(definition.IsDebuff ? "#E6735C" : "#EBC466")}>{definition.Name}{level}</color></b>\n{definition.Description}",
+                    now => captured.Remaining(now),
+                    () => captured.ChargesLeft > 0 ? $" ×{captured.ChargesLeft}" : definition.MaxStacks > 1 ? $" ●{captured.Stacks}" : string.Empty);
             }
 
             Tick();
         }
 
+        private void Add(string glyph, Color color, bool harmful, string tooltip, Func<double, double> remaining, Func<string> suffix)
+        {
+            int index = _entries.Count;
+            float x = -(index % PerRow) * (Size + Gap);
+            float y = -(index / PerRow) * (Size + 24f);
+            var icon = UIFactory.CreateIcon(_root, glyph, color, 12);
+            icon.rectTransform.Anchor(new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(x, y), new Vector2(Size, Size));
+            icon.raycastTarget = true;
+            if (harmful)
+            {
+                UIFactory.AddOutline(icon, Harmful, 2f);
+            }
+
+            var pointer = icon.gameObject.AddComponent<UIPointerHandler>();
+            pointer.PointerEnter = () => UITooltip.Show(tooltip);
+            pointer.PointerExit = UITooltip.Hide;
+
+            var timer = UIFactory.CreateText(icon.transform, string.Empty, 12, Color.white, TextAnchor.UpperCenter, FontStyle.Bold);
+            timer.rectTransform.Anchor(new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -2f), new Vector2(70f, 18f));
+            UIFactory.AddOutline(timer, Color.black, 1f);
+            _entries.Add(new Entry { Root = icon.gameObject, Timer = timer, Remaining = remaining, Suffix = suffix });
+        }
+
+        private static string StatusHelp(StatusInfo info)
+        {
+            switch (info.Status)
+            {
+                case StatusEffect.Stun: return "Can't move, attack or use skills.";
+                case StatusEffect.Freeze: return "Frozen solid: can't act. Blunt weapons deal triple damage to you.";
+                case StatusEffect.StoneCurse: return "Turned to stone: can't act, DEF halved. Breaks when hit.";
+                case StatusEffect.Sleep: return "Asleep: can't act. Wakes when hit.";
+                case StatusEffect.Poison: return "Losing HP every second, -25% DEF, no natural regen.";
+                case StatusEffect.Bleeding: return "Losing HP every 2 seconds, no natural regen.";
+                case StatusEffect.Silence: return "Can't use skills.";
+                case StatusEffect.Blind: return "-25% HIT and FLEE.";
+                case StatusEffect.Frostbite: return "Half movement speed and attack speed.";
+                case StatusEffect.Curse: return "LUK 0, -25% physical damage, slower.";
+                case StatusEffect.Root: return "Snared: can't walk (you can still attack and cast).";
+                case StatusEffect.Stagger: return "Poise broken: briefly can't act.";
+                default: return string.Empty;
+            }
+        }
+
         private sealed class Entry
         {
-            public Combat.ActiveBuff Buff;
             public GameObject Root;
             public Text Timer;
+            public Func<double, double> Remaining;
+            public Func<string> Suffix;
         }
     }
 }
