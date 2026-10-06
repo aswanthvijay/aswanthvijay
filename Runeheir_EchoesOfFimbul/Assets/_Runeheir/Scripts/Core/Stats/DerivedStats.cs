@@ -70,6 +70,19 @@ namespace Runeheir.Stats
         /// <summary>What resists statuses aimed at this character.</summary>
         public Combat.StatusResistances StatusResistances;
 
+        public float CritDamagePercent;
+        public float LifeStealPercent;
+        public float SpStealPercent;
+        public int SpDrainOnHit;
+
+        /// <summary>Percent skill cooldown change (negative = shorter). Never below -90.</summary>
+        public float CooldownPercent;
+
+        public float ReflectMeleePercent;
+        public float ReflectMagicPercent;
+        public float DefBypassPercent;
+        public float MdefBypassPercent;
+
         public static DerivedStats Compute(int baseLevel, BaseStats baseStats, StatModifiers modifiers, WeaponProfile weapon)
         {
             if (baseStats == null)
@@ -113,7 +126,7 @@ namespace Runeheir.Stats
             d.SoftMdef = (int)(StatFormulas.SoftMdef(total.Int) * mdefScale);
             d.Hit = Math.Max(0, (int)((StatFormulas.Hit(level, total.Dex) + mods.Hit) * (1f + mods.HitPercent / 100f)));
             d.Flee = Math.Max(0, (int)((StatFormulas.Flee(level, total.Agi) + mods.Flee) * (1f + mods.FleePercent / 100f)));
-            d.Crit = StatFormulas.CritChance(total.Luk) + mods.Crit;
+            d.Crit = (StatFormulas.CritChance(total.Luk) + mods.Crit) * Math.Max(0f, 1f + mods.CritPercent / 100f);
 
             d.Aspd = StatFormulas.Aspd(
                 WeaponRules.BaseAspd(weapon.Type),
@@ -145,6 +158,15 @@ namespace Runeheir.Stats
             d.DamageTakenPercent = Math.Max(-90f, mods.DamageTakenPercent);
             d.BlockChance = StatFormulas.Clamp(mods.BlockChance, 0f, 95f);
             d.CastMoveSpeedPercent = StatFormulas.Clamp(mods.CastMoveSpeedPercent, 0f, 100f);
+            d.CritDamagePercent = mods.CritDamagePercent;
+            d.LifeStealPercent = Math.Max(0f, mods.LifeStealPercent);
+            d.SpStealPercent = Math.Max(0f, mods.SpStealPercent);
+            d.SpDrainOnHit = Math.Max(0, mods.SpDrainOnHit);
+            d.CooldownPercent = Math.Max(-90f, mods.CooldownPercent);
+            d.ReflectMeleePercent = StatFormulas.Clamp(mods.ReflectMeleePercent, 0f, 100f);
+            d.ReflectMagicPercent = StatFormulas.Clamp(mods.ReflectMagicPercent, 0f, 100f);
+            d.DefBypassPercent = StatFormulas.Clamp(mods.DefBypassPercent, 0f, 100f);
+            d.MdefBypassPercent = StatFormulas.Clamp(mods.MdefBypassPercent, 0f, 100f);
             d.StatusResistances = new Combat.StatusResistances
             {
                 Vit = total.Vit,

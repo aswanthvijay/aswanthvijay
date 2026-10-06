@@ -27,6 +27,9 @@ namespace Runeheir.Combat
 
         /// <summary>Ends when the next damaging spell is cast (Rune Amplify).</summary>
         ConsumedBySpell = 1 << 5,
+
+        /// <summary>Melee attackers that hit you are frozen (Isa's glacial shield).</summary>
+        FreezeMeleeAttackers = 1 << 6,
     }
 
     public sealed class BuffDefinition
@@ -59,6 +62,9 @@ namespace Runeheir.Combat
         /// <summary>Auto-casts a skill on basic-attack hits while active (Auto Rune).</summary>
         public ProcDefinition Proc;
 
+        /// <summary>Damage this buff absorbs before it breaks (Isa: a 5,000 HP shield). 0 = no shield.</summary>
+        public int AbsorbAmount;
+
         public bool Has(BuffTraits trait)
         {
             return (Traits & trait) != 0;
@@ -75,6 +81,9 @@ namespace Runeheir.Combat
         public int Level = 1;
 
         public int Stacks = 1;
+
+        /// <summary>Shield HP left (<see cref="BuffDefinition.AbsorbAmount"/>).</summary>
+        public int AbsorbLeft;
 
         public double Remaining(double now)
         {
@@ -146,6 +155,7 @@ namespace Runeheir.Combat
                 existing.ExpiresAt = now + seconds;
                 existing.ChargesLeft = chargeCount;
                 existing.Level = Math.Max(1, level);
+                existing.AbsorbLeft = definition.AbsorbAmount;
                 // A lower-level recast (smaller limit) never takes away stacks already there.
                 existing.Stacks = Math.Max(existing.Stacks, Math.Min(maxStacks, existing.Stacks + 1));
             }
@@ -158,6 +168,7 @@ namespace Runeheir.Combat
                     ChargesLeft = chargeCount,
                     Level = Math.Max(1, level),
                     Stacks = 1,
+                    AbsorbLeft = definition.AbsorbAmount,
                 };
                 _active.Add(existing);
             }
@@ -190,6 +201,41 @@ namespace Runeheir.Combat
         public int RemoveWithTrait(BuffTraits trait)
         {
             return RemoveWhere(b => b.Definition.Has(trait));
+        }
+
+        /// <summary>Lets shield buffs soak up <paramref name="damage"/>; returns what gets through. Broken shields are removed.</summary>
+        public int AbsorbDamage(int damage)
+        {
+            if (damage <= 0)
+            {
+                return damage;
+            }
+
+            bool changed = false;
+            for (int i = _active.Count - 1; i >= 0 && damage > 0; i--)
+            {
+                var buff = _active[i];
+                if (buff.Definition.AbsorbAmount <= 0 || buff.AbsorbLeft <= 0)
+                {
+                    continue;
+                }
+
+                int soaked = Math.Min(damage, buff.AbsorbLeft);
+                buff.AbsorbLeft -= soaked;
+                damage -= soaked;
+                changed = true;
+                if (buff.AbsorbLeft <= 0)
+                {
+                    _active.RemoveAt(i);
+                }
+            }
+
+            if (changed)
+            {
+                MarkChanged();
+            }
+
+            return damage;
         }
 
         public int StacksOf(string id)
@@ -355,6 +401,10 @@ namespace Runeheir.Combat
         public const string UruzMight = "uruz_might";
         public const string TiwazPrecision = "tiwaz_precision";
         public const string SowiloWard = "sowilo_ward";
+        public const string ThurisazFury = "thurisaz_fury";
+        public const string IsaShield = "isa_shield";
+        public const string HagalazRebound = "hagalaz_rebound";
+        public const string WolfForm = "wolf_form";
 
         private static readonly Dictionary<string, BuffDefinition> ById = new Dictionary<string, BuffDefinition>();
 
@@ -440,6 +490,49 @@ namespace Runeheir.Combat
                 IconColorHex = "#F7DC6F",
                 Duration = 10f,
                 Traits = BuffTraits.CrowdControlImmune,
+            });
+
+            // GDD §7 combat runestones added in Phase 4, and Fenrir Card's wolf form.
+            Register(new BuffDefinition
+            {
+                Id = ThurisazFury,
+                Name = "Thurisaz Fury",
+                Description = "Poise damage x3 for 30 seconds.",
+                IconLabel = "THU",
+                IconColorHex = "#CB4335",
+                Duration = 30f,
+                Modifiers = new StatModifiers { PoiseDamagePercent = 200f },
+            });
+            Register(new BuffDefinition
+            {
+                Id = IsaShield,
+                Name = "Isa Shield",
+                Description = "A glacial shield absorbs 5,000 damage and freezes melee attackers.",
+                IconLabel = "ISA",
+                IconColorHex = "#85C1E9",
+                Duration = 30f,
+                AbsorbAmount = 5000,
+                Traits = BuffTraits.FreezeMeleeAttackers,
+            });
+            Register(new BuffDefinition
+            {
+                Id = HagalazRebound,
+                Name = "Hagalaz Rebound",
+                Description = "Rebounds 25% of magic damage back at the caster for 30 seconds.",
+                IconLabel = "HAG",
+                IconColorHex = "#AF7AC5",
+                Duration = 30f,
+                Modifiers = new StatModifiers { ReflectMagicPercent = 25f },
+            });
+            Register(new BuffDefinition
+            {
+                Id = WolfForm,
+                Name = "Berserk Wolf Form",
+                Description = "Fenrir's fury: CRIT doubled, can't be staggered.",
+                IconLabel = "WLF",
+                IconColorHex = "#5D6D7E",
+                Duration = 10f,
+                Modifiers = new StatModifiers { CritPercent = 100f, StaggerImmune = true },
             });
 
             SkillBuffs.RegisterAll(Register);

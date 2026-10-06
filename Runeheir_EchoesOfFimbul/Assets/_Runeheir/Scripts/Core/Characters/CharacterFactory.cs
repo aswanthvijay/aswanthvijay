@@ -43,6 +43,9 @@ namespace Runeheir.Characters
             record.Inventory.Add(new ItemStack(ItemCatalog.RuneSowilo, 2));
 
             Skills.SkillBook.SanitizeSkills(record); // learns the granted skills (First Aid)
+            EquipmentSet.SanitizeEquipment(record); // equips the Rusty Seax
+            record.Inventory.Add(ItemStack.NewInstance(ItemCatalog.Get("cotton_tunic")));
+            record.Inventory.Add(ItemStack.NewInstance(ItemCatalog.Get("sandals")));
             record.Hotkeys[0] = HotkeySlot.Skill(Skills.SkillCatalog.FirstAid);
             record.Hotkeys[1] = HotkeySlot.Item(ItemCatalog.LingonberryTonic);
             record.Hotkeys[2] = HotkeySlot.Item(ItemCatalog.AetherSap);

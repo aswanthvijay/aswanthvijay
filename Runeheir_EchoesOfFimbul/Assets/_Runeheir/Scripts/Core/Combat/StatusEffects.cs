@@ -88,6 +88,24 @@ namespace Runeheir.Combat
 
         /// <summary>Immune to every status (MVPs in Phase 5).</summary>
         public bool Immune;
+
+        /// <summary>One bit per <see cref="StatusEffect"/> the wearer can't get (Frost Wolf Card: Freeze).</summary>
+        public int ImmunityMask;
+
+        /// <summary>Extra resistance in percent against <see cref="ExtraResistStatus"/> (Cave Crawler Card).</summary>
+        public StatusEffect ExtraResistStatus;
+
+        public float ExtraResistPercent;
+
+        public bool IsImmuneTo(StatusEffect status)
+        {
+            return Immune || (ImmunityMask & (1 << (int)status)) != 0;
+        }
+
+        public static int Bit(StatusEffect status)
+        {
+            return 1 << (int)status;
+        }
     }
 
     public static class StatusRules
@@ -140,6 +158,7 @@ namespace Runeheir.Combat
                 return 0f;
             }
 
+            float extra = defender.ExtraResistStatus == status && status != StatusEffect.None ? defender.ExtraResistPercent : 0f;
             float stat;
             switch (info.ResistStat)
             {
@@ -148,16 +167,16 @@ namespace Runeheir.Combat
                 case StatusResistStat.Luk: stat = defender.Luk; break;
                 case StatusResistStat.Agi: stat = defender.Agi; break;
                 case StatusResistStat.Mdef: stat = defender.Int / 2f + defender.Mdef; break;
-                default: return 0f;
+                default: return StatFormulas.Clamp(extra, 0f, 100f);
             }
 
-            return StatFormulas.Clamp(stat / StatPerResistPercent, 0f, MaxResistPercent);
+            return StatFormulas.Clamp(StatFormulas.Clamp(stat / StatPerResistPercent, 0f, MaxResistPercent) + extra, 0f, 100f);
         }
 
         /// <summary>Chance after resistance, in percent. A 100% skill chance stays guaranteed only against 0 resist.</summary>
         public static float EffectiveChance(StatusEffect status, float baseChancePercent, in StatusResistances defender)
         {
-            if (defender.Immune || status == StatusEffect.None)
+            if (status == StatusEffect.None || defender.IsImmuneTo(status))
             {
                 return 0f;
             }

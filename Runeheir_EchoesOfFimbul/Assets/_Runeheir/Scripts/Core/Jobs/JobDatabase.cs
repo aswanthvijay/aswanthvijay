@@ -45,8 +45,17 @@ namespace Runeheir.Jobs
         public bool HasParent;
         public int MaxJobLevel;
 
-        /// <summary>Phase 2 stand-in until the equipment system (Phase 4) exists.</summary>
-        public WeaponProfile StarterWeapon;
+        /// <summary>The weapon the guild gives on reaching this job (an item in <c>ItemCatalog</c>).</summary>
+        public string StarterWeaponId;
+
+        /// <summary>Weapon types this job can wield.</summary>
+        public WeaponMask AllowedWeapons;
+
+        /// <summary>The starter weapon as a +0 weapon profile.</summary>
+        public WeaponProfile StarterWeapon => Items.ItemCatalog.Get(StarterWeaponId)?.ToWeaponProfile() ?? WeaponProfile.BareHands;
+
+        /// <summary>The first job of this line (Warrior, Scout, Mystic, Devotee), or Initiate for Initiates.</summary>
+        public JobId Line;
 
         /// <summary>Placeholder outfit color for the capsule avatar.</summary>
         public string ColorHex;
@@ -67,32 +76,52 @@ namespace Runeheir.Jobs
 
         static JobDatabase()
         {
-            var knife = new WeaponProfile("Rusty Seax", WeaponType.Dagger, 17, 1);
+            // Weapon permissions by line (Ragnarok-style): what each job can wield.
+            var initiate = WeaponMask.Unarmed | WeaponMask.Dagger | WeaponMask.OneHandSword | WeaponMask.Staff | WeaponMask.Mace;
+            var warrior = WeaponMask.Unarmed | WeaponMask.Dagger | WeaponMask.Swords | WeaponMask.Spear | WeaponMask.Mace;
+            var scout = WeaponMask.Unarmed | WeaponMask.Dagger | WeaponMask.OneHandSword | WeaponMask.Bow;
+            var assassin = WeaponMask.Unarmed | WeaponMask.Dagger | WeaponMask.OneHandSword | WeaponMask.Katar;
+            var ranger = WeaponMask.Unarmed | WeaponMask.Dagger | WeaponMask.Bow;
+            var mystic = WeaponMask.Unarmed | WeaponMask.Dagger | WeaponMask.Staff;
+            var devotee = WeaponMask.Unarmed | WeaponMask.Mace | WeaponMask.Staff;
+            var paladin = devotee | WeaponMask.OneHandSword | WeaponMask.Spear;
+            var monk = devotee | WeaponMask.Knuckle;
 
-            Add(JobId.Initiate, "Initiate", 0, null, knife, "#9C8D74");
+            Add(JobId.Initiate, "Initiate", 0, null, "rusty_seax", initiate, "#9C8D74");
 
-            Add(JobId.Warrior, "Warrior", 1, JobId.Initiate, new WeaponProfile("Iron Claymore", WeaponType.TwoHandSword, 100, 2), "#8E3B2E");
-            Add(JobId.Scout, "Scout", 1, JobId.Initiate, new WeaponProfile("Seax", WeaponType.Dagger, 64, 2), "#3E6B48");
-            Add(JobId.Mystic, "Mystic", 1, JobId.Initiate, new WeaponProfile("Oak Wand", WeaponType.Staff, 25, 1), "#3B4F8C");
-            Add(JobId.Devotee, "Devotee", 1, JobId.Initiate, new WeaponProfile("Iron Mace", WeaponType.Mace, 75, 2), "#C9A227");
+            Add(JobId.Warrior, "Warrior", 1, JobId.Initiate, "iron_claymore", warrior, "#8E3B2E");
+            Add(JobId.Scout, "Scout", 1, JobId.Initiate, "seax", scout, "#3E6B48");
+            Add(JobId.Mystic, "Mystic", 1, JobId.Initiate, "oak_wand", mystic, "#3B4F8C");
+            Add(JobId.Devotee, "Devotee", 1, JobId.Initiate, "iron_mace", devotee, "#C9A227");
 
-            Add(JobId.Berserker, "Berserker", 2, JobId.Warrior, new WeaponProfile("Flamberge", WeaponType.TwoHandSword, 160, 3), "#7B241C");
-            Add(JobId.Guardian, "Guardian", 2, JobId.Warrior, new WeaponProfile("Rune Lance", WeaponType.Spear, 150, 3), "#5D6D7E");
-            Add(JobId.Assassin, "Assassin", 2, JobId.Scout, new WeaponProfile("Jamadhar", WeaponType.Katar, 120, 3), "#1E3D2F");
-            Add(JobId.Ranger, "Ranger", 2, JobId.Scout, new WeaponProfile("Yew Longbow", WeaponType.Bow, 110, 3), "#4A7A3A");
-            Add(JobId.Sorcerer, "Sorcerer", 2, JobId.Mystic, new WeaponProfile("Runed Staff", WeaponType.Staff, 45, 2), "#2C3E7A");
-            Add(JobId.Sage, "Sage", 2, JobId.Mystic, new WeaponProfile("Rune Tome Staff", WeaponType.Staff, 50, 2), "#4A6FA5");
-            Add(JobId.Paladin, "Paladin", 2, JobId.Devotee, new WeaponProfile("Holy Mace", WeaponType.Mace, 130, 3), "#D4AC0D");
-            Add(JobId.Monk, "Monk", 2, JobId.Devotee, new WeaponProfile("Iron Knuckles", WeaponType.Knuckle, 110, 3), "#B9770E");
+            Add(JobId.Berserker, "Berserker", 2, JobId.Warrior, "flamberge", warrior, "#7B241C");
+            Add(JobId.Guardian, "Guardian", 2, JobId.Warrior, "rune_lance", warrior, "#5D6D7E");
+            Add(JobId.Assassin, "Assassin", 2, JobId.Scout, "jamadhar", assassin, "#1E3D2F");
+            Add(JobId.Ranger, "Ranger", 2, JobId.Scout, "yew_longbow", ranger, "#4A7A3A");
+            Add(JobId.Sorcerer, "Sorcerer", 2, JobId.Mystic, "runed_staff", mystic, "#2C3E7A");
+            Add(JobId.Sage, "Sage", 2, JobId.Mystic, "rune_tome_staff", mystic, "#4A6FA5");
+            Add(JobId.Paladin, "Paladin", 2, JobId.Devotee, "holy_mace", paladin, "#D4AC0D");
+            Add(JobId.Monk, "Monk", 2, JobId.Devotee, "iron_knuckles", monk, "#B9770E");
 
-            Add(JobId.Einherjar, "Einherjar", 3, JobId.Berserker, new WeaponProfile("Einherjar Greatsword", WeaponType.TwoHandSword, 230, 4), "#922B21");
-            Add(JobId.Valkyrie, "Valkyrie", 3, JobId.Guardian, new WeaponProfile("Valkyrian Lance", WeaponType.Spear, 220, 4), "#AEB6BF");
-            Add(JobId.ShadowWalker, "Shadow Walker", 3, JobId.Assassin, new WeaponProfile("Shadow Katar", WeaponType.Katar, 190, 4), "#17202A");
-            Add(JobId.Deadeye, "Deadeye", 3, JobId.Ranger, new WeaponProfile("Raven Longbow", WeaponType.Bow, 180, 4), "#1D4D2B");
-            Add(JobId.Archmage, "Archmage", 3, JobId.Sorcerer, new WeaponProfile("Yggdrasil Staff", WeaponType.Staff, 80, 4), "#1B2A6B");
-            Add(JobId.Chronomancer, "Chronomancer", 3, JobId.Sage, new WeaponProfile("Norn Staff", WeaponType.Staff, 85, 4), "#5B2C6F");
-            Add(JobId.Templar, "Templar", 3, JobId.Paladin, new WeaponProfile("Templar Mace", WeaponType.Mace, 200, 4), "#F4D03F");
-            Add(JobId.Champion, "Champion", 3, JobId.Monk, new WeaponProfile("Fist of Odin Knuckles", WeaponType.Knuckle, 180, 4), "#CA6F1E");
+            Add(JobId.Einherjar, "Einherjar", 3, JobId.Berserker, "einherjar_greatsword", warrior, "#922B21");
+            Add(JobId.Valkyrie, "Valkyrie", 3, JobId.Guardian, "valkyrian_lance", warrior, "#AEB6BF");
+            Add(JobId.ShadowWalker, "Shadow Walker", 3, JobId.Assassin, "shadow_katar", assassin, "#17202A");
+            Add(JobId.Deadeye, "Deadeye", 3, JobId.Ranger, "raven_longbow", ranger, "#1D4D2B");
+            Add(JobId.Archmage, "Archmage", 3, JobId.Sorcerer, "yggdrasil_staff", mystic, "#1B2A6B");
+            Add(JobId.Chronomancer, "Chronomancer", 3, JobId.Sage, "norn_staff", mystic, "#5B2C6F");
+            Add(JobId.Templar, "Templar", 3, JobId.Paladin, "templar_mace", paladin, "#F4D03F");
+            Add(JobId.Champion, "Champion", 3, JobId.Monk, "fist_of_odin_knuckles", monk, "#CA6F1E");
+
+            foreach (var job in Jobs.Values)
+            {
+                var first = job;
+                while (first.Tier > 1)
+                {
+                    first = Jobs[first.Parent];
+                }
+
+                job.Line = first.Id;
+            }
         }
 
         public static IEnumerable<JobInfo> All => Jobs.Values;
@@ -222,7 +251,7 @@ namespace Runeheir.Jobs
             return new string(chars.ToArray());
         }
 
-        private static void Add(JobId id, string name, int tier, JobId? parent, WeaponProfile weapon, string color)
+        private static void Add(JobId id, string name, int tier, JobId? parent, string weaponId, WeaponMask weapons, string color)
         {
             Jobs[id] = new JobInfo
             {
@@ -232,7 +261,8 @@ namespace Runeheir.Jobs
                 Parent = parent ?? JobId.Initiate,
                 HasParent = parent.HasValue,
                 MaxJobLevel = MaxJobLevelByTier[tier],
-                StarterWeapon = weapon,
+                StarterWeaponId = weaponId,
+                AllowedWeapons = weapons,
                 ColorHex = color,
             };
         }

@@ -69,6 +69,12 @@ namespace Runeheir.Characters
         public List<ItemStack> Inventory = new List<ItemStack>();
         public HotkeySlot[] Hotkeys = HotkeyLayout.CreateEmptyArray();
 
+        /// <summary>The 10-slot paperdoll, indexed by <see cref="EquipPosition"/>. Null/empty entries are empty slots.</summary>
+        public ItemStack[] Equipment = new ItemStack[EquipmentSet.Positions];
+
+        /// <summary>0 = saved before equipment existed; <see cref="Sanitize"/> migrates it (equips the job's starter weapon).</summary>
+        public int EquipmentDataVersion;
+
         /// <summary>Learned skills and levels (Phase 3). Granted skills (First Aid) are always present.</summary>
         public List<LearnedSkill> Skills = new List<LearnedSkill>();
 
@@ -87,8 +93,15 @@ namespace Runeheir.Characters
             {
                 foreach (var stack in Inventory)
                 {
-                    copy.Inventory.Add(new ItemStack(stack.ItemId, stack.Amount));
+                    copy.Inventory.Add(stack.Clone());
                 }
+            }
+
+            copy.Equipment = new ItemStack[EquipmentSet.Positions];
+            var equipment = EquipmentSet.Normalize(Equipment);
+            for (int i = 0; i < equipment.Length; i++)
+            {
+                copy.Equipment[i] = equipment[i]?.Clone();
             }
 
             copy.Hotkeys = (HotkeySlot[])HotkeyLayout.Normalize(Hotkeys).Clone();
@@ -113,10 +126,29 @@ namespace Runeheir.Characters
             Stats = Stats ?? new BaseStats();
             Inventory = Inventory ?? new List<ItemStack>();
             Inventory.RemoveAll(s => s == null || s.Amount <= 0 || ItemCatalog.Get(s.ItemId) == null);
+            var repaired = new List<ItemStack>();
             foreach (var stack in Inventory)
             {
-                stack.Amount = Math.Min(stack.Amount, Runeheir.Items.Inventory.MaxStack);
+                var item = stack.Definition;
+                stack.Sanitize();
+                if (item.IsStackable)
+                {
+                    stack.Amount = Math.Min(stack.Amount, Runeheir.Items.Inventory.MaxStack);
+                    repaired.Add(stack);
+                    continue;
+                }
+
+                // Equipment never stacks: a hand-edited "Amount": 3 becomes three separate +0 pieces after the first.
+                int copies = Math.Min(stack.Amount, Runeheir.Items.Inventory.MaxEntries);
+                stack.Amount = 1;
+                repaired.Add(stack);
+                for (int i = 1; i < copies; i++)
+                {
+                    repaired.Add(ItemStack.NewInstance(item));
+                }
             }
+
+            Inventory = repaired;
 
             Hotkeys = HotkeyLayout.Normalize(Hotkeys);
             // Unknown enum values (hand-edited save, or written by a newer build) are repaired, never thrown on,
@@ -148,6 +180,8 @@ namespace Runeheir.Characters
 
             SkillPoints = Math.Max(0, SkillPoints);
             SkillBook.SanitizeSkills(this);
+            EquipmentSet.SanitizeEquipment(this);
+            Zeny = Math.Max(0, Zeny);
         }
     }
 

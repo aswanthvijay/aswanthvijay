@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Runeheir.Characters;
+using Runeheir.Items;
 
 namespace Runeheir.Accounts
 {
@@ -235,6 +236,92 @@ namespace Runeheir.Accounts
 
                 return OpResult.Ok();
             }
+        }
+
+        /// <summary>A copy of the account's shared storage (sanitized).</summary>
+        public OpResult<List<ItemStack>> GetStorage(string username)
+        {
+            lock (_gate)
+            {
+                var account = FindAccount(username);
+                if (account == null)
+                {
+                    return OpResult<List<ItemStack>>.Fail("Not logged in.");
+                }
+
+                return OpResult<List<ItemStack>>.Ok(CopyStorage(account.Storage));
+            }
+        }
+
+        /// <summary>
+        /// Saves a character together with the account storage in one write, so an item moved between bag and storage is
+        /// never duplicated or lost by a half-finished save. Rolls both back if the write fails.
+        /// </summary>
+        public OpResult SaveCharacterAndStorage(string username, CharacterRecord record, List<ItemStack> storage)
+        {
+            if (record == null || storage == null)
+            {
+                return OpResult.Fail("Missing character or storage data.");
+            }
+
+            lock (_gate)
+            {
+                var account = FindAccount(username);
+                if (account == null)
+                {
+                    return OpResult.Fail("Not logged in.");
+                }
+
+                int index = account.Characters.FindIndex(c => c.Slot == record.Slot);
+                if (index < 0 || !string.Equals(account.Characters[index].Name, record.Name, StringComparison.Ordinal))
+                {
+                    return OpResult.Fail("Character does not belong to this account.");
+                }
+
+                var previousCharacter = account.Characters[index];
+                var previousStorage = account.Storage;
+                var copy = record.Clone();
+                copy.Sanitize();
+                copy.LastPlayedUnixMs = _nowUnixMs();
+                account.Characters[index] = copy;
+                account.Storage = CopyStorage(storage);
+                if (!TryPersist(out string saveError))
+                {
+                    account.Characters[index] = previousCharacter;
+                    account.Storage = previousStorage;
+                    return OpResult.Fail(saveError);
+                }
+
+                return OpResult.Ok();
+            }
+        }
+
+        private static List<ItemStack> CopyStorage(List<ItemStack> storage)
+        {
+            var copy = new List<ItemStack>();
+            if (storage == null)
+            {
+                return copy;
+            }
+
+            foreach (var stack in storage)
+            {
+                if (stack == null || stack.Amount <= 0 || stack.Definition == null)
+                {
+                    continue;
+                }
+
+                var clone = stack.Clone();
+                clone.Sanitize();
+                if (!clone.Definition.IsStackable)
+                {
+                    clone.Amount = 1;
+                }
+
+                copy.Add(clone);
+            }
+
+            return copy;
         }
 
         public bool IsNameTaken(string name)

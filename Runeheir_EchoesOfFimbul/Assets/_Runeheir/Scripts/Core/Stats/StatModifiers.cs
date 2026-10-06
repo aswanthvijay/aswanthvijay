@@ -95,6 +95,34 @@ namespace Runeheir.Stats
         /// <summary>Walk at this percent of normal speed while casting (Free Cast). 0 = rooted while casting.</summary>
         public float CastMoveSpeedPercent;
 
+        /// <summary>Percent of CRIT chance (Fenrir's Wolf Form doubles it: +100).</summary>
+        public float CritPercent;
+
+        /// <summary>+% critical damage on top of the 140% (Dire Wolf Card +20).</summary>
+        public float CritDamagePercent;
+
+        /// <summary>Percent of physical damage dealt healed as HP / restored as SP (Crypt Bat, Corrupted Einherjar).</summary>
+        public float LifeStealPercent;
+
+        public float SpStealPercent;
+
+        /// <summary>SP drained from the target on each hit (Abyssal Leech).</summary>
+        public int SpDrainOnHit;
+
+        /// <summary>Percent skill cooldown (Naga Queen -10).</summary>
+        public float CooldownPercent;
+
+        /// <summary>Percent of physical melee damage taken reflected to the attacker (Draugr Warlord).</summary>
+        public float ReflectMeleePercent;
+
+        /// <summary>Percent of magic damage taken reflected to the caster (Hagalaz).</summary>
+        public float ReflectMagicPercent;
+
+        /// <summary>Percent of the target's DEF / MDEF ignored (Jormungandr's Brood 40, Frost Wyrm 10 MDEF).</summary>
+        public float DefBypassPercent;
+
+        public float MdefBypassPercent;
+
         public static StatModifiers Empty()
         {
             return new StatModifiers();
@@ -176,6 +204,16 @@ namespace Runeheir.Stats
             PoiseDamagePercent += other.PoiseDamagePercent * times;
             MaxPoisePercent += other.MaxPoisePercent * times;
             CastMoveSpeedPercent += other.CastMoveSpeedPercent * times;
+            CritPercent += other.CritPercent * times;
+            CritDamagePercent += other.CritDamagePercent * times;
+            LifeStealPercent += other.LifeStealPercent * times;
+            SpStealPercent += other.SpStealPercent * times;
+            SpDrainOnHit += Scale(other.SpDrainOnHit, times);
+            CooldownPercent += other.CooldownPercent * times;
+            ReflectMeleePercent += other.ReflectMeleePercent * times;
+            ReflectMagicPercent += other.ReflectMagicPercent * times;
+            DefBypassPercent += other.DefBypassPercent * times;
+            MdefBypassPercent += other.MdefBypassPercent * times;
             if (times > 0f)
             {
                 AspdOverride = Math.Max(AspdOverride, other.AspdOverride);
@@ -202,6 +240,9 @@ namespace Runeheir.Stats
             DefPercent = MdefPercent = 0f;
             HpRegenFlat = SpRegenFlat = 0;
             AttackRange = DamageTakenPercent = BlockChance = PoiseDamagePercent = MaxPoisePercent = CastMoveSpeedPercent = 0f;
+            CritPercent = CritDamagePercent = LifeStealPercent = SpStealPercent = CooldownPercent = 0f;
+            ReflectMeleePercent = ReflectMagicPercent = DefBypassPercent = MdefBypassPercent = 0f;
+            SpDrainOnHit = 0;
         }
 
         public StatModifiers Clone()

@@ -1,0 +1,241 @@
+using System;
+using System.Collections.Generic;
+using Runeheir.Characters;
+
+namespace Runeheir.Items
+{
+    public sealed class ShopDefinition
+    {
+        public string Id;
+        public string Name;
+        public string Greeting;
+        public string[] ItemIds = Array.Empty<string>();
+    }
+
+    /// <summary>NPC shops. Phase 4 places their keepers by the save point; Phase 5 moves them into Vigrid Haven.</summary>
+    public static class ShopCatalog
+    {
+        public const string GeneralStore = "general_store";
+        public const string ForgeSupplies = "forge_supplies";
+
+        private static readonly Dictionary<string, ShopDefinition> ById = new Dictionary<string, ShopDefinition>
+        {
+            {
+                GeneralStore, new ShopDefinition
+                {
+                    Id = GeneralStore,
+                    Name = "Ásta's Trading Post",
+                    Greeting = "Tonics, feathers and honest gear. I'll buy your loot for half price.",
+                    ItemIds = new[]
+                    {
+                        ItemCatalog.LingonberryTonic, ItemCatalog.HoneyMead, ItemCatalog.AetherSap, ItemCatalog.RavenFeather,
+                        ItemCatalog.WindRuneShard, ItemCatalog.DeadBranch,
+                        "cotton_tunic", "leather_jerkin", "buckler", "traveler_cloak", "sandals", "leather_boots", "bandana", "fur_cap",
+                        "clip_ring", "hunters_bow", "iron_spear", "oak_wand", ItemCatalog.RustySeax, ItemCatalog.Seax, ItemCatalog.IronMace,
+                    },
+                }
+            },
+            {
+                ForgeSupplies, new ShopDefinition
+                {
+                    Id = ForgeSupplies,
+                    Name = "Brokk's Dwarven Forge",
+                    Greeting = "Ores, runes and glyphs. Bring me steel and I'll make it sing.",
+                    ItemIds = new[]
+                    {
+                        ItemCatalog.BogIron, ItemCatalog.DwarvenSteel, ItemCatalog.Starmetal, ItemCatalog.Skystone,
+                        ItemCatalog.RuneOfPreservation, ItemCatalog.RuneOfExtraction,
+                        RunewordRules.Sowilo, RunewordRules.Tiwaz, RunewordRules.Isa, RunewordRules.Hagalaz, RunewordRules.Thurisaz, RunewordRules.Uruz,
+                        ItemCatalog.RuneThurisaz, ItemCatalog.RuneIsa, ItemCatalog.RuneHagalaz,
+                    },
+                }
+            },
+        };
+
+        public static ShopDefinition Get(string id)
+        {
+            return id != null && ById.TryGetValue(id, out var shop) ? shop : null;
+        }
+
+        public static IEnumerable<ShopDefinition> All => ById.Values;
+    }
+
+    /// <summary>Buying and selling for zeny. Merchants pay half the shop price; equipped items can't be sold.</summary>
+    public static class TradeRules
+    {
+        public static bool TryBuy(CharacterRecord record, Inventory inventory, ShopDefinition shop, string itemId, int amount,
+            int weightCapacity, int currentWeight, out string message)
+        {
+            var item = ItemCatalog.Get(itemId);
+            if (shop == null || item == null || Array.IndexOf(shop.ItemIds, item.Id) < 0)
+            {
+                message = "That isn't for sale here.";
+                return false;
+            }
+
+            if (amount <= 0)
+            {
+                message = "Choose how many to buy.";
+                return false;
+            }
+
+            long cost = (long)item.Price * amount;
+            if (record.Zeny < cost)
+            {
+                message = $"You need {cost:N0} zeny.";
+                return false;
+            }
+
+            if (currentWeight + (long)item.Weight * amount > weightCapacity)
+            {
+                message = "You can't carry that much weight.";
+                return false;
+            }
+
+            int added = inventory.Add(item.Id, amount);
+            if (added <= 0)
+            {
+                message = "Your bag is full.";
+                return false;
+            }
+
+            record.Zeny -= (long)item.Price * added;
+            message = $"Bought {item.Name} x{added} for {(long)item.Price * added:N0} zeny.";
+            return true;
+        }
+
+        public static bool TrySell(CharacterRecord record, Inventory inventory, ItemStack entry, int amount, out string message)
+        {
+            var item = entry?.Definition;
+            if (item == null || !inventory.Contains(entry))
+            {
+                message = "That isn't in your bag.";
+                return false;
+            }
+
+            amount = item.IsStackable ? Math.Min(amount, entry.Amount) : 1;
+            if (amount <= 0)
+            {
+                message = "Choose how many to sell.";
+                return false;
+            }
+
+            if (item.IsStackable)
+            {
+                inventory.TryRemove(item.Id, amount);
+            }
+            else
+            {
+                inventory.RemoveEntry(entry);
+            }
+
+            long earned = (long)item.SellPrice * amount;
+            record.Zeny += earned;
+            message = $"Sold {entry.DisplayName} x{amount} for {earned:N0} zeny.";
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Norn Courier storage: one shared chest per account (GDD §2 "the Norns Courier"). Items move between the bag and the
+    /// chest; refine, cards and glyphs travel with equipment.
+    /// </summary>
+    public static class StorageRules
+    {
+        public const int MaxEntries = 300;
+
+        public static bool TryDeposit(Inventory inventory, List<ItemStack> storage, ItemStack entry, int amount, out string message)
+        {
+            var item = entry?.Definition;
+            if (item == null || !inventory.Contains(entry))
+            {
+                message = "That isn't in your bag.";
+                return false;
+            }
+
+            amount = item.IsStackable ? Math.Min(amount, entry.Amount) : 1;
+            var existing = item.IsStackable ? storage.Find(s => s.ItemId == item.Id) : null;
+            if (existing == null && storage.Count >= MaxEntries)
+            {
+                message = "Storage is full.";
+                return false;
+            }
+
+            if (existing != null && existing.Amount + amount > Inventory.MaxStack)
+            {
+                message = "Storage can't hold more of that.";
+                return false;
+            }
+
+            if (item.IsStackable)
+            {
+                inventory.TryRemove(item.Id, amount);
+                if (existing != null)
+                {
+                    existing.Amount += amount;
+                }
+                else
+                {
+                    storage.Add(new ItemStack(item.Id, amount));
+                }
+            }
+            else
+            {
+                inventory.RemoveEntry(entry);
+                storage.Add(entry);
+            }
+
+            message = $"Stored {entry.DisplayName} x{amount}.";
+            return true;
+        }
+
+        public static bool TryWithdraw(List<ItemStack> storage, Inventory inventory, ItemStack entry, int amount, int weightCapacity, int currentWeight,
+            out string message)
+        {
+            var item = entry?.Definition;
+            if (item == null || !storage.Contains(entry))
+            {
+                message = "That isn't in storage.";
+                return false;
+            }
+
+            amount = item.IsStackable ? Math.Min(amount, entry.Amount) : 1;
+            if (currentWeight + (long)item.Weight * amount > weightCapacity)
+            {
+                message = "You can't carry that much weight.";
+                return false;
+            }
+
+            if (item.IsStackable)
+            {
+                int added = inventory.Add(item.Id, amount);
+                if (added <= 0)
+                {
+                    message = "Your bag is full.";
+                    return false;
+                }
+
+                entry.Amount -= added;
+                if (entry.Amount <= 0)
+                {
+                    storage.Remove(entry);
+                }
+
+                amount = added;
+            }
+            else
+            {
+                if (!inventory.AddEntry(entry))
+                {
+                    message = "Your bag is full.";
+                    return false;
+                }
+
+                storage.Remove(entry);
+            }
+
+            message = $"Took {item.Name} x{amount} out of storage.";
+            return true;
+        }
+    }
+}

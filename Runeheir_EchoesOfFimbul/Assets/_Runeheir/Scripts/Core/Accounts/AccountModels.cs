@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Runeheir.Characters;
+using Runeheir.Items;
 
 namespace Runeheir.Accounts
 {
@@ -14,6 +15,9 @@ namespace Runeheir.Accounts
         public long CreatedUnixMs;
         public long LastLoginUnixMs;
         public List<CharacterRecord> Characters = new List<CharacterRecord>();
+
+        /// <summary>Norn Courier storage shared by every character of the account.</summary>
+        public List<ItemStack> Storage = new List<ItemStack>();
     }
 
     /// <summary>Root object persisted by the local (offline) account service.</summary>

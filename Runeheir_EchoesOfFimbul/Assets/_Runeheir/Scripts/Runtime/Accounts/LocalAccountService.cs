@@ -29,6 +29,12 @@ namespace Runeheir.Accounts
         Task<OpResult> DeleteCharacterAsync(string username, int slot, string confirmName);
 
         Task<OpResult> SaveCharacterAsync(string username, CharacterRecord record);
+
+        /// <summary>The account's shared Norn Courier storage.</summary>
+        Task<OpResult<List<Items.ItemStack>>> GetStorageAsync(string username);
+
+        /// <summary>Saves the character and the storage in one write (moves between them can't dupe or vanish).</summary>
+        Task<OpResult> SaveCharacterAndStorageAsync(string username, CharacterRecord record, List<Items.ItemStack> storage);
     }
 
     /// <summary>
@@ -123,6 +129,16 @@ namespace Runeheir.Accounts
         public Task<OpResult> SaveCharacterAsync(string username, CharacterRecord record)
         {
             return Completed(() => _store.SaveCharacter(username, record));
+        }
+
+        public Task<OpResult<List<Items.ItemStack>>> GetStorageAsync(string username)
+        {
+            return Completed(() => _store.GetStorage(username));
+        }
+
+        public Task<OpResult> SaveCharacterAndStorageAsync(string username, CharacterRecord record, List<Items.ItemStack> storage)
+        {
+            return Completed(() => _store.SaveCharacterAndStorage(username, record, storage));
         }
 
         /// <summary>Runs a quick store call; an exception becomes a faulted task, never a synchronous throw.</summary>

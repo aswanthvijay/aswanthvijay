@@ -4,243 +4,188 @@ using Runeheir.Combat;
 
 namespace Runeheir.Items
 {
-    public enum ItemKind
+    /// <summary>
+    /// Every item: consumables, GDD §7 runestones and crafting runes, loot, the 87 GDD §5 equipment pieces
+    /// (ItemCatalog.Weapons.cs / ItemCatalog.Gear.cs) and the 35 GDD §6 Soul Cards (ItemCatalog.Cards.cs).
+    /// </summary>
+    public static partial class ItemCatalog
     {
-        Consumable = 0,
-        Etc = 1,
-    }
-
-    public enum ItemSpecialEffect
-    {
-        None = 0,
-
-        /// <summary>Butterfly Wing equivalent: warp to the save point.</summary>
-        ReturnToSavePoint = 1,
-
-        /// <summary>Fly Wing equivalent: random teleport on the current map.</summary>
-        RandomTeleport = 2,
-
-        /// <summary>Sowilo: cleanse stun/freeze and grant CC immunity.</summary>
-        Cleanse = 3,
-    }
-
-    public sealed class ItemDefinition
-    {
-        public string Id;
-        public string Name;
-        public string Description;
-        public ItemKind Kind;
-        public int Weight;
-        public string IconLabel;
-        public string IconColorHex = "#7F8C8D";
-
-        public int HealHpMin;
-        public int HealHpMax;
-        public float HealHpPercent;
-        public int HealSpMin;
-        public int HealSpMax;
-
-        public string BuffId;
-        public ItemSpecialEffect Special;
-
-        public bool IsUsable => Kind == ItemKind.Consumable;
-    }
-
-    /// <summary>Phase 2 consumables (Norse-flavored potions + GDD §7 combat runestones).</summary>
-    public static class ItemCatalog
-    {
+        // ---- consumables
         public const string LingonberryTonic = "lingonberry_tonic";
         public const string HoneyMead = "honey_mead";
         public const string AetherSap = "aether_sap";
         public const string RuneUruz = "rune_uruz";
         public const string RuneTiwaz = "rune_tiwaz";
         public const string RuneSowilo = "rune_sowilo";
+        public const string RuneThurisaz = "rune_thurisaz";
+        public const string RuneIsa = "rune_isa";
+        public const string RuneHagalaz = "rune_hagalaz";
         public const string RavenFeather = "raven_feather";
         public const string WindRuneShard = "wind_rune_shard";
+        public const string DeadBranch = "dead_branch";
+        public const string BloodBranch = "blood_branch";
+
+        // ---- refine ores and catalytic runes (GDD §7)
+        public const string BogIron = "bog_iron";
+        public const string DwarvenSteel = "dwarven_steel";
+        public const string Starmetal = "starmetal";
+        public const string Skystone = "skystone";
+        public const string RuneOfPreservation = "rune_of_preservation";
+        public const string RuneOfExtraction = "rune_of_extraction";
 
         private static readonly Dictionary<string, ItemDefinition> ById = new Dictionary<string, ItemDefinition>(StringComparer.OrdinalIgnoreCase);
         private static readonly List<ItemDefinition> Ordered = new List<ItemDefinition>();
 
         static ItemCatalog()
         {
-            Register(new ItemDefinition
-            {
-                Id = LingonberryTonic, Name = "Lingonberry Tonic", Kind = ItemKind.Consumable, Weight = 7,
-                Description = "Restores 45~65 HP.", IconLabel = "LT", IconColorHex = "#C0392B",
-                HealHpMin = 45, HealHpMax = 65,
-            });
-            Register(new ItemDefinition
-            {
-                Id = HoneyMead, Name = "Honey Mead", Kind = ItemKind.Consumable, Weight = 15,
-                Description = "Restores 325~405 HP.", IconLabel = "HM", IconColorHex = "#F5B041",
-                HealHpMin = 325, HealHpMax = 405,
-            });
-            Register(new ItemDefinition
-            {
-                Id = AetherSap, Name = "Aether Sap Vial", Kind = ItemKind.Consumable, Weight = 15,
-                Description = "Runic sap of Yggdrasil. Restores 40~60 SP.", IconLabel = "AS", IconColorHex = "#2E86C1",
-                HealSpMin = 40, HealSpMax = 60,
-            });
-            Register(new ItemDefinition
-            {
-                Id = RuneUruz, Name = "Uruz Runestone", Kind = ItemKind.Consumable, Weight = 5,
-                Description = "Restores 30% Max HP and grants +25 STR for 60s.", IconLabel = "URZ", IconColorHex = "#A04000",
-                HealHpPercent = 30f, BuffId = BuffCatalog.UruzMight,
-            });
-            Register(new ItemDefinition
-            {
-                Id = RuneTiwaz, Name = "Tiwaz Runestone", Kind = ItemKind.Consumable, Weight = 5,
-                Description = "Your next 3 attacks are guaranteed criticals.", IconLabel = "TIW", IconColorHex = "#D4AC0D",
-                BuffId = BuffCatalog.TiwazPrecision,
-            });
-            Register(new ItemDefinition
-            {
-                Id = RuneSowilo, Name = "Sowilo Runestone", Kind = ItemKind.Consumable, Weight = 5,
-                Description = "Cleanses stun/freeze and grants 10s CC immunity.", IconLabel = "SOW", IconColorHex = "#F7DC6F",
-                BuffId = BuffCatalog.SowiloWard, Special = ItemSpecialEffect.Cleanse,
-            });
-            Register(new ItemDefinition
-            {
-                Id = RavenFeather, Name = "Raven Feather", Kind = ItemKind.Consumable, Weight = 5,
-                Description = "A feather of Huginn. Returns you to your save point.", IconLabel = "RF", IconColorHex = "#34495E",
-                Special = ItemSpecialEffect.ReturnToSavePoint,
-            });
-            Register(new ItemDefinition
-            {
-                Id = WindRuneShard, Name = "Wind Rune Shard", Kind = ItemKind.Consumable, Weight = 5,
-                Description = "Teleports you to a random spot on this map.", IconLabel = "WR", IconColorHex = "#76D7C4",
-                Special = ItemSpecialEffect.RandomTeleport,
-            });
+            RegisterConsumables();
+            RegisterMaterials();
+            RegisterLoot();
+            RegisterWeapons();
+            RegisterGear();
+            RegisterCards();
         }
 
         public static IReadOnlyList<ItemDefinition> All => Ordered;
 
         public static ItemDefinition Get(string id)
         {
-            return id != null && ById.TryGetValue(id, out var item) ? item : null;
+            return !string.IsNullOrEmpty(id) && ById.TryGetValue(id, out var item) ? item : null;
         }
 
-        private static void Register(ItemDefinition item)
+        private static ItemDefinition Register(ItemDefinition item)
         {
             ById[item.Id] = item;
             Ordered.Add(item);
-        }
-    }
-
-    [Serializable]
-    public sealed class ItemStack
-    {
-        public string ItemId;
-        public int Amount;
-
-        public ItemStack()
-        {
+            return item;
         }
 
-        public ItemStack(string itemId, int amount)
+        private static void RegisterConsumables()
         {
-            ItemId = itemId;
-            Amount = amount;
-        }
-    }
-
-    /// <summary>Stack-based inventory operating on the saved list in <c>CharacterRecord</c>.</summary>
-    public sealed class Inventory
-    {
-        public const int MaxStack = 30000;
-
-        private readonly List<ItemStack> _stacks;
-
-        public Inventory(List<ItemStack> backingList)
-        {
-            _stacks = backingList ?? throw new ArgumentNullException(nameof(backingList));
-        }
-
-        public event Action Changed;
-
-        public IReadOnlyList<ItemStack> Stacks => _stacks;
-
-        public int Count(string itemId)
-        {
-            var stack = Find(itemId);
-            return stack?.Amount ?? 0;
-        }
-
-        public bool Has(string itemId, int amount = 1)
-        {
-            return Count(itemId) >= amount;
-        }
-
-        /// <summary>Adds items; returns how many were actually added (capped at <see cref="MaxStack"/>).</summary>
-        public int Add(string itemId, int amount)
-        {
-            if (amount <= 0 || ItemCatalog.Get(itemId) == null)
+            Register(new ItemDefinition
             {
-                return 0;
-            }
-
-            var stack = Find(itemId);
-            if (stack == null)
+                Id = LingonberryTonic, Name = "Lingonberry Tonic", Kind = ItemKind.Consumable, Weight = 7, Price = 50,
+                Description = "Restores 45~65 HP.", IconLabel = "LT", IconColorHex = "#C0392B",
+                HealHpMin = 45, HealHpMax = 65,
+            });
+            Register(new ItemDefinition
             {
-                stack = new ItemStack(ItemCatalog.Get(itemId).Id, 0);
-                _stacks.Add(stack);
-            }
-
-            // Never negative: an over-cap stack from an old or hand-edited save must not lose items.
-            int added = Math.Max(0, Math.Min(amount, MaxStack - stack.Amount));
-            stack.Amount += added;
-            if (added > 0)
+                Id = HoneyMead, Name = "Honey Mead", Kind = ItemKind.Consumable, Weight = 15, Price = 450,
+                Description = "Restores 325~405 HP.", IconLabel = "HM", IconColorHex = "#F5B041",
+                HealHpMin = 325, HealHpMax = 405,
+            });
+            Register(new ItemDefinition
             {
-                Changed?.Invoke();
-            }
-
-            return added;
+                Id = AetherSap, Name = "Aether Sap Vial", Kind = ItemKind.Consumable, Weight = 15, Price = 300,
+                Description = "Runic sap of Yggdrasil. Restores 40~60 SP.", IconLabel = "AS", IconColorHex = "#2E86C1",
+                HealSpMin = 40, HealSpMax = 60,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RuneUruz, Name = "Uruz Runestone", Kind = ItemKind.Consumable, Weight = 5, Price = 3000,
+                Description = "Restores 30% Max HP and grants +25 STR for 60s.", IconLabel = "URZ", IconColorHex = "#A04000",
+                HealHpPercent = 30f, BuffId = BuffCatalog.UruzMight,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RuneTiwaz, Name = "Tiwaz Runestone", Kind = ItemKind.Consumable, Weight = 5, Price = 3000,
+                Description = "Your next 3 attacks are guaranteed criticals.", IconLabel = "TIW", IconColorHex = "#D4AC0D",
+                BuffId = BuffCatalog.TiwazPrecision,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RuneSowilo, Name = "Sowilo Runestone", Kind = ItemKind.Consumable, Weight = 5, Price = 3000,
+                Description = "Cleanses every status and debuff and grants 10s immunity to statuses and stagger.", IconLabel = "SOW", IconColorHex = "#F7DC6F",
+                BuffId = BuffCatalog.SowiloWard, Special = ItemSpecialEffect.Cleanse,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RuneThurisaz, Name = "Thurisaz Runestone", Kind = ItemKind.Consumable, Weight = 5, Price = 3000,
+                Description = "Triples the poise damage you deal for 30s: heavy blows stagger far sooner.", IconLabel = "THU", IconColorHex = "#CB4335",
+                BuffId = BuffCatalog.ThurisazFury,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RuneIsa, Name = "Isa Runestone", Kind = ItemKind.Consumable, Weight = 5, Price = 4000,
+                Description = "A 5,000 HP glacial shield for 30s. Melee attackers that strike it are frozen.", IconLabel = "ISA", IconColorHex = "#85C1E9",
+                BuffId = BuffCatalog.IsaShield,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RuneHagalaz, Name = "Hagalaz Runestone", Kind = ItemKind.Consumable, Weight = 5, Price = 3000,
+                Description = "For 30s, 25% of magic damage you take rebounds on the caster.", IconLabel = "HAG", IconColorHex = "#AF7AC5",
+                BuffId = BuffCatalog.HagalazRebound,
+            });
+            Register(new ItemDefinition
+            {
+                Id = RavenFeather, Name = "Raven Feather", Kind = ItemKind.Consumable, Weight = 5, Price = 300,
+                Description = "A feather of Huginn. Returns you to your save point.", IconLabel = "RF", IconColorHex = "#34495E",
+                Special = ItemSpecialEffect.ReturnToSavePoint,
+            });
+            Register(new ItemDefinition
+            {
+                Id = WindRuneShard, Name = "Wind Rune Shard", Kind = ItemKind.Consumable, Weight = 5, Price = 60,
+                Description = "Teleports you to a random spot on this map.", IconLabel = "WR", IconColorHex = "#76D7C4",
+                Special = ItemSpecialEffect.RandomTeleport,
+            });
+            Register(new ItemDefinition
+            {
+                Id = DeadBranch, Name = "Dead Branch", Kind = ItemKind.Consumable, Weight = 5, Price = 5000,
+                Description = "A dead twig of Yggdrasil. Breaking it summons a random monster. (Best cracked in the Hall of Branches.)", IconLabel = "DB", IconColorHex = "#6E2C00",
+                Special = ItemSpecialEffect.SummonMonster,
+            });
+            Register(new ItemDefinition
+            {
+                Id = BloodBranch, Name = "Blood Branch", Kind = ItemKind.Consumable, Weight = 10, Price = 100000,
+                Description = "A branch weeping red sap. Breaking it summons a powerful boss.", IconLabel = "BB", IconColorHex = "#922B21",
+                Special = ItemSpecialEffect.SummonBoss,
+            });
         }
 
-        public bool TryRemove(string itemId, int amount = 1)
+        private static void RegisterMaterials()
         {
-            var stack = Find(itemId);
-            if (stack == null || amount <= 0 || stack.Amount < amount)
+            Material(BogIron, "Bog Iron", "Refines Lv 1 weapons at the Dwarven Forge.", "FE", "#7B7D7D", 50);
+            Material(DwarvenSteel, "Dwarven Steel", "Refines Lv 2 weapons at the Dwarven Forge.", "DS", "#95A5A6", 200);
+            Material(Starmetal, "Starmetal", "Sky-fallen metal. Refines Lv 3 and Lv 4 weapons.", "SM", "#5DADE2", 5000);
+            Material(Skystone, "Skystone", "Refines armor, shields, garments, footgear and headgear.", "SK", "#AED6F1", 5000);
+            Material(RuneOfPreservation, "Rune of Preservation", "Use it while refining: a failed refine lowers the item by 1 instead of shattering it.", "RoP", "#F5B041", 50000);
+            Material(RuneOfExtraction, "Rune of Extraction", "Safely pulls every Soul Card out of a piece of equipment, keeping both.", "RoE", "#A569BD", 150000);
+            foreach (var glyph in RunewordRules.GlyphNames)
             {
-                return false;
+                Material(glyph.Key, $"Glyph of {glyph.Value}", $"An Elder Futhark glyph ({glyph.Value}) for carving into a weapon's fuller. Two glyphs form a Runeword.",
+                    "g" + glyph.Value.Substring(0, 2).ToUpperInvariant(), "#D4AC0D", 8000);
             }
-
-            stack.Amount -= amount;
-            if (stack.Amount == 0)
-            {
-                _stacks.Remove(stack);
-            }
-
-            Changed?.Invoke();
-            return true;
         }
 
-        public int TotalWeight()
+        private static void RegisterLoot()
         {
-            int total = 0;
-            foreach (var stack in _stacks)
-            {
-                var item = ItemCatalog.Get(stack.ItemId);
-                if (item != null)
-                {
-                    total += item.Weight * stack.Amount;
-                }
-            }
-
-            return total;
+            Loot("spore_cap", "Spore Cap", "A spongy rune-spore cap.", 12);
+            Loot("beetle_shell", "Beetle Shell", "A hard green shell.", 30);
+            Loot("toxic_gland", "Toxic Gland", "Handle with gloves.", 60);
+            Loot("imp_horn", "Imp Horn", "A small twisted horn.", 120);
+            Loot("grazer_hide", "Grazer Hide", "Thick, warm hide.", 180);
+            Loot("sprite_leaf", "Sprite Leaf", "It still hums with wind.", 300);
+            Loot("wolf_pelt", "Wolf Pelt", "Coarse grey fur.", 1200);
+            Loot("frost_fang", "Frost Fang", "A fang that never warms.", 4000);
+            Loot("jotun_tooth", "Jotun Tooth", "Bigger than your fist.", 15000);
         }
 
-        private ItemStack Find(string itemId)
+        private static void Material(string id, string name, string description, string icon, string color, int price)
         {
-            foreach (var stack in _stacks)
+            Register(new ItemDefinition
             {
-                if (string.Equals(stack.ItemId, itemId, StringComparison.OrdinalIgnoreCase))
-                {
-                    return stack;
-                }
-            }
+                Id = id, Name = name, Description = description, Kind = ItemKind.Material, Weight = 1,
+                IconLabel = icon, IconColorHex = color, Price = price,
+            });
+        }
 
-            return null;
+        private static void Loot(string id, string name, string description, int price)
+        {
+            Register(new ItemDefinition
+            {
+                Id = id, Name = name, Description = description + " Sells to merchants.", Kind = ItemKind.Etc, Weight = 1,
+                IconLabel = name.Substring(0, 2).ToUpperInvariant(), IconColorHex = "#A9927D", Price = price,
+            });
         }
     }
 }

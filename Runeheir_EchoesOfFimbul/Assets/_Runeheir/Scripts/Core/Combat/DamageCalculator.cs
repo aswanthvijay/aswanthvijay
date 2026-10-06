@@ -6,7 +6,7 @@ namespace Runeheir.Combat
     /// <summary>
     /// Card-style damage bonuses, in percent. Bonuses inside one category add; categories multiply
     /// (GDD: Runic Berserker [size] x Forest Outlaw [race] = multiplicative PvP math).
-    /// Filled by the Phase 4 soul-card engine; null means "no bonuses".
+    /// Offense (Vs*) is used on the attacker, defense (TakenFrom*) on the defender. Null means "no bonuses".
     /// </summary>
     public sealed class DamageBonuses
     {
@@ -14,11 +14,23 @@ namespace Runeheir.Combat
         public readonly float[] VsSize = new float[CombatEnumCounts.Sizes];
         public readonly float[] VsElement = new float[CombatEnumCounts.Elements];
 
+        /// <summary>% damage taken from an attacker race / attack element (Draugr Footman: DemiHuman -30).</summary>
+        public readonly float[] TakenFromRace = new float[CombatEnumCounts.Races];
+
+        public readonly float[] TakenFromElement = new float[CombatEnumCounts.Elements];
+
         public float Multiplier(in DefenderProfile defender)
         {
             return (1f + VsRace[(int)defender.Race] / 100f)
                    * (1f + VsSize[(int)defender.Size] / 100f)
                    * (1f + VsElement[(int)defender.Element] / 100f);
+        }
+
+        /// <summary>Defensive multiplier against a hit from <paramref name="attackerRace"/> with <paramref name="attackElement"/>.</summary>
+        public float TakenMultiplier(Race attackerRace, Element attackElement)
+        {
+            return Math.Max(0f, 1f + TakenFromRace[(int)attackerRace] / 100f)
+                   * Math.Max(0f, 1f + TakenFromElement[(int)attackElement] / 100f);
         }
     }
 
@@ -51,8 +63,17 @@ namespace Runeheir.Combat
 
         public float MagicDamagePercent;
 
-        /// <summary>Percent of DEF/MDEF ignored (Jormungandr's Brood card = 40).</summary>
+        /// <summary>Percent of DEF ignored (Jormungandr's Brood card = 40, Occult Strike = 100).</summary>
         public float DefBypassPercent;
+
+        /// <summary>Percent of MDEF ignored (Jormungandr's Brood 40, Frost Wyrm 10).</summary>
+        public float MdefBypassPercent;
+
+        /// <summary>+% on top of the 140% critical damage (Dire Wolf Card).</summary>
+        public float CritDamagePercent;
+
+        /// <summary>The attacker's race, for the defender's race cards (players are Demi-Human).</summary>
+        public Race Race;
 
         public DamageBonuses Bonuses;
     }
@@ -70,6 +91,9 @@ namespace Runeheir.Combat
 
         /// <summary>Damage multiplier vs blunt weapons (1 normally, 3 while frozen).</summary>
         public float BluntDamageTakenMultiplier;
+
+        /// <summary>The defender's race/element damage reduction (shield, garment and armor cards). Null = none.</summary>
+        public DamageBonuses Resist;
     }
 
     public struct DamageResult
@@ -170,8 +194,8 @@ namespace Runeheir.Combat
             float bypass = StatFormulas.Clamp(attacker.DefBypassPercent, 0f, 100f) / 100f;
             if (critical)
             {
-                // GDD: crits bypass physical DEF and deal 140%.
-                damage *= StatFormulas.CriticalDamageMultiplier;
+                // GDD: crits bypass physical DEF and deal 140% (plus crit-damage cards).
+                damage *= StatFormulas.CriticalDamageMultiplier * (1.0 + attacker.CritDamagePercent / 100.0);
             }
             else
             {
@@ -199,6 +223,11 @@ namespace Runeheir.Combat
                 damage *= defender.BluntDamageTakenMultiplier;
             }
 
+            if (defender.Resist != null)
+            {
+                damage *= defender.Resist.TakenMultiplier(attacker.Race, attacker.AttackElement);
+            }
+
             return new DamageResult
             {
                 Amount = Finalize(damage, elementMultiplier),
@@ -223,13 +252,17 @@ namespace Runeheir.Combat
             double matk = random.Range(attacker.MatkMin, Math.Max(attacker.MatkMin, attacker.MatkMax));
             double damage = matk * skillPercent / 100.0;
 
-            float bypass = StatFormulas.Clamp(attacker.DefBypassPercent, 0f, 100f) / 100f;
+            float bypass = StatFormulas.Clamp(attacker.MdefBypassPercent, 0f, 100f) / 100f;
             damage *= HardMdefReduction(defender.Mdef * (1f - bypass));
             damage -= defender.SoftMdef * (1f - bypass);
 
             float elementMultiplier = ElementTable.Multiplier(element, defender.Element);
             damage *= elementMultiplier;
             damage *= 1.0 + attacker.MagicDamagePercent / 100.0;
+            if (defender.Resist != null)
+            {
+                damage *= defender.Resist.TakenMultiplier(attacker.Race, element);
+            }
 
             return new DamageResult
             {
