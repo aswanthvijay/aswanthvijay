@@ -48,6 +48,7 @@ namespace Runeheir.Stats
         public float MagicDamagePercent;
         public bool ItemsLocked;
         public bool UninterruptibleCasting;
+        public bool HyperArmor;
 
         public static DerivedStats Compute(int baseLevel, BaseStats baseStats, StatModifiers modifiers, WeaponProfile weapon)
         {
@@ -115,6 +116,7 @@ namespace Runeheir.Stats
             d.MagicDamagePercent = mods.MagicDamagePercent;
             d.ItemsLocked = mods.ItemsLocked;
             d.UninterruptibleCasting = mods.UninterruptibleCasting;
+            d.HyperArmor = mods.HyperArmor;
             return d;
         }
     }

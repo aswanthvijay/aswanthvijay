@@ -45,6 +45,9 @@ namespace Runeheir.Player
 
         public JobInfo Job => JobDatabase.Get(Record.Job);
 
+        /// <summary>Rage of Thor's hyper-armor ignores knockback.</summary>
+        public override bool CanBeKnockedBack => Stats == null || !Stats.HyperArmor;
+
         public WeaponProfile Weapon => Job.StarterWeapon;
 
         /// <summary>Derived stats were recomputed (level, stat points, buffs, job).</summary>
@@ -285,7 +288,8 @@ namespace Runeheir.Player
                 return;
             }
 
-            if (_animation != null)
+            // Rage of Thor hyper-armor: no flinch (casting is already uninterruptible through the same buff).
+            if (_animation != null && !Stats.HyperArmor)
             {
                 _animation.PlayHit();
             }

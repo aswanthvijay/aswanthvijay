@@ -102,6 +102,13 @@ namespace Runeheir.Combat
     /// </summary>
     public static class DamageCalculator
     {
+        /// <summary>
+        /// GDD §4 LUK: crits "deal flat 140% true damage". Read as: a crit ignores DEF and elemental resistance
+        /// (the element multiplier never drops below 100%), while weaknesses, cards and buffs still apply.
+        /// Set to false for classic Ragnarok crits, which are still scaled down by the element table.
+        /// </summary>
+        public const bool CritsIgnoreElementResistance = true;
+
         public const float MinHitChance = 5f;
         public const float MaxHitChance = 95f;
 
@@ -169,6 +176,11 @@ namespace Runeheir.Combat
             }
 
             float elementMultiplier = ElementTable.Multiplier(attacker.AttackElement, defender.Element);
+            if (critical && CritsIgnoreElementResistance)
+            {
+                elementMultiplier = Math.Max(1f, elementMultiplier);
+            }
+
             damage *= elementMultiplier;
 
             if (attacker.Bonuses != null)

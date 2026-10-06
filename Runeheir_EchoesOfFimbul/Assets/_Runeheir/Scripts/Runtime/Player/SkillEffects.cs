@@ -293,7 +293,8 @@ namespace Runeheir.Player
 
         private static void TryApplyStatus(SkillDefinition skill, CombatEntity target)
         {
-            if (target == null || target.IsDead || !(Random.value * 100f < skill.StatusChance))
+            // Random.value can be exactly 1.0, so a 100% chance must skip the roll to really be guaranteed.
+            if (target == null || target.IsDead || (skill.StatusChance < 100f && !(Random.value * 100f < skill.StatusChance)))
             {
                 return;
             }

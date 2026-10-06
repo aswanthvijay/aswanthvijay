@@ -459,5 +459,6 @@ Shader "Runeheir/Toon"
         }
     }
 
-    FallBack "Hidden/Universal Render Pipeline/FallbackError"
+    // Unsupported GPU/API: degrade to URP Lit (same _BaseColor/_BaseMap/_EmissionColor names) instead of magenta.
+    FallBack "Universal Render Pipeline/Lit"
 }

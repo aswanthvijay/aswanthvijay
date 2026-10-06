@@ -59,13 +59,19 @@ namespace Runeheir.Characters
             if (baseExp > 0 && !IsMaxBaseLevel)
             {
                 result.BaseExpGained = baseExp;
-                Record.BaseExp += baseExp;
+                Record.BaseExp = SaturatingAdd(Record.BaseExp, baseExp);
                 while (!IsMaxBaseLevel && Record.BaseExp >= BaseExpToNext)
                 {
                     Record.BaseExp -= BaseExpToNext;
                     Record.BaseLevel++;
-                    Record.StatPoints += StatFormulas.StatPointsGainedAtLevel(Record.BaseLevel);
                     result.BaseLevelsGained++;
+                }
+
+                if (result.BaseLevelsGained > 0)
+                {
+                    // Same number as adding StatPointsGainedAtLevel per level for a normal character, but never
+                    // hands out points to one whose stats already cost more than its level grants (GM edits).
+                    RecalculateStatPoints();
                 }
 
                 if (IsMaxBaseLevel)
@@ -77,7 +83,7 @@ namespace Runeheir.Characters
             if (jobExp > 0 && !IsMaxJobLevel)
             {
                 result.JobExpGained = jobExp;
-                Record.JobExp += jobExp;
+                Record.JobExp = SaturatingAdd(Record.JobExp, jobExp);
                 while (!IsMaxJobLevel && Record.JobExp >= JobExpToNext)
                 {
                     Record.JobExp -= JobExpToNext;
@@ -183,6 +189,11 @@ namespace Runeheir.Characters
             Record.StatPoints = Math.Max(0, available);
         }
 
+        private static long SaturatingAdd(long current, long amount)
+        {
+            return amount > long.MaxValue - current ? long.MaxValue : current + amount;
+        }
+
         // ------------------------------------------------------------ levels (GM/debug)
         public void SetBaseLevel(int level)
         {
@@ -204,7 +215,9 @@ namespace Runeheir.Characters
             int previous = Record.JobLevel;
             Record.JobLevel = StatFormulas.Clamp(level, 1, Job.MaxJobLevel);
             Record.JobExp = 0;
-            Record.SkillPoints = StatFormulas.SkillPointsAtJobLevel(Record.JobLevel);
+
+            // Change by the level difference, like leveling does: points carried over from earlier jobs stay.
+            Record.SkillPoints = Math.Max(0, Record.SkillPoints + (Record.JobLevel - previous));
             if (Record.JobLevel > previous)
             {
                 JobLevelUp?.Invoke(Record.JobLevel);

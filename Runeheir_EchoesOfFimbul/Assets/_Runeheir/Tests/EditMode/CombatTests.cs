@@ -77,9 +77,14 @@ namespace Runeheir.Tests
             var defender = Defender();
             defender.Flee = 1000;
 
-            var result = DamageCalculator.Physical(attacker, defender, 100f, true, new SequenceRandom(0.99, 0.5));
+            // canCrit: false, so the first queued value is the hit roll itself.
+            var result = DamageCalculator.Physical(attacker, defender, 100f, false, new SequenceRandom(0.99, 0.5));
             Assert.IsTrue(result.IsMiss);
             Assert.AreEqual(0, result.Amount);
+
+            // Hit chance clamps to 5%: a 0.04 roll still lands.
+            var lucky = DamageCalculator.Physical(attacker, defender, 100f, false, new SequenceRandom(0.04, 0.5));
+            Assert.IsFalse(lucky.IsMiss);
         }
 
         [Test]
@@ -95,6 +100,64 @@ namespace Runeheir.Tests
             var result = DamageCalculator.Physical(attacker, defender, 100f, false, new SequenceRandom(0.99, 0.99));
             Assert.IsFalse(result.IsMiss);
             Assert.AreEqual(200, result.Amount);
+        }
+
+        [Test]
+        public void Critical_IgnoresElementalResistance()
+        {
+            // GDD: crits are "flat 140% true damage". Neutral vs Ghost is 25% for normal hits only.
+            var attacker = Attacker();
+            attacker.ForceCritical = true;
+            var crit = DamageCalculator.Physical(attacker, Defender(element: Element.Ghost), 100f, true, new SequenceRandom(0.5));
+            Assert.AreEqual(DamageCalculator.CritsIgnoreElementResistance ? 280 : 70, crit.Amount);
+
+            var normal = DamageCalculator.Physical(Attacker(), Defender(element: Element.Ghost), 100f, false, new SequenceRandom(0.0, 0.5));
+            Assert.AreEqual(50, normal.Amount);
+        }
+
+        [Test]
+        public void ElementTable_MatchesClassicPreRenewalCells()
+        {
+            // rAthena db/pre-re/attr_fix.yml, level 1.
+            Assert.AreEqual(175, ElementTable.GetPercent(Element.Wind, Element.Water));
+            Assert.AreEqual(100, ElementTable.GetPercent(Element.Earth, Element.Earth));
+            Assert.AreEqual(150, ElementTable.GetPercent(Element.Water, Element.Fire));
+            Assert.AreEqual(25, ElementTable.GetPercent(Element.Neutral, Element.Ghost));
+            Assert.AreEqual(-25, ElementTable.GetPercent(Element.Poison, Element.Undead));
+            Assert.AreEqual(100, ElementTable.GetPercent(Element.Undead, Element.Holy));
+        }
+
+        [Test]
+        public void GddConstants_SkillsBuffsAndRunestones()
+        {
+            // GDD §3 signature skills.
+            var barrage = SkillCatalog.Get("phantom_barrage");
+            Assert.AreEqual(8, barrage.Hits);
+            Assert.AreEqual(StatusEffect.Stun, barrage.Status);
+            Assert.AreEqual(100f, barrage.StatusChance);
+
+            var tempest = SkillCatalog.Get("glacial_tempest");
+            Assert.Greater(tempest.Hits, 1);
+            Assert.AreEqual(StatusEffect.Freeze, tempest.Status);
+
+            var aegis = BuffCatalog.Get(BuffCatalog.RunicAegis);
+            Assert.AreEqual(10, aegis.Charges);
+            Assert.AreEqual(BuffTraits.MeleeBlockCharges, aegis.Traits & BuffTraits.MeleeBlockCharges);
+
+            Assert.AreEqual(40f, BuffCatalog.Get(BuffCatalog.MiasmaWeapon).Duration);
+
+            var rage = BuffCatalog.Get(BuffCatalog.RageOfThor).Modifiers;
+            Assert.IsTrue(rage.HyperArmor && rage.UninterruptibleCasting && rage.ItemsLocked);
+
+            // GDD §7 combat runestones.
+            var uruz = Runeheir.Items.ItemCatalog.Get(Runeheir.Items.ItemCatalog.RuneUruz);
+            Assert.AreEqual(30f, uruz.HealHpPercent);
+            Assert.AreEqual(25, BuffCatalog.Get(BuffCatalog.UruzMight).Modifiers.GetStat(StatType.Str));
+            Assert.AreEqual(3, BuffCatalog.Get(BuffCatalog.TiwazPrecision).Charges);
+
+            var sowilo = BuffCatalog.Get(BuffCatalog.SowiloWard);
+            Assert.AreEqual(10f, sowilo.Duration);
+            Assert.AreEqual(BuffTraits.CrowdControlImmune, sowilo.Traits & BuffTraits.CrowdControlImmune);
         }
 
         [Test]
@@ -118,9 +181,11 @@ namespace Runeheir.Tests
             Assert.AreEqual(1f, DamageCalculator.HardDefReduction(0f), 1e-6f);
             float at100 = DamageCalculator.HardDefReduction(100f);
             float at400 = DamageCalculator.HardDefReduction(400f);
+            float at200 = DamageCalculator.HardDefReduction(200f);
             Assert.Less(at100, 1f);
             Assert.Less(at400, at100);
             Assert.Greater(at400, 0.1f);
+            Assert.Greater(1f - at100, at100 - at200, "the first 100 DEF blocks more than the next 100 (diminishing returns)");
         }
 
         [Test]

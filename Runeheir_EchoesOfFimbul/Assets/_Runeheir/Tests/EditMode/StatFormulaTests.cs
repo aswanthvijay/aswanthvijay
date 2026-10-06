@@ -74,7 +74,8 @@ namespace Runeheir.Tests
         [Test]
         public void Aspd_IsClampedTo150And197()
         {
-            Assert.GreaterOrEqual(StatFormulas.Aspd(150f, 1, 1), StatFormulas.MinAspd);
+            Assert.AreEqual(153.19f, StatFormulas.Aspd(150f, 1, 1), 0.01f, "unclamped low-AGI value");
+            Assert.AreEqual(150f, StatFormulas.Aspd(100f, 1, 1), 1e-5f, "floor at 150");
             Assert.AreEqual(197f, StatFormulas.Aspd(150f, 255, 0), 1e-5f);
             Assert.AreEqual(197f, StatFormulas.Aspd(150f, 255, 255, flatBonus: 50f), 1e-5f);
         }

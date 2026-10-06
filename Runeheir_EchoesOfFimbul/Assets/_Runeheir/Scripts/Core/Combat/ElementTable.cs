@@ -2,8 +2,8 @@ namespace Runeheir.Combat
 {
     /// <summary>
     /// Attack element (row) vs. defender element (column), level-1 defender, in percent.
-    /// Mirrors the classic pre-renewal table. Negative values (Ragnarok "heals the target")
-    /// are treated as 0 damage by <see cref="DamageCalculator"/>.
+    /// Matches the classic pre-renewal table cell for cell (rAthena db/pre-re/attr_fix.yml, Level 1).
+    /// Negative values (Ragnarok "heals the target") are treated as 0 damage by <see cref="DamageCalculator"/>.
     /// </summary>
     public static class ElementTable
     {
@@ -12,9 +12,9 @@ namespace Runeheir.Combat
         {
             /* Neutral */ { 100, 100, 100, 100, 100, 100, 100, 100,  25, 100 },
             /* Water   */ { 100,  25, 100, 150,  50, 100,  75, 100, 100, 100 },
-            /* Earth   */ { 100, 100,  25,  50, 150, 100,  75, 100, 100, 100 },
+            /* Earth   */ { 100, 100, 100,  50, 150, 100,  75, 100, 100, 100 },
             /* Fire    */ { 100,  50, 150,  25, 100, 100,  75, 100, 100, 125 },
-            /* Wind    */ { 100, 150,  50, 100,  25, 100,  75, 100, 100, 100 },
+            /* Wind    */ { 100, 175,  50, 100,  25, 100,  75, 100, 100, 100 },
             /* Poison  */ { 100, 100, 125, 125, 125,   0,  75,  50, 100, -25 },
             /* Holy    */ { 100, 100, 100, 100, 100, 100,   0, 125, 100, 150 },
             /* Shadow  */ { 100, 100, 100, 100, 100,  50, 125,   0, 100, -25 },

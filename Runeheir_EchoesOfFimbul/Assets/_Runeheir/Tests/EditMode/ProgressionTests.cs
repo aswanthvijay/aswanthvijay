@@ -65,6 +65,44 @@ namespace Runeheir.Tests
         }
 
         [Test]
+        public void GainExperience_SaturatesInsteadOfOverflowing()
+        {
+            var progression = NewCharacter(JobId.Einherjar);
+            progression.Record.BaseExp = 10;
+            progression.Record.JobExp = 10;
+            progression.GainExperience(long.MaxValue, long.MaxValue);
+
+            Assert.AreEqual(StatFormulas.MaxBaseLevel, progression.Record.BaseLevel);
+            Assert.AreEqual(StatFormulas.MaxJobLevel, progression.Record.JobLevel);
+            Assert.GreaterOrEqual(progression.Record.BaseExp, 0);
+            Assert.GreaterOrEqual(progression.Record.JobExp, 0);
+        }
+
+        [Test]
+        public void SetJobLevel_KeepsSkillPointsFromEarlierJobs()
+        {
+            var progression = NewCharacter();
+            progression.GainExperience(0, long.MaxValue / 4); // Initiate Job 10: 9 points
+            Assert.IsTrue(progression.TryChangeJob(JobId.Warrior, out _));
+            progression.SetJobLevel(2);
+            Assert.AreEqual(10, progression.Record.SkillPoints);
+        }
+
+        [Test]
+        public void LevelUp_NeverGrantsPointsWhileStatsCostMoreThanTheLevelGives()
+        {
+            var progression = NewCharacter();
+            progression.SetBaseLevel(99);
+            progression.SetAllStats(99);
+            progression.SetBaseLevel(1);
+            Assert.AreEqual(0, progression.Record.StatPoints);
+
+            progression.GainExperience(ExperienceTable.BaseExpToNext(1), 0);
+            Assert.AreEqual(2, progression.Record.BaseLevel);
+            Assert.AreEqual(0, progression.Record.StatPoints, "still in debt after one level");
+        }
+
+        [Test]
         public void JobLevel_CapsPerTier()
         {
             var initiate = NewCharacter();
@@ -137,6 +175,9 @@ namespace Runeheir.Tests
             Assert.IsFalse(JobDatabase.IsSelfOrAncestor(JobId.Mystic, JobId.Einherjar));
             Assert.IsTrue(JobDatabase.TryParse("shadow walker", out var id));
             Assert.AreEqual(JobId.ShadowWalker, id);
+            Assert.IsTrue(JobDatabase.TryParse("Chrono", out id), "GDD job-tree short name");
+            Assert.AreEqual(JobId.Chronomancer, id);
+            Assert.IsFalse(JobDatabase.TryParse("frost giant", out _), "not a job");
         }
 
         [Test]

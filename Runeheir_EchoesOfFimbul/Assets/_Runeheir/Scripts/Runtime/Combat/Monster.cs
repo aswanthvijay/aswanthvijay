@@ -312,7 +312,7 @@ namespace Runeheir.Combat
             foreach (var drop in Definition.Drops)
             {
                 float chance = Mathf.Min(100f, drop.ChancePercent * rates.Drop);
-                if (Random.value * 100f < chance)
+                if (chance >= 100f || Random.value * 100f < chance) // Random.value includes 1.0
                 {
                     var item = ItemCatalog.Get(drop.ItemId);
                     if (item != null && killer.Inventory.Add(item.Id, 1) > 0)

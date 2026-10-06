@@ -243,7 +243,7 @@ namespace Runeheir.Combat
             {
                 Id = RageOfThor,
                 Name = "Rage of Thor",
-                Description = "Max HP x3, ASPD locked to 195, items locked, uninterruptible.",
+                Description = "Max HP x3, ASPD locked to 195, items locked, hyper-armor (no flinch, no knockback, casts can't be interrupted).",
                 IconLabel = "ROT",
                 IconColorHex = "#C0392B",
                 Duration = 30f,
@@ -253,6 +253,7 @@ namespace Runeheir.Combat
                     AspdOverride = 195f,
                     ItemsLocked = true,
                     UninterruptibleCasting = true,
+                    HyperArmor = true,
                 },
             });
             Register(new BuffDefinition

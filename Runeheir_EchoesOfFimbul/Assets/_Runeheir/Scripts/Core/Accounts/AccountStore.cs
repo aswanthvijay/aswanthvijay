@@ -14,6 +14,13 @@ namespace Runeheir.Accounts
     /// </summary>
     public sealed class AccountStore
     {
+        // Hashed once per process: unknown usernames are checked against it so they cost as much as a wrong password.
+        private static readonly Lazy<(string Hash, string Salt)> DummyCredential = new Lazy<(string, string)>(() =>
+        {
+            PasswordHasher.Hash("runeheir-dummy-password", out string hash, out string salt, out _);
+            return (hash, salt);
+        });
+
         private readonly object _gate = new object();
         private readonly AccountDatabase _db;
         private readonly Action<AccountDatabase> _persist;
@@ -74,6 +81,8 @@ namespace Runeheir.Accounts
             const string invalid = "Incorrect username or password.";
             if (account == null)
             {
+                // Same PBKDF2 cost as a real check, so response time doesn't reveal which usernames exist.
+                PasswordHasher.Verify(password ?? string.Empty, DummyCredential.Value.Hash, DummyCredential.Value.Salt, PasswordHasher.DefaultIterations);
                 return OpResult<string>.Fail(invalid);
             }
 

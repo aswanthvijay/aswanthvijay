@@ -52,7 +52,7 @@ No other assets are needed. All UI, icons and placeholder characters are generat
 
 Menu bar → **Runeheir ▸ Setup ▸ Build Prototype Scenes**
 
-This generates two scenes and their materials (`Assets/_Runeheir/Materials`, toon-shaded under URP) and adds both scenes to Build Profiles. Re-run it any time; it rebuilds them from code. Command-line and CI builds call the same generator (`RuneheirSetupWizard.GenerateScenes()`), so the scenes never need to be committed.
+This generates two scenes and their materials (`Assets/_Runeheir/Generated/Materials`, toon-shaded under URP) and adds both scenes to Build Profiles. Re-run it any time; it rebuilds them from code. Command-line and CI builds call the same generator (`RuneheirSetupWizard.GenerateScenes()`), so the scenes never need to be committed.
 
 | Scene | Contents |
 |---|---|
@@ -153,7 +153,7 @@ Interval    = Swing + Recovery                       // time between hits
 | 195 | 2.91x | 0.223 s | 4.49 |
 | 197 | 3.00x | 0.200 s | 5.00 |
 
-With a two-handed sword (base 150) and 50 DEX: AGI 90 gives ASPD 180, AGI 150 gives 189, AGI 230 reaches the 197 cap. Two-Hand Surge (+7) reaches the cap at AGI ~180.
+With a two-handed sword (base 150) and 50 DEX: AGI 90 gives ASPD 180, AGI 150 gives 189, AGI 220 reaches the 197 cap. Two-Hand Surge (+7) reaches the cap at AGI 160.
 Menu **Runeheir ▸ Debug ▸ Log ASPD Table** prints this table; the `@aspd` chat command prints your live breakdown.
 
 ### Wiring ASPD to a real Animator (when Blender models arrive)

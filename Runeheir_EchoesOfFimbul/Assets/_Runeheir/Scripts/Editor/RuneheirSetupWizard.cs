@@ -53,6 +53,20 @@ namespace Runeheir.EditorTools
         [MenuItem("Runeheir/Setup/Build Prototype Scenes", priority = 0)]
         public static void BuildPrototypeScenes()
         {
+            BuildScenesAndOpen(LoginScenePath);
+        }
+
+        // Scene creation and opening throw in Play mode, so these menu items are disabled there.
+        [MenuItem("Runeheir/Setup/Build Prototype Scenes", true)]
+        [MenuItem("Runeheir/Setup/Open Login Scene", true)]
+        [MenuItem("Runeheir/Setup/Open Field Scene", true)]
+        public static bool CanEditScenes()
+        {
+            return !EditorApplication.isPlayingOrWillChangePlaymode;
+        }
+
+        private static void BuildScenesAndOpen(string sceneToOpen)
+        {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             {
                 return;
@@ -64,8 +78,17 @@ namespace Runeheir.EditorTools
                 return;
             }
 
-            GenerateScenes();
-            EditorSceneManager.OpenScene(LoginScenePath);
+            try
+            {
+                GenerateScenes();
+            }
+            catch (IOException exception)
+            {
+                EditorUtility.DisplayDialog("Runeheir", exception.Message, "OK");
+                return;
+            }
+
+            EditorSceneManager.OpenScene(sceneToOpen);
             EditorUtility.DisplayDialog(
                 "Runeheir",
                 "Created RH_Login and RH_Field_WhisperwoodPlains and added them to Build Settings.\n\n" +
@@ -118,9 +141,10 @@ namespace Runeheir.EditorTools
         public static void RevealDatabase()
         {
             string path = Path.Combine(Application.persistentDataPath, LocalAccountService.FileName);
-            if (File.Exists(path))
+            string existing = System.Array.Find(new[] { path, path + ".tmp", path + ".bak" }, File.Exists);
+            if (existing != null)
             {
-                EditorUtility.RevealInFinder(path);
+                EditorUtility.RevealInFinder(existing);
             }
             else
             {
@@ -192,7 +216,10 @@ namespace Runeheir.EditorTools
             CreateSun(new Vector3(40f, -30f, 0f), new Color(1f, 0.95f, 0.88f), 1.1f);
             new GameObject("FrontEnd").AddComponent<FrontEndController>();
 
-            EditorSceneManager.SaveScene(scene, path);
+            if (!EditorSceneManager.SaveScene(scene, path))
+            {
+                throw new IOException($"[Runeheir] Could not save {path} (read-only or locked?).");
+            }
         }
 
         // ================================================================ field scene
@@ -243,8 +270,11 @@ namespace Runeheir.EditorTools
             {
                 var position = RandomPoint(random, GroundSize * 0.45f);
                 float size = Range(random, 4f, 11f);
-                Block(decor, "GrassPatch", PrimitiveType.Cylinder, new Vector3(position.x, 0.005f, position.z), new Vector3(size, 0.005f, size * Range(random, 0.6f, 1f)),
-                    i % 2 == 0 ? GrassDark : new Color(0.48f, 0.68f, 0.32f), keepCollider: false, outline: 0f);
+                // The two colors sit at different heights (tops 0.013 / 0.010, below the paths) so overlapping
+                // patches never z-fight; same-color overlaps share a material and don't show.
+                bool dark = i % 2 == 0;
+                Block(decor, "GrassPatch", PrimitiveType.Cylinder, new Vector3(position.x, dark ? 0.008f : 0.005f, position.z), new Vector3(size, 0.005f, size * Range(random, 0.6f, 1f)),
+                    dark ? GrassDark : new Color(0.48f, 0.68f, 0.32f), keepCollider: false, outline: 0f);
             }
 
             var spawns = new (string id, Vector3 position, int count, float radius)[]
@@ -296,7 +326,10 @@ namespace Runeheir.EditorTools
             settings.FindProperty("mapSize").vector3Value = new Vector3(GroundSize - 10f, 20f, GroundSize - 10f);
             settings.ApplyModifiedPropertiesWithoutUndo();
 
-            EditorSceneManager.SaveScene(scene, path);
+            if (!EditorSceneManager.SaveScene(scene, path))
+            {
+                throw new IOException($"[Runeheir] Could not save {path} (read-only or locked?).");
+            }
         }
 
         private static void PlaceTrees(Transform parent, System.Random random, List<(Vector3 center, float radius)> avoid)
@@ -353,8 +386,14 @@ namespace Runeheir.EditorTools
                 avoid.Add((position, 2f));
                 placed++;
                 var rock = Block(parent, "Rock", PrimitiveType.Sphere, position + Vector3.up * 0.25f,
-                    new Vector3(Range(random, 1.4f, 3f), Range(random, 0.8f, 1.5f), Range(random, 1.2f, 2.6f)), Stone * Range(random, 0.85f, 1.1f), keepCollider: true);
+                    new Vector3(Range(random, 1.4f, 3f), Range(random, 0.8f, 1.5f), Range(random, 1.2f, 2.6f)), Stone * Range(random, 0.85f, 1.1f), keepCollider: false);
                 rock.transform.rotation = Quaternion.Euler(0f, Range(random, 0f, 360f), 0f);
+
+                // A SphereCollider ignores non-uniform scale (it uses the largest axis), so it would be far bigger
+                // than the squashed rock. A convex MeshCollider follows the visible shape for clicks and the NavMesh.
+                var rockCollider = rock.AddComponent<MeshCollider>();
+                rockCollider.sharedMesh = rock.GetComponent<MeshFilter>().sharedMesh;
+                rockCollider.convex = true;
                 rock.AddComponent<NavBlocker>();
                 SetStatic(rock);
             }
@@ -534,7 +573,7 @@ namespace Runeheir.EditorTools
             var pipeline = GraphicsSettings.currentRenderPipeline;
             bool urp = pipeline != null && pipeline.GetType().Name.Contains("Universal");
             var toonShader = urp ? Shader.Find(RuntimeMaterials.ToonShaderName) : null;
-            toon = toonShader != null;
+            toon = toonShader != null && toonShader.isSupported;
             if (toon)
             {
                 return toonShader;
@@ -612,7 +651,7 @@ namespace Runeheir.EditorTools
             {
                 if (EditorUtility.DisplayDialog("Runeheir", "The prototype scenes don't exist yet. Build them now?", "Build", "Cancel"))
                 {
-                    BuildPrototypeScenes();
+                    BuildScenesAndOpen(path);
                 }
 
                 return;

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Runeheir.EditorTools
@@ -26,6 +27,13 @@ namespace Runeheir.EditorTools
             Build(BuildTarget.StandaloneLinux64, "Builds/Linux/Runeheir.x86_64");
         }
 
+        [MenuItem("Runeheir/Build/Windows Player", true)]
+        [MenuItem("Runeheir/Build/Linux Player", true)]
+        public static bool CanBuild()
+        {
+            return !EditorApplication.isPlayingOrWillChangePlaymode && !BuildPipeline.isBuildingPlayer;
+        }
+
         public static void BuildFromCommandLine()
         {
             var target = EditorUserBuildSettings.activeBuildTarget;
@@ -46,7 +54,50 @@ namespace Runeheir.EditorTools
 
         private static void Build(BuildTarget target, string path)
         {
-            var scenes = RuneheirSetupWizard.GenerateScenes();
+            if (Application.isBatchMode)
+            {
+                BuildPlayer(target, path);
+                return;
+            }
+
+            // Scene generation replaces the open scenes: ask to save edits first, and put the user's scenes back after.
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
+            var setup = EditorSceneManager.GetSceneManagerSetup();
+            try
+            {
+                BuildPlayer(target, path);
+            }
+            finally
+            {
+                if (setup.Length > 0)
+                {
+                    EditorSceneManager.RestoreSceneManagerSetup(setup);
+                }
+            }
+        }
+
+        private static void BuildPlayer(BuildTarget target, string path)
+        {
+            (string login, string field) scenes;
+            try
+            {
+                scenes = RuneheirSetupWizard.GenerateScenes();
+            }
+            catch (IOException exception)
+            {
+                Debug.LogError(exception.Message);
+                if (Application.isBatchMode)
+                {
+                    EditorApplication.Exit(1);
+                }
+
+                return;
+            }
+
             string directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
             {

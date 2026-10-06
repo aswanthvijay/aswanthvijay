@@ -57,6 +57,9 @@ namespace Runeheir.Stats
         /// <summary>Casting cannot be interrupted by damage (Naga Scout / Phen).</summary>
         public bool UninterruptibleCasting;
 
+        /// <summary>Rage of Thor "hyper-armor": no flinch, no knockback.</summary>
+        public bool HyperArmor;
+
         public static StatModifiers Empty()
         {
             return new StatModifiers();
@@ -120,6 +123,7 @@ namespace Runeheir.Stats
             CancelAttackRecovery |= other.CancelAttackRecovery;
             ItemsLocked |= other.ItemsLocked;
             UninterruptibleCasting |= other.UninterruptibleCasting;
+            HyperArmor |= other.HyperArmor;
         }
 
         public void Clear()
@@ -148,6 +152,7 @@ namespace Runeheir.Stats
             CancelAttackRecovery = empty.CancelAttackRecovery;
             ItemsLocked = empty.ItemsLocked;
             UninterruptibleCasting = empty.UninterruptibleCasting;
+            HyperArmor = empty.HyperArmor;
         }
 
         private void EnsureStatArray()

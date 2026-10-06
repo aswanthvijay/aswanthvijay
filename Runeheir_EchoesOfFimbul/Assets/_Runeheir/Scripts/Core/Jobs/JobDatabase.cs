@@ -173,7 +173,13 @@ namespace Runeheir.Jobs
             return true;
         }
 
-        /// <summary>Accepts "einherjar", "Shadow Walker", "shadowwalker", "shadow_walker".</summary>
+        private static readonly Dictionary<string, JobId> Aliases = new Dictionary<string, JobId>
+        {
+            { "chrono", JobId.Chronomancer },
+            { "shadow", JobId.ShadowWalker },
+        };
+
+        /// <summary>Accepts "einherjar", "Shadow Walker", "shadowwalker", "shadow_walker", and GDD short names ("chrono").</summary>
         public static bool TryParse(string text, out JobId id)
         {
             id = JobId.Initiate;
@@ -183,6 +189,13 @@ namespace Runeheir.Jobs
             }
 
             string wanted = Normalize(text);
+
+            // Short names used in the GDD's job tree.
+            if (Aliases.TryGetValue(wanted, out id))
+            {
+                return true;
+            }
+
             foreach (var job in Jobs.Values)
             {
                 if (Normalize(job.Name) == wanted || Normalize(job.Id.ToString()) == wanted)
