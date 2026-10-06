@@ -7,7 +7,7 @@ namespace Runeheir.Player
 {
     /// <summary>
     /// F1–F10 hotkey bar (any slot holds a skill or an item). F12 flips between the 4 bar pages,
-    /// so 40 shortcuts are reachable. Keys are remappable in the inspector.
+    /// so 40 shortcuts are reachable. Keys are the slotKeys / nextPageKey defaults below.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(PlayerCharacter))]

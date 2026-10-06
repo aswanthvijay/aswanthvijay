@@ -55,7 +55,7 @@ namespace Runeheir.FrontEnd
             CreateHeading(content, "Create Character", 0f, inner);
 
             Label(content, "Name", 62f);
-            _name = UIFactory.CreateInputField(content, $"{AccountRules.MinCharacterNameLength}-{AccountRules.MaxCharacterNameLength} letters/numbers",
+            _name = UIFactory.CreateInputField(content, $"{AccountRules.MinCharacterNameLength}-{AccountRules.MaxCharacterNameLength} letters, numbers, spaces",
                 characterLimit: AccountRules.MaxCharacterNameLength);
             _name.GetComponent<RectTransform>().SetRect(140f, 58f, inner - 140f, 38f);
 
