@@ -57,11 +57,11 @@ This generates two scenes and their materials (`Assets/_Runeheir/Generated/Mater
 | Scene | Contents |
 |---|---|
 | `Assets/_Runeheir/Scenes/RH_Login.unity` | Main Camera, Sun, `FrontEndController` (builds the login UI at runtime) |
-| `Assets/_Runeheir/Scenes/RH_Field_WhisperwoodPlains.unity` | Isometric camera rig, 140×140 m meadow with paths, birch & pine trees, rocks, glowing runestones, two windmills, a campfire save point, `RuntimeNavMeshBaker`, `FieldBootstrap`, 6 monster spawners and 3 training dummies |
+| `Assets/_Runeheir/Scenes/RH_World.unity` | Isometric camera rig, a sun and the `WorldBootstrap` (`FieldBootstrap` with **Generate Map** on). Since Phase 5 it builds whichever of the 14 maps the character is on at load time: ground, props, the runtime NavMesh, NPCs, portals, monster spawners and boss lairs ([Phase 5 Guide](Phase5_Guide.md)). It replaces the Phase 2–4 hand-built `RH_Field_WhisperwoodPlains` |
 
 Then:
 - **Full flow:** open `RH_Login` → **Play** → type an ID and password → **Register** (logs you in) → **Vigrid Haven** → pick an empty slot → **Create** → **Start**.
-- **Quick test:** open `RH_Field_WhisperwoodPlains` → **Play**. You get a temporary character "Wanderer" that is not saved.
+- **Quick test:** open `RH_World` → **Play**. You get a temporary character "Wanderer" in Vigrid Haven that is not saved (change **Map Id** on `WorldBootstrap` to start on another map).
 
 ### Controls (XileRO-style)
 
@@ -112,7 +112,7 @@ Manual setup in your own scene:
 ### Your own player model
 `FieldBootstrap ▸ Player Visual Prefab` accepts any model (FBX from Blender). `EntityFactory.CreatePlayer` adds the rest: `CapsuleCollider`, `NavMeshAgent`, `NavMotor`, `CharacterAnimationBridge`, `AutoAttacker`, `PlayerCharacter`, `SkillCaster`, `AspdAnimationScaler`, `ClickToMoveController`, `HotkeyController`. Your prefab only needs the mesh and an Animator; don't add these components to it. Leave the field empty to use the procedural placeholder avatar (job-colored outfit, 8 hair styles, 9 hair colors, weapon by job).
 
-> **The generated scenes are disposable.** `RH_Login` and `RH_Field_WhisperwoodPlains` are rebuilt from code by *Build Prototype Scenes*, by every *Runeheir ▸ Build ▸ …* build and by CI, so inspector edits made in them are lost. Put your model (and its Animator Controller) in the settings asset instead: **Runeheir ▸ Setup ▸ Create Settings Asset** → `Resources/RuneheirSettings.asset`. It is never regenerated and wins over `FieldBootstrap`. See [Phase 3 Guide §7](Phase3_Guide.md#7-animation-layer).
+> **The generated scenes are disposable.** `RH_Login` and `RH_World` are rebuilt from code by *Build Prototype Scenes*, by every *Runeheir ▸ Build ▸ …* build and by CI, so inspector edits made in them are lost. Put your model (and its Animator Controller) in the settings asset instead: **Runeheir ▸ Setup ▸ Create Settings Asset** → `Resources/RuneheirSettings.asset`. It is never regenerated and wins over `FieldBootstrap`. See [Phase 3 Guide §7](Phase3_Guide.md#7-animation-layer).
 
 ---
 
