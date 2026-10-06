@@ -344,13 +344,15 @@ namespace Runeheir.Player
         }
 
         /// <summary>Writes live state into the record and asks the account service to persist it.</summary>
-        public void SaveNow()
+        public System.Threading.Tasks.Task<Accounts.OpResult> SaveNow()
         {
             WriteBackToRecord();
-            if (GameSession.Instance.ActiveCharacter == Record)
+            if (GameSession.Instance.ActiveCharacter != Record)
             {
-                GameSession.Instance.SaveActiveCharacter();
+                return System.Threading.Tasks.Task.FromResult(Accounts.OpResult.Fail("This character is not the active one."));
             }
+
+            return GameSession.Instance.SaveActiveCharacter();
         }
 
         private void OnJobLevelUp(int level)

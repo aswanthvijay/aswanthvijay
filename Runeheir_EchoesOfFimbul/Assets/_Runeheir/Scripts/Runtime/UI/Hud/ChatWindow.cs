@@ -13,6 +13,7 @@ namespace Runeheir.UI
     public sealed class ChatWindow
     {
         private const int VisibleLines = 9;
+        private const float ChatWidth = 440f;
 
         private readonly PlayerCharacter _player;
         private readonly Text _log;
@@ -23,7 +24,8 @@ namespace Runeheir.UI
         {
             _player = player;
             var frame = UIFactory.CreateFramedPanel(hud.Canvas.transform, "Chat", new Color(0.04f, 0.06f, 0.09f, 0.78f));
-            frame.rectTransform.Anchor(Vector2.zero, Vector2.zero, new Vector2(12f, 12f), new Vector2(580f, 230f));
+            // 440 wide keeps the chat clear of the centered hotkey bar down to 5:4 screens (bar's left edge ≈ 470).
+            frame.rectTransform.Anchor(Vector2.zero, Vector2.zero, new Vector2(12f, 12f), new Vector2(ChatWidth, 230f));
 
             // Newest line sits at the bottom; older lines overflow upward and are clipped by the viewport.
             var viewport = UIFactory.CreateRect("Viewport", frame.transform);
@@ -35,7 +37,7 @@ namespace Runeheir.UI
             UIFactory.AddShadow(_log, 1f);
 
             _input = UIFactory.CreateInputField(frame.transform, "Press Enter to chat · @help for commands", characterLimit: 200, fontSize: 15);
-            _input.GetComponent<RectTransform>().Anchor(new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(560f, 30f));
+            _input.GetComponent<RectTransform>().Anchor(new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(ChatWidth - 20f, 30f));
             _input.onEndEdit.AddListener(OnEndEdit);
 
             ChatLog.LineAdded += OnLine;

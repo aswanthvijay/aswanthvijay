@@ -191,7 +191,8 @@ namespace Runeheir.Characters
 
         private static long SaturatingAdd(long current, long amount)
         {
-            return amount > long.MaxValue - current ? long.MaxValue : current + amount;
+            // Callers pass amount > 0; written so a negative current can't overflow the check.
+            return current > long.MaxValue - amount ? long.MaxValue : current + amount;
         }
 
         // ------------------------------------------------------------ levels (GM/debug)

@@ -79,6 +79,22 @@ namespace Runeheir.Tests
         }
 
         [Test]
+        public void NegativeSavedExp_IsRepaired_AndNeverSaturates()
+        {
+            var progression = NewCharacter();
+            progression.Record.BaseExp = -1;
+            progression.Record.JobExp = -5;
+            progression.GainExperience(10, 3);
+            Assert.AreEqual(1, progression.Record.BaseLevel, "a corrupt negative EXP must not jump to Base 255");
+            Assert.AreEqual(1, progression.Record.JobLevel);
+
+            var record = new CharacterRecord { Name = "Corrupt", BaseExp = -1, JobExp = -1 };
+            record.Sanitize();
+            Assert.AreEqual(0, record.BaseExp);
+            Assert.AreEqual(0, record.JobExp);
+        }
+
+        [Test]
         public void SetJobLevel_KeepsSkillPointsFromEarlierJobs()
         {
             var progression = NewCharacter();

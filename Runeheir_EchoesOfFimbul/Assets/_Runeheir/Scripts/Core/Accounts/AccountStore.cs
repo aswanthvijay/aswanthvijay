@@ -71,6 +71,8 @@ namespace Runeheir.Accounts
 
         public OpResult<string> Login(string username, string password)
         {
+            // Normalized once so both branches below always pay the full PBKDF2 cost.
+            password = password ?? string.Empty;
             AccountRecord account;
             lock (_gate)
             {
@@ -82,7 +84,7 @@ namespace Runeheir.Accounts
             if (account == null)
             {
                 // Same PBKDF2 cost as a real check, so response time doesn't reveal which usernames exist.
-                PasswordHasher.Verify(password ?? string.Empty, DummyCredential.Value.Hash, DummyCredential.Value.Salt, PasswordHasher.DefaultIterations);
+                PasswordHasher.Verify(password, DummyCredential.Value.Hash, DummyCredential.Value.Salt, PasswordHasher.DefaultIterations);
                 return OpResult<string>.Fail(invalid);
             }
 

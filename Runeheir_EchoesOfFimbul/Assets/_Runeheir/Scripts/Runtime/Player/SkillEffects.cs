@@ -73,7 +73,8 @@ namespace Runeheir.Player
                                     TryApplyStatus(skill, enemy);
                                 }
 
-                                if (skill.Knockback > 0f)
+                                // Only bodies that actually fly can crash into others (not dummies, not hyper-armor).
+                                if (skill.Knockback > 0f && enemy.CanBeKnockedBack)
                                 {
                                     launched.Add(enemy);
                                 }
@@ -214,9 +215,14 @@ namespace Runeheir.Player
         private const float ChainImpactRadius = 1.2f;
         private const float ChainImpactPowerScale = 0.5f;
 
-        /// <summary>Each launched enemy that lands among others hits them, and itself, once at half power.</summary>
+        /// <summary>
+        /// Each launched enemy that lands among others crashes into them: the body and everyone it lands on take
+        /// one hit at half power. Every enemy takes at most one crash hit per cast, however many bodies land on it,
+        /// so the damage matches the tooltip ("200% to both") and does not grow with pack size.
+        /// </summary>
         private static void ChainImpacts(PlayerCharacter caster, SkillDefinition skill, List<CombatEntity> launched)
         {
+            var crashed = new HashSet<CombatEntity>();
             var impacted = new List<CombatEntity>();
             foreach (var body in launched)
             {
@@ -241,10 +247,17 @@ namespace Runeheir.Player
                 }
 
                 GroundRing.SpawnPulse(body.Position, new Color(1f, 0.55f, 0.3f, 1f), 0.2f, body.Radius + ChainImpactRadius, 0.25f, 0.1f);
-                Strike(caster, skill, body, isLastHit: false, ChainImpactPowerScale);
+                if (crashed.Add(body))
+                {
+                    Strike(caster, skill, body, isLastHit: false, ChainImpactPowerScale);
+                }
+
                 foreach (var other in impacted)
                 {
-                    Strike(caster, skill, other, isLastHit: false, ChainImpactPowerScale);
+                    if (crashed.Add(other))
+                    {
+                        Strike(caster, skill, other, isLastHit: false, ChainImpactPowerScale);
+                    }
                 }
             }
         }

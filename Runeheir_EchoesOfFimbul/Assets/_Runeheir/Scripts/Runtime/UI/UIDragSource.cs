@@ -46,10 +46,20 @@ namespace Runeheir.UI
                 return;
             }
 
-            // Released back over itself = cancelled, keep it. (The Input System UI module sends a click instead
-            // of a drop in that case, so no drop target ever accepts it.)
+            // Released back over itself: the Input System UI module sends a click instead of a drop there, so
+            // deliver the drop ourselves. A hotkey slot is reused for every page, so after F12 "itself" can be a
+            // different slot (the legacy module drops there too); anything else just keeps its binding.
             var over = eventData.pointerCurrentRaycast.gameObject;
             bool overSelf = over != null && over.transform.IsChildOf(transform);
+            if (overSelf && !DragDrop.Accepted)
+            {
+                var ownTarget = GetComponent<UIDropTarget>();
+                if (ownTarget != null)
+                {
+                    ownTarget.OnDrop(eventData);
+                }
+            }
+
             bool accepted = DragDrop.Accepted || overSelf;
             DragDrop.End();
             Ended?.Invoke(payload, accepted);

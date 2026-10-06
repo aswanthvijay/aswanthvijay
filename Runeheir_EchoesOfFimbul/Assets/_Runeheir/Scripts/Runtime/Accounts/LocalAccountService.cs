@@ -48,14 +48,21 @@ namespace Runeheir.Accounts
         /// <summary>Why writes are refused (file unreadable or changed elsewhere), or null when storage is healthy.</summary>
         private string _storageError;
 
-        private bool _fileKnown;
+        /// <summary>The main file as this instance last saw it (including "absent"), to detect other writers.</summary>
+        private bool _fileStateKnown;
+        private bool _knownExists;
         private DateTime _knownWriteUtc;
         private long _knownLength;
 
         public LocalAccountService(string path = null)
         {
             _path = path ?? Path.Combine(Application.persistentDataPath, FileName);
-            _store = new AccountStore(Load(), Persist);
+            var db = Load();
+
+            // Recorded whichever way Load went (parsed, recovered from .tmp/.bak, or no file yet), so the first
+            // save can tell whether another window created or changed the file in the meantime.
+            RememberFileState();
+            _store = new AccountStore(db, Persist);
         }
 
         /// <summary>Non-null when the account file can't be written safely; the login screen shows it.</summary>
@@ -172,10 +179,6 @@ namespace Runeheir.Accounts
                     {
                         Debug.LogWarning($"[Runeheir] Recovered account data from {Path.GetFileName(candidate)}.");
                     }
-                    else
-                    {
-                        RememberFileState();
-                    }
 
                     return db;
                 }
@@ -199,7 +202,7 @@ namespace Runeheir.Accounts
 
             // Last-writer-wins would silently undo another instance's progress (two game windows, or the
             // editor's Delete Local Account Database menu during Play): refuse instead.
-            if (_fileKnown && (!File.Exists(_path) || File.GetLastWriteTimeUtc(_path) != _knownWriteUtc || new FileInfo(_path).Length != _knownLength))
+            if (_fileStateKnown && FileChangedElsewhere())
             {
                 _storageError = "Account data was changed outside this game window. Restart to load the latest data.";
                 throw new IOException(_storageError);
@@ -224,9 +227,21 @@ namespace Runeheir.Accounts
         private void RememberFileState()
         {
             var info = new FileInfo(_path);
-            _fileKnown = info.Exists;
-            _knownWriteUtc = _fileKnown ? info.LastWriteTimeUtc : default;
-            _knownLength = _fileKnown ? info.Length : 0;
+            _fileStateKnown = true;
+            _knownExists = info.Exists;
+            _knownWriteUtc = _knownExists ? info.LastWriteTimeUtc : default;
+            _knownLength = _knownExists ? info.Length : 0;
+        }
+
+        private bool FileChangedElsewhere()
+        {
+            var info = new FileInfo(_path);
+            if (info.Exists != _knownExists)
+            {
+                return true;
+            }
+
+            return info.Exists && (info.LastWriteTimeUtc != _knownWriteUtc || info.Length != _knownLength);
         }
 
         private static bool KeepCorruptCopy(string path)

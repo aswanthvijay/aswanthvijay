@@ -157,10 +157,13 @@ namespace Runeheir.Field
                     break;
 
                 case "save":
-                    player.SaveNow();
-                    ChatLog.Gm(GameSession.Instance.IsTemporaryCharacter
-                        ? "This is a temporary character (field played directly) — start from RH_Login to save."
-                        : "Character saved.");
+                    if (GameSession.Instance.IsTemporaryCharacter)
+                    {
+                        ChatLog.Gm("This is a temporary character (field played directly) — start from RH_Login to save.");
+                        break;
+                    }
+
+                    ReportSave(player.SaveNow());
                     break;
 
                 case "where":
@@ -237,6 +240,16 @@ namespace Runeheir.Field
             }
 
             ChatLog.Gm($"Spawned {spawned}x {definition.Name} (Lv {definition.Level}).");
+        }
+
+        private static async void ReportSave(System.Threading.Tasks.Task<Accounts.OpResult> save)
+        {
+            // GameSession already reports failures in chat; only confirm a save that really landed.
+            var result = await save;
+            if (result.Success)
+            {
+                ChatLog.Gm("Character saved.");
+            }
         }
 
         private static void PrintAspd(PlayerCharacter player)

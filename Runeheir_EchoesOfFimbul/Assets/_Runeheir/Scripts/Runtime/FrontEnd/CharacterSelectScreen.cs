@@ -227,9 +227,21 @@ namespace Runeheir.FrontEnd
             number.rectTransform.Stretch(10f, 8f, 10f, 10f);
 
             var pointer = card.Background.gameObject.AddComponent<UIPointerHandler>();
-            pointer.LeftClick = () => Select(slot);
+            // Cards are not Selectables, so the Busy CanvasGroup doesn't block them: check Busy here.
+            pointer.LeftClick = () =>
+            {
+                if (!Busy)
+                {
+                    Select(slot);
+                }
+            };
             pointer.DoubleClick = () =>
             {
+                if (Busy)
+                {
+                    return;
+                }
+
                 Select(slot);
                 if (_bySlot[slot] != null)
                 {
@@ -312,6 +324,12 @@ namespace Runeheir.FrontEnd
 
         private void CreateOnSelected()
         {
+            // While the list is loading every slot looks empty; don't open Create for a slot that may be taken.
+            if (Busy)
+            {
+                return;
+            }
+
             if (_bySlot[_selected] != null)
             {
                 SetStatus(_status, "That slot is taken. Choose an empty slot to create a character.", error: true);

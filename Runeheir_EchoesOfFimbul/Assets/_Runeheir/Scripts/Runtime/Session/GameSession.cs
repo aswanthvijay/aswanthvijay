@@ -121,13 +121,14 @@ namespace Runeheir.Session
 
         /// <summary>
         /// Saves a snapshot of the active character. Never throws: it runs inside gameplay events (level-ups,
-        /// monster deaths), where a storage error must not break the game. Failures are logged.
+        /// monster deaths), where a storage error must not break the game. A failure is logged and shown once
+        /// in chat, so progress is never dropped silently.
         /// </summary>
-        public Task SaveActiveCharacter()
+        public Task<OpResult> SaveActiveCharacter()
         {
             if (ActiveCharacter == null || IsTemporaryCharacter || !IsLoggedIn)
             {
-                return Task.CompletedTask;
+                return Task.FromResult(OpResult.Fail("This character is not saved (no account is logged in)."));
             }
 
             Task<OpResult> save;
@@ -139,11 +140,10 @@ namespace Runeheir.Session
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                return Task.CompletedTask;
+                save = Task.FromResult(OpResult.Fail(exception.Message));
             }
 
-            ObserveFaults(save, "save character");
-            return save;
+            return ReportFailures(save);
         }
 
         public async void ReturnToCharacterSelect()
@@ -186,20 +186,38 @@ namespace Runeheir.Session
 
         private bool _returning;
 
-        private static async void ObserveFaults(Task<OpResult> task, string what)
+        private string _lastReportedSaveError;
+
+        private async Task<OpResult> ReportFailures(Task<OpResult> task)
         {
+            OpResult result;
             try
             {
-                var result = await task;
-                if (!result.Success)
-                {
-                    Debug.LogWarning($"[Runeheir] Could not {what}: {result.Error}");
-                }
+                result = await task;
             }
             catch (Exception exception)
             {
                 Debug.LogException(exception);
+                result = OpResult.Fail(exception.Message);
             }
+
+            if (result.Success)
+            {
+                _lastReportedSaveError = null;
+            }
+            else
+            {
+                Debug.LogWarning($"[Runeheir] Could not save character: {result.Error}");
+
+                // Autosaves retry often; one chat line per distinct error is enough.
+                if (result.Error != _lastReportedSaveError)
+                {
+                    _lastReportedSaveError = result.Error;
+                    ChatLog.Error("Progress could not be saved: " + result.Error);
+                }
+            }
+
+            return result;
         }
 
         private void Awake()

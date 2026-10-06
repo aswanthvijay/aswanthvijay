@@ -42,7 +42,8 @@ namespace Runeheir.FrontEnd
                 return;
             }
 
-            if (GameInput.KeyDown(GameKey.Enter))
+            // While the realm list is loading, _servers still holds the previous visit's list.
+            if (GameInput.KeyDown(GameKey.Enter) && !Busy)
             {
                 foreach (var server in _servers)
                 {

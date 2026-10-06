@@ -94,6 +94,8 @@ namespace Runeheir.Characters
                 Gender = Gender.Male;
             }
 
+            BaseExp = Math.Max(0, BaseExp);
+            JobExp = Math.Max(0, JobExp);
             BaseLevel = StatFormulas.Clamp(BaseLevel, 1, StatFormulas.MaxBaseLevel);
             JobLevel = StatFormulas.Clamp(JobLevel, 1, JobDatabase.MaxJobLevel(Job));
             foreach (var stat in StatTypes.All)

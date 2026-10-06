@@ -16,6 +16,7 @@ namespace Runeheir.UI
         private const float DoubleClickSeconds = 0.3f;
 
         private float _lastLeftClick = -1f;
+        private bool _hovered;
 
         public void OnPointerClick(PointerEventData eventData)
         {
@@ -49,17 +50,25 @@ namespace Runeheir.UI
 
         public void OnPointerEnter(PointerEventData eventData)
         {
+            _hovered = true;
             PointerEnter?.Invoke();
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
+            _hovered = false;
             PointerExit?.Invoke();
         }
 
+        // Destroyed or hidden while hovered (window closed, buff icons rebuilt): end the hover. Only the hovered
+        // handler may do this, or every buff-tray rebuild would hide the tooltip of whatever the pointer is on.
         private void OnDisable()
         {
-            PointerExit?.Invoke();
+            if (_hovered)
+            {
+                _hovered = false;
+                PointerExit?.Invoke();
+            }
         }
     }
 }
