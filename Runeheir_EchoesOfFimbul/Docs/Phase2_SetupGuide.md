@@ -250,7 +250,7 @@ Suggested ASPD check: `@job einherjar` → `@blvl 255` → `@agi 150` → hit a 
 
 | Tab | Tests | What they cover |
 |---|---|---|
-| **EditMode** | 118 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts; Phase 3 skill trees, skill catalog, statuses and poise; Phase 4 equipment, cards, refining, runewords, trade and storage |
+| **EditMode** | 121 Core tests | Formulas, ASPD, stat points, EXP and level caps, job changes, damage, buffs, hotkeys, inventory, accounts; Phase 3 skill trees, skill catalog, statuses and poise; Phase 4 equipment, cards, refining, runewords, trade and storage |
 | **EditMode** | 3 editor tests | The scene generator builds playable scenes (spawners, NavMesh baker, wiring); the toon shader imports with no errors on the active graphics API; the Animator Controller builder wires every parameter |
 | **PlayMode** | 4 smoke tests | Walk on the NavMesh, auto-attack a dummy, skills must be learned, Two-Hand Surge Lv 10 raises ASPD by 7, passives and Silence, an F2 hotkey uses an item, level-up, death and respawn; a Forest Imp aggroes and dies for EXP; gear, cards and on-hit procs, the town NPCs, a Dead Branch and storage; the login, realm, character select and create screens open, and passwords are never stored in plain text |
 

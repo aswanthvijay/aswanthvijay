@@ -357,7 +357,7 @@ These tables are generated from the catalogs. **Who** lists the jobs that can us
 
 ## 12. Tests
 
-- **Core (no Unity needed):** `cd Tools/CoreTests && dotnet test Tests` runs **118 tests** (24 new). They cover:
+- **Core (no Unity needed):** `cd Tools/CoreTests && dotnet test Tests` runs **121 tests** (27 new). They cover:
   - catalog counts (87 items, 28 weapons, 24 headgears, 4 wings, 35 cards) and that every job can wield its starter weapon;
   - slot clash rules and wear rules;
   - stats from gear, refine DEF, conditional cards, relics, armor element and immunity;
@@ -369,7 +369,8 @@ These tables are generated from the catalogs. **Who** lists the jobs that can us
   - defender cards and crit damage;
   - the Isa shield;
   - job-change weapon gifts;
-  - valid drop tables, no-card steals, and Branch picks.
+  - valid drop tables, no-card steals, and Branch picks;
+  - gear never lost to a full bag, per-status resist gear, and storage amount checks.
 - **PlayMode:** `Gear_Cards_Npcs_Branches_AndStorage` runs in a real scene. It checks that:
   - the NPCs spawn;
   - wearing the tunic raises DEF;

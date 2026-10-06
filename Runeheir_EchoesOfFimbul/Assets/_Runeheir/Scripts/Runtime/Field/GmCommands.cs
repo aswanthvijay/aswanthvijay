@@ -286,10 +286,16 @@ namespace Runeheir.Field
             System.Func<ItemDefinition, bool> match;
             switch (filter)
             {
+                case "weapon":
                 case "weapons": match = i => i.IsWeapon; break;
-                case "gear": match = i => i.IsEquipment && !i.IsWeapon; break;
+                case "gear":
+                case "armor":
+                case "armour": match = i => i.IsEquipment && !i.IsWeapon; break;
+                case "card":
                 case "cards": match = i => i.IsCard; break;
-                case "consumables": match = i => i.Kind == ItemKind.Consumable; break;
+                case "consumable":
+                case "consumables":
+                case "potions": match = i => i.Kind == ItemKind.Consumable; break;
                 case "etc": match = i => !i.IsEquipment && !i.IsCard && i.Kind != ItemKind.Consumable; break;
                 default: match = i => i.Id.Contains(filter) || i.Name.ToLowerInvariant().Contains(filter); break;
             }
