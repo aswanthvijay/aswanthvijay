@@ -57,6 +57,35 @@ namespace Runeheir.Tests
         }
 
         [Test]
+        public void AnimatorBuilder_WiresEveryBridgeParameterAndSkillMotion()
+        {
+            var controller = RuneheirAnimatorBuilder.Build(TempRoot + "/Animation");
+            Assert.IsNotNull(controller);
+            Assert.IsEmpty(RuneheirAnimatorBuilder.MissingParameters(controller));
+
+            var states = controller.layers[0].stateMachine.states.Select(s => s.state).ToList();
+            var attack = states.Single(s => s.name == "Attack");
+            Assert.IsTrue(attack.speedParameterActive, "ASPD scales the attack clip");
+            Assert.AreEqual(RuneheirAnimatorBuilder.AttackSpeed, attack.speedParameter);
+            foreach (Runeheir.Skills.SkillMotion motion in System.Enum.GetValues(typeof(Runeheir.Skills.SkillMotion)))
+            {
+                if (motion != Runeheir.Skills.SkillMotion.None)
+                {
+                    Assert.IsTrue(states.Any(s => s.name == "Skill_" + motion), motion.ToString());
+                }
+            }
+
+            Assert.IsTrue(states.Any(s => s.name == "Stagger") && states.Any(s => s.name == "Dead") && states.Any(s => s.name == "Cast"));
+            Assert.AreEqual("Locomotion", controller.layers[0].stateMachine.defaultState.name);
+
+            // Rebuilding keeps the asset (and its GUID) instead of making a new one.
+            string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(controller));
+            var rebuilt = RuneheirAnimatorBuilder.Build(TempRoot + "/Animation");
+            Assert.AreEqual(guid, AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(rebuilt)));
+            Assert.AreEqual(states.Count, rebuilt.layers[0].stateMachine.states.Length, "no duplicate states after a rebuild");
+        }
+
+        [Test]
         public void ToonShader_ImportsWithoutErrors()
         {
             var shader = Shader.Find(RuntimeMaterials.ToonShaderName);

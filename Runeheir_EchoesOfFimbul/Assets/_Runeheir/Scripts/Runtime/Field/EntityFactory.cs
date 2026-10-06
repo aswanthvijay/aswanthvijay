@@ -16,7 +16,9 @@ namespace Runeheir.Field
     public static class EntityFactory
     {
         /// <param name="visualPrefab">Optional real model (with Animator). Null = placeholder avatar.</param>
-        public static PlayerCharacter CreatePlayer(CharacterRecord record, Vector3 position, GameObject visualPrefab = null)
+        /// <param name="animatorController">Optional controller for the model's Animator (RuneheirSettings).</param>
+        public static PlayerCharacter CreatePlayer(CharacterRecord record, Vector3 position, GameObject visualPrefab = null,
+            RuntimeAnimatorController animatorController = null)
         {
             var go = new GameObject($"Player [{record.Name}]");
             go.SetActive(false);
@@ -36,7 +38,17 @@ namespace Runeheir.Field
             go.AddComponent<NavMotor>();
             if (visualPrefab != null)
             {
-                Object.Instantiate(visualPrefab, go.transform, false);
+                var model = Object.Instantiate(visualPrefab, go.transform, false);
+                var animator = model.GetComponentInChildren<Animator>();
+                if (animator != null)
+                {
+                    // Gameplay moves the character (NavMesh); clips must not.
+                    animator.applyRootMotion = false;
+                    if (animatorController != null)
+                    {
+                        animator.runtimeAnimatorController = animatorController;
+                    }
+                }
             }
             else
             {
