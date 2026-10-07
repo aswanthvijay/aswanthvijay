@@ -290,6 +290,12 @@ namespace Runeheir.Jobs
             return reborn && job.Family == JobFamily.Normal && job.Tier <= 1 ? "High " + job.Name : job.Name;
         }
 
+        /// <summary>"a Skald", "an Einherjar".</summary>
+        public static string WithArticle(string name)
+        {
+            return string.IsNullOrEmpty(name) ? name : ("AEIOUÁÉÍÓÚ".IndexOf(char.ToUpperInvariant(name[0])) >= 0 ? "an " : "a ") + name;
+        }
+
         public static string NameFor(CharacterRecord record)
         {
             return record == null ? string.Empty : NameFor(record.Job, record.Reborn);

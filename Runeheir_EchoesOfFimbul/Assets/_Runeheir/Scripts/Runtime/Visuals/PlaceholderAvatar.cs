@@ -158,6 +158,10 @@ namespace Runeheir.Visuals
             Part(PrimitiveType.Sphere, _model, "EyeL", new Vector3(-0.08f, 1.55f, 0.18f), Vector3.one * 0.07f, new Color(0.12f, 0.12f, 0.18f));
             Part(PrimitiveType.Sphere, _model, "EyeR", new Vector3(0.08f, 1.55f, 0.18f), Vector3.one * 0.07f, new Color(0.12f, 0.12f, 0.18f));
             BuildHair(look.HairStyle, look.Hair);
+            if (look.Race == CharacterRace.Doram)
+            {
+                BuildCatFolk(look.Hair);
+            }
 
             _weaponPivot = new GameObject("WeaponPivot").transform;
             _weaponPivot.SetParent(_model, false);
@@ -387,12 +391,73 @@ namespace Runeheir.Visuals
             }
         }
 
+        /// <summary>Freyja's Kin (Ragnarok's Doram): a head shorter, pointed cat ears and a long tail in the hair color.</summary>
+        private void BuildCatFolk(Color fur)
+        {
+            _model.localScale = new Vector3(0.85f, 0.8f, 0.85f);
+            Color inner = Color.Lerp(fur, new Color(1f, 0.75f, 0.75f), 0.5f);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Part(PrimitiveType.Cube, _model, "Ear", new Vector3(side * 0.14f, 1.82f, -0.02f), new Vector3(0.13f, 0.17f, 0.05f), fur, new Vector3(0f, 0f, side * -18f + 45f));
+                Part(PrimitiveType.Cube, _model, "EarInner", new Vector3(side * 0.14f, 1.81f, 0.01f), new Vector3(0.07f, 0.1f, 0.02f), inner, new Vector3(0f, 0f, side * -18f + 45f));
+            }
+
+            Part(PrimitiveType.Capsule, _model, "Tail", new Vector3(0f, 0.6f, -0.32f), new Vector3(0.09f, 0.24f, 0.09f), fur, new Vector3(-55f, 0f, 0f));
+            Part(PrimitiveType.Capsule, _model, "TailTip", new Vector3(0f, 0.86f, -0.52f), new Vector3(0.09f, 0.18f, 0.09f), fur, new Vector3(-15f, 0f, 0f));
+        }
+
         private void BuildWeapon(WeaponType weapon)
         {
             Color steel = new Color(0.78f, 0.8f, 0.85f);
             Color wood = new Color(0.45f, 0.3f, 0.16f);
             switch (weapon)
             {
+                case WeaponType.Axe:
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "Haft", new Vector3(0f, -0.62f, 0f), new Vector3(0.05f, 0.36f, 0.05f), wood);
+                    Part(PrimitiveType.Cube, _weaponPivot, "AxeHead", new Vector3(0.09f, -0.9f, 0f), new Vector3(0.2f, 0.18f, 0.03f), steel);
+                    break;
+                case WeaponType.TwoHandAxe:
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "Haft", new Vector3(0f, -0.8f, 0f), new Vector3(0.06f, 0.6f, 0.06f), wood);
+                    Part(PrimitiveType.Cube, _weaponPivot, "AxeHead", new Vector3(0.14f, -1.3f, 0f), new Vector3(0.32f, 0.3f, 0.04f), steel);
+                    Part(PrimitiveType.Cube, _weaponPivot, "Beard", new Vector3(-0.08f, -1.3f, 0f), new Vector3(0.12f, 0.14f, 0.04f), steel);
+                    break;
+                case WeaponType.Instrument:
+                    Part(PrimitiveType.Cube, _weaponPivot, "Soundbox", new Vector3(0f, -0.62f, 0.05f), new Vector3(0.24f, 0.3f, 0.06f), wood);
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "ArmL", new Vector3(-0.1f, -0.88f, 0.05f), new Vector3(0.03f, 0.14f, 0.03f), wood);
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "ArmR", new Vector3(0.1f, -0.88f, 0.05f), new Vector3(0.03f, 0.14f, 0.03f), wood);
+                    Part(PrimitiveType.Cube, _weaponPivot, "Strings", new Vector3(0f, -0.82f, 0.08f), new Vector3(0.16f, 0.28f, 0.005f), new Color(0.95f, 0.9f, 0.7f));
+                    break;
+                case WeaponType.Whip:
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Part(PrimitiveType.Capsule, _weaponPivot, "Lash", new Vector3(0.04f * i, -0.55f - i * 0.22f, 0f), new Vector3(0.04f, 0.13f, 0.04f),
+                            i == 0 ? wood : new Color(0.35f, 0.22f, 0.15f), new Vector3(0f, 0f, i * 8f));
+                    }
+
+                    break;
+                case WeaponType.Book:
+                    Part(PrimitiveType.Cube, _weaponPivot, "Tome", new Vector3(0f, -0.55f, 0.08f), new Vector3(0.24f, 0.3f, 0.08f), new Color(0.45f, 0.18f, 0.12f));
+                    Part(PrimitiveType.Cube, _weaponPivot, "Pages", new Vector3(0.01f, -0.55f, 0.08f), new Vector3(0.22f, 0.28f, 0.06f), new Color(0.95f, 0.92f, 0.8f));
+                    break;
+                case WeaponType.ThunderRod:
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "Barrel", new Vector3(0f, -0.85f, 0.05f), new Vector3(0.05f, 0.45f, 0.05f), steel);
+                    Part(PrimitiveType.Cube, _weaponPivot, "Stock", new Vector3(0f, -0.48f, 0.05f), new Vector3(0.08f, 0.22f, 0.1f), wood);
+                    Part(PrimitiveType.Sphere, _weaponPivot, "Spark", new Vector3(0f, -1.32f, 0.05f), Vector3.one * 0.08f, new Color(0.6f, 0.85f, 1f));
+                    break;
+                case WeaponType.Huuma:
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "Hub", new Vector3(0f, -0.7f, 0.05f), new Vector3(0.12f, 0.02f, 0.12f), steel, new Vector3(90f, 0f, 0f));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Part(PrimitiveType.Cube, _weaponPivot, "Blade", new Vector3(0f, -0.7f, 0.05f), new Vector3(0.6f, 0.07f, 0.015f), steel, new Vector3(0f, 0f, i * 45f));
+                    }
+
+                    break;
+                case WeaponType.CatStaff:
+                    Part(PrimitiveType.Cylinder, _weaponPivot, "Staff", new Vector3(0f, -0.6f, 0f), new Vector3(0.04f, 0.6f, 0.04f), wood);
+                    Part(PrimitiveType.Sphere, _weaponPivot, "Paw", new Vector3(0f, -1.25f, 0f), Vector3.one * 0.15f, new Color(0.98f, 0.85f, 0.55f));
+                    Part(PrimitiveType.Cube, _weaponPivot, "EarL", new Vector3(-0.06f, -1.34f, 0f), new Vector3(0.05f, 0.06f, 0.02f), new Color(0.98f, 0.85f, 0.55f), new Vector3(0f, 0f, 45f));
+                    Part(PrimitiveType.Cube, _weaponPivot, "EarR", new Vector3(0.06f, -1.34f, 0f), new Vector3(0.05f, 0.06f, 0.02f), new Color(0.98f, 0.85f, 0.55f), new Vector3(0f, 0f, 45f));
+                    break;
                 case WeaponType.TwoHandSword:
                     Part(PrimitiveType.Cube, _weaponPivot, "Blade", new Vector3(0f, -0.95f, 0f), new Vector3(0.09f, 1.1f, 0.03f), steel);
                     Part(PrimitiveType.Cube, _weaponPivot, "Guard", new Vector3(0f, -0.4f, 0f), new Vector3(0.3f, 0.05f, 0.06f), wood);

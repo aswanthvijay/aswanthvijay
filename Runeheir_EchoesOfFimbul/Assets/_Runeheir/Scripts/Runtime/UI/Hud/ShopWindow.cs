@@ -83,9 +83,13 @@ namespace Runeheir.UI
                 return;
             }
 
+            float discount = _player.Stats.BuyDiscountPercent;
+            float bonus = _player.Stats.SellBonusPercent;
             _header.text = _selling
                 ? "Double-click an item to sell it (the amount box sets how many from a stack). Worn gear isn't for sale: take it off first."
-                : $"<i>\"{_shop.Greeting}\"</i>\nDouble-click an item to buy the amount in the box.";
+                  + (bonus > 0f ? $"\n<color=#EBC466>Silver Tongue: +{bonus:0.#}%</color>" : string.Empty)
+                : $"<i>\"{_shop.Greeting}\"</i>\nDouble-click an item to buy the amount in the box."
+                  + (discount > 0f ? $"  <color=#EBC466>Haggle: -{discount:0.#}%</color>" : string.Empty);
             _buyTab.GetComponent<Image>().color = _selling ? Color.white : UITheme.Gold;
             _sellTab.GetComponent<Image>().color = _selling ? UITheme.Gold : Color.white;
             _footer.text = $"Zeny <b><color=#EBC466>{_player.Record.Zeny:N0}</color></b>    Weight {_player.CurrentWeight:N0} / {_player.Stats.WeightCapacity:N0}";
@@ -104,7 +108,7 @@ namespace Runeheir.UI
 
                     var captured = entry;
                     _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.DisplayName,
-                        $"{item.SellPrice:N0} z each{(entry.Amount > 1 ? $" · x{entry.Amount:N0}" : string.Empty)}",
+                        $"{TradeRules.SellPrice(item, bonus):N0} z each{(entry.Amount > 1 ? $" · x{entry.Amount:N0}" : string.Empty)}",
                         null, () => ItemTooltips.For(captured, "double-click: sell"), onDoubleClick: () => Sell(captured));
                 }
             }
@@ -121,7 +125,7 @@ namespace Runeheir.UI
 
                     int owned = _player.Inventory.Count(id);
                     _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), item.Name,
-                        $"<color=#EBC466>{item.Price:N0} z</color>{(owned > 0 ? $" · you have {owned:N0}" : string.Empty)}",
+                        $"<color=#EBC466>{TradeRules.BuyPrice(item, discount):N0} z</color>{(owned > 0 ? $" · you have {owned:N0}" : string.Empty)}",
                         null, () => ItemTooltips.For(Preview(item), "double-click: buy"), onDoubleClick: () => Buy(id));
                 }
             }
@@ -151,7 +155,8 @@ namespace Runeheir.UI
                 return;
             }
 
-            if (TradeRules.TryBuy(_player.Record, _player.Inventory, _shop, itemId, Amount, _player.Stats.WeightCapacity, _player.CurrentWeight, out string message))
+            if (TradeRules.TryBuy(_player.Record, _player.Inventory, _shop, itemId, Amount, _player.Stats.WeightCapacity, _player.CurrentWeight, out string message,
+                    _player.Stats.BuyDiscountPercent))
             {
                 ChatLog.Loot(message);
                 _player.SaveNow();
@@ -176,7 +181,7 @@ namespace Runeheir.UI
             if (item.IsEquipment)
             {
                 bool invested = entry.Refine > 0 || entry.CardCount > 0 || entry.Glyphs != null && System.Array.Exists(entry.Glyphs, g => !string.IsNullOrEmpty(g));
-                _hud.Confirm($"Sell <b>{entry.DisplayName}</b> for {item.SellPrice:N0} zeny?" + (invested ? "\nIts refine, cards and glyphs are lost with it." : string.Empty),
+                _hud.Confirm($"Sell <b>{entry.DisplayName}</b> for {TradeRules.SellPrice(item, _player.Stats.SellBonusPercent):N0} zeny?" + (invested ? "\nIts refine, cards and glyphs are lost with it." : string.Empty),
                     () => DoSell(entry, amount), "Sell");
                 return;
             }
@@ -186,7 +191,7 @@ namespace Runeheir.UI
 
         private void DoSell(ItemStack entry, int amount)
         {
-            if (TradeRules.TrySell(_player.Record, _player.Inventory, entry, amount, out string message))
+            if (TradeRules.TrySell(_player.Record, _player.Inventory, entry, amount, out string message, _player.Stats.SellBonusPercent))
             {
                 ChatLog.Loot(message);
                 _player.SaveNow();

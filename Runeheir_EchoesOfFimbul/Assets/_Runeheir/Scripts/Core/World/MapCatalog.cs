@@ -118,6 +118,12 @@ namespace Runeheir.World
                 Greeting = "A sturdy Pushcart carries 8,000 more weight, and with one you can set up a stall anywhere in Vigrid's streets.",
                 OutfitHex = "#A04000", Head = "fur_cap", Lower = "braided_beard", Garment = "bear_pelt",
             });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Norns, Name = "Urðr", Title = "Urðr's Well · Rebirth", X = 26f, Z = 26f,
+                Greeting = "Your first thread is spun to its end. Bring it to me whole, and my sisters and I will weave it again, brighter.",
+                OutfitHex = "#5B2C6F", Gender = 1, Head = "raven_hood", Garment = "valkyrian_feather_wings",
+            });
 
             var hall = Add(new MapDefinition
             {

@@ -131,6 +131,7 @@ namespace Runeheir.Field
                 case NpcKind.Forge: return new Color(1f, 0.55f, 0.2f, 0.8f);
                 case NpcKind.Storage: return new Color(0.45f, 0.7f, 1f, 0.8f);
                 case NpcKind.JobMaster: return new Color(0.75f, 0.45f, 1f, 0.8f);
+                case NpcKind.Norns: return new Color(0.9f, 0.85f, 1f, 0.8f);
                 default: return new Color(0.95f, 0.8f, 0.35f, 0.8f);
             }
         }

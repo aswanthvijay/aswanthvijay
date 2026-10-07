@@ -41,6 +41,12 @@ namespace Runeheir.Stats
         public float MoveSpeedMultiplier;
         public float AttackRange;
         public int WeightCapacity;
+
+        /// <summary>Percent off NPC shop prices (Haggle), at most <see cref="Items.TradeRules.MaxPricePercent"/>.</summary>
+        public float BuyDiscountPercent;
+
+        /// <summary>Percent more from NPC shops when selling (Silver Tongue), at most <see cref="Items.TradeRules.MaxPricePercent"/>.</summary>
+        public float SellBonusPercent;
         public int HpRegenPerTick;
         public int SpRegenPerTick;
 
@@ -144,6 +150,8 @@ namespace Runeheir.Stats
             d.MoveSpeedMultiplier = Math.Max(0.1f, 1f + mods.MoveSpeedPercent / 100f);
             d.AttackRange = WeaponRules.AttackRange(weapon.Type) + Math.Max(0f, mods.AttackRange);
             d.WeightCapacity = StatFormulas.WeightCapacity(total.Str) + Math.Max(0, mods.WeightCapacity);
+            d.BuyDiscountPercent = Math.Max(0f, Math.Min(Items.TradeRules.MaxPricePercent, mods.BuyDiscountPercent));
+            d.SellBonusPercent = Math.Max(0f, Math.Min(Items.TradeRules.MaxPricePercent, mods.SellBonusPercent));
             d.HpRegenPerTick = StatFormulas.HpRegenPerTick(d.MaxHp, total.Vit) + Math.Max(0, mods.HpRegenFlat);
             d.SpRegenPerTick = StatFormulas.SpRegenPerTick(d.MaxSp, total.Int) + Math.Max(0, mods.SpRegenFlat);
 

@@ -125,7 +125,7 @@ namespace Runeheir.UI
                 return;
             }
 
-            _hud.Confirm($"Become a {target.Name}? This can't be undone.", () => Advance(target), "Advance");
+            _hud.Confirm($"Become {JobDatabase.WithArticle(target.Name)}? This can't be undone.", () => Advance(target), "Advance");
         }
 
         private void Advance(JobInfo target)

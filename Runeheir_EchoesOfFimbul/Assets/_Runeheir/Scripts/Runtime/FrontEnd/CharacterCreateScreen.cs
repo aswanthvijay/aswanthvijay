@@ -24,6 +24,9 @@ namespace Runeheir.FrontEnd
         private readonly InputField _name;
         private readonly Button _male;
         private readonly Button _female;
+        private readonly Button _human;
+        private readonly Button _doram;
+        private readonly Text _info;
         private readonly Text _hairStyleLabel;
         private readonly Text _hairColorLabel;
         private readonly Image _hairSwatch;
@@ -31,6 +34,7 @@ namespace Runeheir.FrontEnd
         private readonly Button _createButton;
 
         private Gender _gender = Gender.Female;
+        private CharacterRace _race = CharacterRace.Human;
         private int _hairStyle;
         private int _hairColor;
 
@@ -60,34 +64,37 @@ namespace Runeheir.FrontEnd
                 characterLimit: AccountRules.MaxCharacterNameLength);
             _name.GetComponent<RectTransform>().SetRect(140f, 58f, inner - 140f, 38f);
 
-            Label(content, "Gender", 122f);
+            Label(content, "Kin", 118f);
+            _human = UIFactory.CreateButton(content, "Human", () => SetRace(CharacterRace.Human), 16);
+            _human.GetComponent<RectTransform>().SetRect(140f, 114f, 160f, 38f);
+            _doram = UIFactory.CreateButton(content, "Freyja's Kin", () => SetRace(CharacterRace.Doram), 16);
+            _doram.GetComponent<RectTransform>().SetRect(312f, 114f, 160f, 38f);
+
+            Label(content, "Gender", 174f);
             _male = UIFactory.CreateButton(content, "Male", () => SetGender(Gender.Male), 16);
-            _male.GetComponent<RectTransform>().SetRect(140f, 118f, 160f, 38f);
+            _male.GetComponent<RectTransform>().SetRect(140f, 170f, 160f, 38f);
             _female = UIFactory.CreateButton(content, "Female", () => SetGender(Gender.Female), 16);
-            _female.GetComponent<RectTransform>().SetRect(312f, 118f, 160f, 38f);
+            _female.GetComponent<RectTransform>().SetRect(312f, 170f, 160f, 38f);
 
-            Label(content, "Hair Style", 182f);
-            _hairStyleLabel = Stepper(content, 178f, () => StepHairStyle(-1), () => StepHairStyle(1));
+            Label(content, "Hair Style", 230f);
+            _hairStyleLabel = Stepper(content, 226f, () => StepHairStyle(-1), () => StepHairStyle(1));
 
-            Label(content, "Hair Color", 242f);
-            _hairColorLabel = Stepper(content, 238f, () => StepHairColor(-1), () => StepHairColor(1));
+            Label(content, "Hair Color", 286f);
+            _hairColorLabel = Stepper(content, 282f, () => StepHairColor(-1), () => StepHairColor(1));
             _hairSwatch = UIFactory.CreatePanel(content, "Swatch", Color.white, rounded: true, blocksRaycasts: false);
-            _hairSwatch.rectTransform.SetRect(inner - 30f, 244f, 26f, 26f);
+            _hairSwatch.rectTransform.SetRect(inner - 30f, 288f, 26f, 26f);
             UIFactory.AddOutline(_hairSwatch, Color.black, 1f);
 
-            var info = UIFactory.CreateText(content,
-                $"You awaken as an <b>{JobDatabase.Get(JobId.Initiate).Name}</b> in <b>{MapCatalog.Get(MapCatalog.StartingMapId).Name}</b>.\n" +
-                $"All stats start at 1 with <b>{StatFormulas.StartingStatPoints}</b> status points — spend them in-game (Alt+A).\n" +
-                "Reach Job Lv 10 to choose Warrior, Scout, Mystic or Devotee.",
-                14, UITheme.TextDim, TextAnchor.UpperLeft);
-            info.rectTransform.SetRect(0f, 300f, inner, 90f);
+            _info = UIFactory.CreateText(content, string.Empty, 14, UITheme.TextDim, TextAnchor.UpperLeft);
+            _info.rectTransform.SetRect(0f, 336f, inner, 100f);
+            _info.horizontalOverflow = HorizontalWrapMode.Wrap;
 
-            _status = CreateStatus(content, 0f, 400f, inner);
+            _status = CreateStatus(content, 0f, 440f, inner);
 
             _createButton = UIFactory.CreateButton(content, "Create", OnCreate, 20);
-            _createButton.GetComponent<RectTransform>().SetRect(0f, 444f, inner / 2f - 8f, 52f);
+            _createButton.GetComponent<RectTransform>().SetRect(0f, 482f, inner / 2f - 8f, 52f);
             var cancel = UIFactory.CreateButton(content, "Cancel", () => Context.ShowCharacterSelect(Slot), 18);
-            cancel.GetComponent<RectTransform>().SetRect(inner / 2f + 8f, 444f, inner / 2f - 8f, 52f);
+            cancel.GetComponent<RectTransform>().SetRect(inner / 2f + 8f, 482f, inner / 2f - 8f, 52f);
         }
 
         public int Slot { get; set; }
@@ -116,6 +123,7 @@ namespace Runeheir.FrontEnd
             _hairColor = UnityEngine.Random.Range(0, CharacterFactory.HairColorCount);
             SetStatus(_status, $"Creating in slot {Slot + 1}.");
             Context.Preview.ResetRotation();
+            SetRace(_race);
             SetGender(_gender);
             if (EventSystem.current != null)
             {
@@ -150,6 +158,21 @@ namespace Runeheir.FrontEnd
             RefreshPreview();
         }
 
+        private void SetRace(CharacterRace race)
+        {
+            _race = race;
+            Highlight(_human, race == CharacterRace.Human);
+            Highlight(_doram, race == CharacterRace.Doram);
+            string where = MapCatalog.Get(MapCatalog.StartingMapId).Name;
+            string points = $"All stats start at 1 with <b>{StatFormulas.StartingStatPoints}</b> status points: spend them in-game (Alt+A).";
+            _info.text = race == CharacterRace.Doram
+                ? $"You awaken as <b>{JobDatabase.Get(JobId.FreyjasKin).Name}</b> in <b>{where}</b>: cat-folk of Freyja's chariot, " +
+                  "summoners who call on the spirits of land, sea and life. Your kin never changes job and grows to Base Lv 255.\n" + points
+                : $"You awaken as an <b>{JobDatabase.Get(JobId.Initiate).Name}</b> in <b>{where}</b>.\n{points}\n" +
+                  "At Job Lv 10 choose Warrior, Scout, Mystic, Devotee, Huntsman or Trader, or an expanded path: Glíma Fighter, Thunderer, Nightraider or Wanderer.";
+            RefreshPreview();
+        }
+
         private static void Highlight(Button button, bool selected)
         {
             var colors = button.colors;
@@ -181,7 +204,8 @@ namespace Runeheir.FrontEnd
                 Gender = _gender,
                 HairStyle = _hairStyle,
                 HairColor = _hairColor,
-                Job = JobId.Initiate,
+                Race = _race,
+                Job = _race == CharacterRace.Doram ? JobId.FreyjasKin : JobId.Initiate,
             }));
         }
 
@@ -204,7 +228,7 @@ namespace Runeheir.FrontEnd
             try
             {
                 var session = Context.Session;
-                var request = new CharacterCreateRequest { Name = _name.text, Gender = _gender, HairStyle = _hairStyle, HairColor = _hairColor };
+                var request = new CharacterCreateRequest { Name = _name.text, Gender = _gender, HairStyle = _hairStyle, HairColor = _hairColor, Race = _race };
                 var result = await session.Accounts.CreateCharacterAsync(session.Username, Slot, request);
                 if (!IsCurrent(visit))
                 {

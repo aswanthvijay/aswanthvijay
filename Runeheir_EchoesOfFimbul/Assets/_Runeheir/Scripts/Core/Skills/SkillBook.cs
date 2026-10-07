@@ -150,6 +150,12 @@ namespace Runeheir.Skills
             return refunded;
         }
 
+        /// <summary>The record's skills changed outside the book (rebirth): tell the windows and the stats.</summary>
+        public void NotifyChanged()
+        {
+            Changed?.Invoke();
+        }
+
         /// <summary>GM/debug: sets a level directly (0 forgets it). Skill points are not touched.</summary>
         public void SetLevel(string id, int level)
         {

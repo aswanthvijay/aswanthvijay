@@ -23,14 +23,14 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = "haggle", Name = "Haggle", Job = JobId.Trader, MaxLevel = 10, Passive = true, Requires = Req("strong_back", 3),
-                Description = "Ragnarok's Discount: NPC shops sell to you 2% cheaper per level (at most 24% at Lv 10).",
+                Description = "Ragnarok's Discount: NPC shops sell to you 2.4% cheaper per level (24% at Lv 10).",
                 IconLabel = "DSC", IconColorHex = "#B9770E",
                 PassivePerLevel = new StatModifiers { BuyDiscountPercent = 2.4f },
             });
             Register(new SkillDefinition
             {
                 Id = "silver_tongue", Name = "Silver Tongue", Job = JobId.Trader, MaxLevel = 10, Passive = true, Requires = Req("haggle", 3),
-                Description = "Ragnarok's Overcharge: NPC shops pay you 2.4% more per level (at most 24% at Lv 10).",
+                Description = "Ragnarok's Overcharge: NPC shops pay you 2.4% more per level (24% at Lv 10).",
                 IconLabel = "OVC", IconColorHex = "#D4AC0D",
                 PassivePerLevel = new StatModifiers { SellBonusPercent = 2.4f },
             });

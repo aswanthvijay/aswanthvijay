@@ -880,13 +880,13 @@ namespace Runeheir.Player
 
         private void OnJobChanged()
         {
-            ChatLog.Notice($"{DisplayName} is now a {Job.Name}!");
+            ChatLog.Notice($"{DisplayName} is now {JobDatabase.WithArticle(JobDatabase.NameFor(Record))}!");
 
             // Gear the new job can't use goes to the bag; the guild hands over the job's own weapon.
             int removed = Equipment.RemoveUnwearable();
             if (removed > 0)
             {
-                ChatLog.System($"{removed} piece(s) of gear went back to your bag: a {Job.Name} can't use them.");
+                ChatLog.System($"{removed} piece(s) of gear went back to your bag: {JobDatabase.WithArticle(Job.Name)} can't use them.");
             }
 
             var gift = Equipment.GiftJobWeapon();
@@ -898,6 +898,40 @@ namespace Runeheir.Player
             Recalculate();
             RebuildAvatar();
             SaveNow();
+        }
+
+        /// <summary>
+        /// The Norns' rebirth (Phase 7): back to High Initiate at Base and Job Lv 1 with 100 status points, skills cleared, gear in
+        /// the bag. Saves at once.
+        /// </summary>
+        public bool TryRebirth(out string reason)
+        {
+            if (IsDead)
+            {
+                reason = "The dead can't be reborn.";
+                return false;
+            }
+
+            if (!Progression.TryRebirth(out reason))
+            {
+                return false;
+            }
+
+            // The rules emptied the record's skills and gear directly; the job change above already recalculated and saved.
+            SkillBook.NotifyChanged();
+            Equipment.NotifyChanged();
+            Inventory.NotifyChanged();
+            Recalculate();
+            SetVitals(MaxHp, MaxHp, MaxSp, MaxSp);
+            if (_animation != null)
+            {
+                _animation.PlaySkill(SkillMotion.Buff, 1f, 0.8f);
+            }
+
+            GroundRing.SpawnPulse(transform.position, new Color(0.85f, 0.75f, 1f, 1f), 0.3f, 4f, 1.2f);
+            ChatLog.Notice($"The Norns weave {DisplayName} a new thread. Walk it again, {JobDatabase.NameFor(Record)}.");
+            SaveNow();
+            return true;
         }
 
         // ------------------------------------------------------------ Unity

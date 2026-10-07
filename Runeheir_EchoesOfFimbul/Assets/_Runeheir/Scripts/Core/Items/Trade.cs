@@ -87,11 +87,41 @@ namespace Runeheir.Items
         public static IEnumerable<ShopDefinition> All => ById.Values;
     }
 
-    /// <summary>Buying and selling for zeny. Merchants pay half the shop price; equipped items can't be sold.</summary>
+    /// <summary>
+    /// Buying and selling for zeny. Merchants pay half the shop price; equipped items can't be sold. A Trader's Haggle takes up
+    /// to 24% off the shop price and Silver Tongue gets up to 24% more when selling (Ragnarok's Discount and Overcharge).
+    /// </summary>
     public static class TradeRules
     {
+        /// <summary>Ragnarok's cap for Discount and Overcharge.</summary>
+        public const float MaxPricePercent = 24f;
+
+        /// <summary>What a shop charges for one <paramref name="item"/> with <paramref name="discountPercent"/>% off (at least 1 zeny).</summary>
+        public static long BuyPrice(ItemDefinition item, float discountPercent = 0f)
+        {
+            if (item == null)
+            {
+                return 0;
+            }
+
+            float off = Math.Max(0f, Math.Min(MaxPricePercent, discountPercent));
+            return Math.Max(1L, (long)Math.Floor(item.Price * (1.0 - off / 100.0)));
+        }
+
+        /// <summary>What a shop pays for one <paramref name="item"/> with <paramref name="bonusPercent"/>% more (0 for worthless items).</summary>
+        public static long SellPrice(ItemDefinition item, float bonusPercent = 0f)
+        {
+            if (item == null || item.SellPrice <= 0)
+            {
+                return 0;
+            }
+
+            float more = Math.Max(0f, Math.Min(MaxPricePercent, bonusPercent));
+            return (long)Math.Floor(item.SellPrice * (1.0 + more / 100.0));
+        }
+
         public static bool TryBuy(CharacterRecord record, Inventory inventory, ShopDefinition shop, string itemId, int amount,
-            int weightCapacity, int currentWeight, out string message)
+            int weightCapacity, int currentWeight, out string message, float discountPercent = 0f)
         {
             var item = ItemCatalog.Get(itemId);
             if (shop == null || item == null || Array.IndexOf(shop.ItemIds, item.Id) < 0)
@@ -106,7 +136,8 @@ namespace Runeheir.Items
                 return false;
             }
 
-            long cost = (long)item.Price * amount;
+            long each = BuyPrice(item, discountPercent);
+            long cost = each * amount;
             if (record.Zeny < cost)
             {
                 message = $"You need {cost:N0} zeny.";
@@ -126,13 +157,13 @@ namespace Runeheir.Items
                 return false;
             }
 
-            record.Zeny -= (long)item.Price * added;
+            record.Zeny -= each * added;
             inventory.NotifyChanged(); // zeny changed after the bag did: refresh the zeny shown
-            message = $"Bought {item.Name} x{added} for {(long)item.Price * added:N0} zeny.";
+            message = $"Bought {item.Name} x{added} for {each * added:N0} zeny.";
             return true;
         }
 
-        public static bool TrySell(CharacterRecord record, Inventory inventory, ItemStack entry, int amount, out string message)
+        public static bool TrySell(CharacterRecord record, Inventory inventory, ItemStack entry, int amount, out string message, float bonusPercent = 0f)
         {
             var item = entry?.Definition;
             if (item == null || !inventory.Contains(entry))
@@ -155,7 +186,7 @@ namespace Runeheir.Items
                 return false;
             }
 
-            long earned = (long)item.SellPrice * amount;
+            long earned = SellPrice(item, bonusPercent) * amount;
             record.Zeny += earned;
             inventory.NotifyChanged();
             message = $"Sold {entry.DisplayName} x{amount} for {earned:N0} zeny.";

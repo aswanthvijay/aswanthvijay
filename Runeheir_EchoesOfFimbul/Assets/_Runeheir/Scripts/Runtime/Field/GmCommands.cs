@@ -63,7 +63,7 @@ namespace Runeheir.Field
             {
                 case "help":
                 case "commands":
-                    ChatLog.Gm("@blvl <1-255>  @jlvl <1-120>  @job <name>  @jobs  @allstats <n>  @str|agi|vit|int|dex|luk <n>");
+                    ChatLog.Gm("@blvl <1-255>  @jlvl <1-120>  @job <name>  @jobs  @rebirth  @allstats <n>  @str|agi|vit|int|dex|luk <n>");
                     ChatLog.Gm("@reset  @heal  @item <id> [amount]  @items  @monster <id> [count]  @monsters  @aspd  @save  @where");
                     ChatLog.Gm("@skills  @allskills  @learn <skill> [lv]  @skillpoint <n>  @skillreset  @status <name> [seconds]  @statuses  @cleanse");
                     ChatLog.Gm("@zeny <amount>  @items [weapons|gear|cards|text]  @refine <0-20> (worn weapon)");
@@ -110,6 +110,27 @@ namespace Runeheir.Field
 
                 case "jobs":
                     ChatLog.Gm("Jobs: " + string.Join(", ", JobDatabase.All.OrderBy(j => j.Tier).Select(j => j.Name)));
+                    break;
+
+                case "rebirth":
+                case "reborn":
+                    // Meets the Norns' requirements (Base 99, Job 50, the fee) and rebirths at once; needs a second job.
+                    if (player.Job.Family == JobFamily.Normal && player.Job.Tier == 2 && !player.Record.Reborn)
+                    {
+                        progression.SetBaseLevel(RebirthRules.NormalBaseLevelCap);
+                        progression.SetJobLevel(Math.Max(player.Record.JobLevel, RebirthRules.MinJobLevel));
+                        player.Record.Zeny = Math.Max(player.Record.Zeny, RebirthRules.Fee);
+                    }
+
+                    if (player.TryRebirth(out string rebirthError))
+                    {
+                        ChatLog.Gm($"Reborn as {JobDatabase.NameFor(player.Record)}. The road leads to {JobDatabase.TranscendentOf(player.Record.RebirthPath)?.Name ?? "?"}.");
+                    }
+                    else
+                    {
+                        ChatLog.Error(rebirthError);
+                    }
+
                     break;
 
                 case "allstats":

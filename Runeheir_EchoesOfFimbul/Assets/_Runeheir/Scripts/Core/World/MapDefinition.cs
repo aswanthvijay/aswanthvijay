@@ -45,6 +45,9 @@ namespace Runeheir.World
 
         /// <summary>Phase 6: rents the Merchant Pushcart (+8,000 weight, street vending) and explains the market.</summary>
         CartMerchant = 4,
+
+        /// <summary>Phase 7: the Norns at Urðr's Well, who weave a reborn thread for heroes at the end of their first life.</summary>
+        Norns = 5,
     }
 
     /// <summary>A group of one monster type kept alive around a point (Ragnarok spawn).</summary>

@@ -16,6 +16,9 @@ namespace Runeheir.Visuals
         public Gender Gender;
         public WeaponType Weapon;
 
+        /// <summary>Phase 7: Freyja's Kin are cat-folk (smaller, with ears and a tail).</summary>
+        public CharacterRace Race;
+
         /// <summary>Worn pieces drawn on the model (item ids; null when nothing is worn there).</summary>
         public string HeadUpper;
 
@@ -62,6 +65,7 @@ namespace Runeheir.Visuals
                 Hair = HairPalette[CharacterFactory.Wrap(record.HairColor, HairPalette.Length)],
                 HairStyle = CharacterFactory.Wrap(record.HairStyle, CharacterFactory.HairStyleCount),
                 Gender = record.Gender,
+                Race = record.Race,
                 Weapon = hasGear ? Worn(record, EquipPosition.Weapon)?.WeaponType ?? WeaponType.Unarmed : job.StarterWeapon.Type,
                 HeadUpper = Worn(record, EquipPosition.HeadUpper)?.Id,
                 HeadMid = Worn(record, EquipPosition.HeadMid)?.Id,
@@ -73,14 +77,15 @@ namespace Runeheir.Visuals
 
         /// <summary>
         /// The look as one line of text (Phase 6: other players see your outfit, hair and gear):
-        /// job|gender|hair style|hair color|weapon|head upper|head mid|head lower|shield|garment.
+        /// job|gender|hair style|hair color|weapon|head upper|head mid|head lower|shield|garment|race (Phase 7, added last so
+        /// older codes still read).
         /// </summary>
         public static string Code(CharacterRecord record)
         {
             var look = FromRecord(record);
             return string.Join("|", (int)record.Job, (int)record.Gender, look.HairStyle,
                 CharacterFactory.Wrap(record.HairColor, HairPalette.Length), (int)look.Weapon,
-                look.HeadUpper, look.HeadMid, look.HeadLower, look.Shield, look.Garment);
+                look.HeadUpper, look.HeadMid, look.HeadLower, look.Shield, look.Garment, (int)look.Race);
         }
 
         /// <summary>Reads <see cref="Code"/>; anything missing or unknown falls back to an Initiate's plain look.</summary>
@@ -100,6 +105,7 @@ namespace Runeheir.Visuals
                 Hair = HairPalette[CharacterFactory.Wrap(Int(3), HairPalette.Length)],
                 HairStyle = CharacterFactory.Wrap(Int(2), CharacterFactory.HairStyleCount),
                 Gender = Int(1) == (int)Gender.Female ? Gender.Female : Gender.Male,
+                Race = Int(10) == (int)CharacterRace.Doram ? CharacterRace.Doram : CharacterRace.Human,
                 Weapon = System.Enum.IsDefined(typeof(WeaponType), weapon) ? (WeaponType)weapon : WeaponType.Unarmed,
                 HeadUpper = Item(5),
                 HeadMid = Item(6),

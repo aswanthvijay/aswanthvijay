@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Runeheir.Controls;
 using Runeheir.Field;
 using Runeheir.Items;
+using Runeheir.Jobs;
 using Runeheir.Player;
 using Runeheir.Online;
 using Runeheir.Session;
@@ -36,6 +37,7 @@ namespace Runeheir.UI
         private ShopWindow _shop;
         private StorageWindow _storage;
         private ForgeWindow _forge;
+        private CraftWindow _craft;
         private CardCompoundWindow _compound;
         private ConfirmDialog _confirm;
         private NpcActor _activeNpc;
@@ -155,6 +157,14 @@ namespace Runeheir.UI
                 case NpcKind.JobMaster:
                     options.Add(Option("Change job", () => _jobChange.Window.Show()));
                     break;
+                case NpcKind.Norns:
+                    if (!_player.Record.Reborn)
+                    {
+                        options.Add(Option($"Ask for a new thread (rebirth, {RebirthRules.Fee:N0} z)", AskRebirth));
+                    }
+
+                    options.Add(Option("What is rebirth?", ExplainRebirth));
+                    break;
                 case NpcKind.CartMerchant:
                     if (!_player.Record.HasPushcart)
                     {
@@ -203,6 +213,54 @@ namespace Runeheir.UI
             {
                 ChatLog.Error(message);
             }
+        }
+
+        private void AskRebirth()
+        {
+            if (!IsAtNpc(NpcKind.Norns))
+            {
+                return;
+            }
+
+            var record = _player.Record;
+            if (!RebirthRules.CanRebirth(record, out string reason))
+            {
+                ChatLog.Error(reason);
+                return;
+            }
+
+            string goal = JobDatabase.TranscendentOf(record.Job)?.Name ?? "a transcendent job";
+            Confirm($"Be reborn as a <b>High Initiate</b>?\nBase and Job Lv go back to 1 with {Stats.StatFormulas.StartingStatPoints + RebirthRules.BonusStatPoints} status points, " +
+                    $"your skills are cleared, your gear goes to your bag and the Norns take {RebirthRules.Fee:N0} zeny.\n" +
+                    $"Your new road leads to <b>{goal}</b>.", DoRebirth, "Be reborn");
+        }
+
+        private void DoRebirth()
+        {
+            if (!IsAtNpc(NpcKind.Norns))
+            {
+                return;
+            }
+
+            if (!_player.TryRebirth(out string reason))
+            {
+                ChatLog.Error(reason);
+            }
+        }
+
+        private void ExplainRebirth()
+        {
+            var record = _player.Record;
+            if (record.Reborn)
+            {
+                ChatLog.System($"Your thread is already rewoven. Keep climbing: Base Lv {RebirthRules.BaseLevelCap(record)}, and the transcendent jobs beyond your second job.");
+                return;
+            }
+
+            ChatLog.System($"A second job (Berserker, Gothi, Skald...) at Base Lv {RebirthRules.NormalBaseLevelCap} and Job Lv {RebirthRules.MinJobLevel} can be reborn for " +
+                           $"{RebirthRules.Fee:N0} zeny: you start again as a High Initiate with {Stats.StatFormulas.StartingStatPoints + RebirthRules.BonusStatPoints} status points, " +
+                           $"+{RebirthRules.HpSpBonusPercent:0}% Max HP and SP and Base levels up to {Stats.StatFormulas.MaxBaseLevel}. Your road leads back through your first job " +
+                           "to your second job's transcendent form: a Berserker becomes a High Warrior, then an Einherjar. Skills are cleared and gear goes to your bag.");
         }
 
         private static void ExplainVending()
@@ -347,6 +405,7 @@ namespace Runeheir.UI
             _shop = new ShopWindow(this, _player);
             _storage = new StorageWindow(this, _player);
             _forge = new ForgeWindow(this, _player);
+            _craft = new CraftWindow(this, _player);
             _compound = new CardCompoundWindow(this, _player);
             _confirm = new ConfirmDialog(this);
             _social = new SocialHud(this, _player);
@@ -552,6 +611,7 @@ namespace Runeheir.UI
             _equipment?.Dispose();
             _shop?.Dispose();
             _forge?.Dispose();
+            _craft?.Dispose();
             _compound?.Dispose();
             NpcActor.Interacted -= OnNpcInteracted;
             _jobChange?.Dispose();
