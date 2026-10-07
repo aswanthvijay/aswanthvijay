@@ -207,7 +207,8 @@ namespace Runeheir.Characters
         public void SetBaseLevel(int level)
         {
             int previous = Record.BaseLevel;
-            Record.BaseLevel = StatFormulas.Clamp(level, 1, StatFormulas.MaxBaseLevel);
+            // Base 99 until rebirth (or an expanded job): a level past the cap could never earn Base EXP.
+            Record.BaseLevel = StatFormulas.Clamp(level, 1, RebirthRules.BaseLevelCap(Record));
             Record.BaseExp = 0;
             RecalculateStatPoints();
             if (Record.BaseLevel > previous)

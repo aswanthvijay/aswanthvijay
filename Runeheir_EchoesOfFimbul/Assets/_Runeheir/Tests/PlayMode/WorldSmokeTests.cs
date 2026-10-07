@@ -49,6 +49,7 @@ namespace Runeheir.Tests
         private static PlayerCharacter ToughPlayer()
         {
             var player = PlayerCharacter.Local;
+            player.Record.Reborn = true; // Base 255 is for the reborn
             player.Progression.SetBaseLevel(255);
             player.Progression.SetAllStats(200);
             player.Heal(player.MaxHp, showNumber: false);

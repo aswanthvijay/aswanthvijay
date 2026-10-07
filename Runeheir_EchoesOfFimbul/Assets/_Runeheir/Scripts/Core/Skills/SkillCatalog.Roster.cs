@@ -88,7 +88,7 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = "lokis_mimicry", Name = "Loki's Mimicry", Job = JobId.Outlaw, MaxLevel = 10, Passive = true, Requires = Req("cut_purse", 1),
-                Description = "Ragnarok's Plagiarism: the last skill a nearby ally uses (or that hits you) is copied, usable up to this level. +1% ASPD per level.",
+                Description = "Ragnarok's Plagiarism: the last first- or second-job skill a nearby ally uses is copied, usable up to this level. +1% ASPD per level.",
                 IconLabel = "PLG", IconColorHex = "#8E44AD",
                 PassivePerLevel = new StatModifiers { AspdPercent = 1f },
             });

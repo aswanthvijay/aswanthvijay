@@ -78,7 +78,8 @@ namespace Runeheir.Field
                         progression.SetBaseLevel(baseLevel);
                         player.Heal(player.MaxHp, showNumber: false);
                         player.RestoreSp(player.MaxSp, showNumber: false);
-                        ChatLog.Gm($"Base Level set to {player.Record.BaseLevel}. Status points: {player.Record.StatPoints}.");
+                        string capped = player.Record.BaseLevel < baseLevel ? $" (Base {RebirthRules.BaseLevelCap(player.Record)} is the cap until rebirth: @rebirth)" : string.Empty;
+                        ChatLog.Gm($"Base Level set to {player.Record.BaseLevel}{capped}. Status points: {player.Record.StatPoints}.");
                     }
 
                     break;

@@ -131,7 +131,7 @@ Everything numeric is in **`Scripts/Core`**, a pure C# assembly with no UnityEng
 | DEX | Cast multiplier = 1 − DEX/150 → **150 DEX = instant cast** · HIT = BaseLv + DEX | `CastTimeMultiplier`, `Hit` |
 | LUK | Crit % = LUK×0.35 + 1 · crits deal 140% and ignore DEF | `CritChance`, `CriticalDamageMultiplier` |
 
-Caps: Base 255, Job 120 (Ascended tier), each stat 1–255. Everyone starts at 1 in every stat with **48 status points**. Each level grants `3 + floor((L−1)/5)` points and raising a stat costs `floor((x−1)/10) + 2` (the classic curve; it gives exactly 1,273 points at Base 99, like RO). At Base 255 you have **7,185 points**: one stat at 255 (3,608) plus another at 200 (2,279) with change to spare, but never two maxed stats.
+Caps: Base 99 until rebirth, 255 once reborn or on an expanded job (Phase 7, see [Phase7_Classes.md](Phase7_Classes.md)), Job 120 (transcendent jobs), each stat 1–255. Everyone starts at 1 in every stat with **48 status points**. Each level grants `3 + floor((L−1)/5)` points and raising a stat costs `floor((x−1)/10) + 2` (the classic curve; it gives exactly 1,273 points at Base 99, like RO). At Base 255 you have **7,185 points**: one stat at 255 (3,608) plus another at 200 (2,279) with change to spare, but never two maxed stats.
 
 ### ASPD → animation speed (how it's computed)
 
@@ -198,7 +198,7 @@ Floating numbers: white = your damage, red = damage you take, yellow `1,234!` = 
 
 Skill flow (`SkillCaster`): key → target cursor (or **quick-cast** if you're already hovering a valid target) → walk into range → cast bar (`castTime × (1 − DEX/150)`) → SP spent → effect → after-cast delay + cooldown. Taking damage interrupts casting unless you are uninterruptible (Rage of Thor); stuns, silence and staggers always do.
 
-Since Phase 3, skills are **learned with skill points in the Skill Tree (Alt+S)** and fire at your learned level: 105 skills for all 21 jobs, with statuses and poise. The full list, rules and test commands are in **[Phase3_Guide.md](Phase3_Guide.md)**.
+Since Phase 3, skills are **learned with skill points in the Skill Tree (Alt+S)** and fire at your learned level, with statuses and poise. The rules and test commands are in **[Phase3_Guide.md](Phase3_Guide.md)**; since Phase 7 there are 282 skills across 40 jobs, all listed in **[Phase7_Classes.md](Phase7_Classes.md)**.
 
 Items: Lingonberry Tonic, Honey Mead, Aether Sap Vial, **Uruz / Tiwaz / Sowilo runestones** (GDD §7), Raven Feather (return to save point), Wind Rune Shard (random teleport).
 
@@ -233,7 +233,7 @@ Menu **Runeheir ▸ Debug ▸ Reveal / Delete Local Account Database** to inspec
 | Command | Effect |
 |---|---|
 | `@help` | List commands |
-| `@blvl 255` / `@jlvl 120` | Set Base level (status points recalculated) / Job level (capped at the current job's max: Initiate 10, 1st 50, 2nd 70, Ascended 120; skill points adjusted) |
+| `@blvl 255` / `@jlvl 120` | Set Base level (status points recalculated) / Job level (capped at the current job's max: Initiate 10, 1st 50, 2nd 70, transcendent 120, expanded jobs 50–99; skill points adjusted) |
 | `@job einherjar` · `@jobs` | Change job (any name: `shadow walker`, `archmage`, …) |
 | `@allstats 150` · `@agi 230` · `@dex 150` | Set stats |
 | `@reset` | Stat reset (refunds all points) |
@@ -339,7 +339,7 @@ The test job pins `game-ci/unity-test-runner@v4.3.2`. From v4.4.0, GameCI's runn
 
 ## Design assumptions to confirm
 These numbers weren't fixed by the GDD, so I picked Ragnarok-style defaults. Each one is a single constant you can change:
-- **Job level caps per tier:** Initiate 10, 1st 50, 2nd 70, Ascended 120 (`JobDatabase.MaxJobLevelByTier`).
+- **Job level caps per tier:** Initiate 10, 1st 50, 2nd 70, transcendent 120; expanded jobs set their own (`JobDatabase`).
 - **ASPD:** stats-based renewal-style curve, swing + recovery split 0.6 / 0.4 s (`StatFormulas`).
 - **"Frozen foes take 300% bonus blunt damage"** is read as ×3 total (`FrozenBluntDamageMultiplier`; set it to 4 for +300%).
 - **EXP curve and server rates** (`ExperienceTable`, `FieldBootstrap`).
@@ -351,3 +351,4 @@ These numbers weren't fixed by the GDD, so I picked Ragnarok-style defaults. Eac
 - **Phase 4 (done):** the 10-slot paperdoll, 87 items, 35 Soul Cards, refining to +20, runewords, shops and storage. See [Phase4_Guide.md](Phase4_Guide.md).
 - **Phase 5 (done):** the 14 maps, the bestiary, monster skills, bosses and MVPs. See [Phase5_Guide.md](Phase5_Guide.md).
 - **Phase 6 (done):** Mirror multiplayer (host, join, dedicated realm servers), chat, parties with Even Share, guilds, trades, the Pushcart and street stalls. See [Phase6_Guide.md](Phase6_Guide.md).
+- **Phase 7 (in code):** the full Ragnarok roster under Norse names (40 jobs, 282 skills), rebirth at Urðr's Well, the expanded jobs and Freyja's Kin, songs, coins, Mimicry, Haggle, Rune Forging and Brewing. Art for the new weapons and Freyja's Kin is still placeholder. See [Phase7_Classes.md](Phase7_Classes.md).

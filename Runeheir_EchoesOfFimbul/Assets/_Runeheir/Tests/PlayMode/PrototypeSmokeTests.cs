@@ -126,7 +126,7 @@ namespace Runeheir.Tests
             yield return null;
 
             var player = PlayerCharacter.Local;
-            player.Progression.SetBaseLevel(150);
+            player.Progression.SetBaseLevel(90); // under the Base 99 cap, so the kill still pays Base EXP
             player.Progression.SetAllStats(150);
 
             var imp = EntityFactory.CreateMonster(MonsterCatalog.Get("forest_imp"), player.Position + new Vector3(4f, 0f, 2f));
@@ -142,7 +142,7 @@ namespace Runeheir.Tests
                 yield return null;
             }
 
-            Assert.IsTrue(imp.IsDead, "level 150 character kills a Forest Imp");
+            Assert.IsTrue(imp.IsDead, "a level 90 character with 150 in every stat kills a Forest Imp");
             Assert.Greater(player.Record.BaseExp + player.Record.BaseLevel * 1000000L, expBefore, "EXP awarded");
             yield return new WaitForSeconds(0.5f);
         }
