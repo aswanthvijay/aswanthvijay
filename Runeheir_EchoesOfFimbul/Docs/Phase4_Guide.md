@@ -1,5 +1,7 @@
 # RUNEHEIR — Phase 4 Guide: Loot, Inventory & 4-Slot Card Compounding
 
+> **Since Phase 7:** the job tree is Ragnarok's full roster (40 jobs, 282 skills), the old *Ascended* tier is called **transcendent** and is reached through rebirth, and its gear is also worn by the expanded jobs. Some skills moved to other jobs. The current lists are in [Phase7_Classes.md](Phase7_Classes.md).
+
 Phase 4 turns the Phase 3 combat sandbox into a looter. Every character now wears real gear on a 10-slot paperdoll. Monsters drop loot, ores, rare gear and their own Soul Card. Three town NPCs by the save point buy and sell, refine, carve runes and store your items.
 
 | GDD item | Where it lives |

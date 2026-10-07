@@ -113,7 +113,7 @@ namespace Runeheir.UI
 
             if (item.MinTier >= 3)
             {
-                text.Append(" · Ascended jobs");
+                text.Append(" · transcendent and expanded jobs");
             }
             else if (item.MinTier > 0)
             {

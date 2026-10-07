@@ -16,7 +16,7 @@ namespace Runeheir.Characters
         public const double JobCoefficient = 15.0;
         public const double JobExponent = 2.5;
 
-        /// <summary>Job EXP multiplier per tier (Initiate, 1st, 2nd, Ascended).</summary>
+        /// <summary>Job EXP multiplier per tier (Initiate, 1st, 2nd, transcendent).</summary>
         public static readonly double[] JobTierMultiplier = { 1.0, 4.0, 10.0, 25.0 };
 
         private static readonly long[] BaseTable = BuildBaseTable();

@@ -112,7 +112,7 @@ namespace Runeheir.Items
         /// <summary>Minimum Base Level to wear it.</summary>
         public int EquipLevel = 1;
 
-        /// <summary>Minimum job tier (3 = Ascended only, e.g. the Valkyrian set).</summary>
+        /// <summary>Minimum job tier (compared with the job's GearTier; 3 = transcendent and expanded jobs, e.g. the Valkyrian set).</summary>
         public int MinTier;
 
         /// <summary>When set, only this first job's line can wear it (e.g. Archmage Wizard Hat → Mystic line).</summary>

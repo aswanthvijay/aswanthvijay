@@ -1,5 +1,7 @@
 # RUNEHEIR — Phase 3 Guide: Combat, Skills & Animation Layer
 
+> **Since Phase 7:** the job tree is Ragnarok's full roster (40 jobs, 282 skills), the old *Ascended* tier is called **transcendent** and is reached through rebirth, and its gear is also worn by the expanded jobs. Some skills moved to other jobs. The current lists are in [Phase7_Classes.md](Phase7_Classes.md).
+
 Phase 3 turns the Phase 2 prototype's 14 sample skills into a full Ragnarok-style skill system for all 21 jobs, adds status effects and a poise/stagger layer to combat, and gets the animation pipeline ready for real character models.
 
 | GDD Phase 3 item | Where it lives |

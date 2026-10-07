@@ -75,17 +75,17 @@ namespace Runeheir.Items
             // ---------------------------------------------------------------- GDD defensive gear
             Wear("round_viking_shield", "Round Viking Shield", EquipSlot.Shield, 30, 0, 1, 20, 100, 15000, "#A04000", "Painted linden boards. +1 VIT.", Stats(StatType.Vit, 1));
             Wear("valkyrian_shield", "Valkyrian Shield", EquipSlot.Shield, 80, 10, 1, 99, 120, 300000, "#F7F9F9",
-                "Ascended only. Take 15% less Fire, Water, Shadow and Undead damage.",
+                "Transcendent and expanded jobs only. Take 15% less Fire, Water, Shadow and Undead damage.",
                 new EquipEffect().From(Element.Fire, -15f).From(Element.Water, -15f).From(Element.Shadow, -15f).From(Element.Undead, -15f), minTier: 3);
             Wear("runic_full_plate", "Runic Full Plate", EquipSlot.Armor, 120, 0, 1, 70, 300, 150000, "#7F8C8D", "Plate etched with warding runes. +5% Max HP.",
                 new EquipEffect { Modifiers = new StatModifiers { MaxHpPercent = 5f } });
-            Wear("valkyrian_armor", "Valkyrian Armor", EquipSlot.Armor, 150, 15, 1, 99, 250, 350000, "#F4F6F7", "Ascended only. +5% Max HP and Max SP.",
+            Wear("valkyrian_armor", "Valkyrian Armor", EquipSlot.Armor, 150, 15, 1, 99, 250, 350000, "#F4F6F7", "Transcendent and expanded jobs only. +5% Max HP and Max SP.",
                 new EquipEffect { Modifiers = new StatModifiers { MaxHpPercent = 5f, MaxSpPercent = 5f } }, minTier: 3);
             Wear("wolfskin_mantle", "Wolfskin Mantle", EquipSlot.Garment, 15, 0, 1, 30, 40, 20000, "#5D6D7E", "Take 5% less Neutral damage.", new EquipEffect().From(Element.Neutral, -5f));
-            Wear("valkyrian_manteau", "Valkyrian Manteau", EquipSlot.Garment, 35, 5, 1, 99, 40, 300000, "#FBFCFC", "Ascended only. +10 FLEE, take 10% less Neutral damage.",
+            Wear("valkyrian_manteau", "Valkyrian Manteau", EquipSlot.Garment, 35, 5, 1, 99, 40, 300000, "#FBFCFC", "Transcendent and expanded jobs only. +10 FLEE, take 10% less Neutral damage.",
                 new EquipEffect { Modifiers = new StatModifiers { Flee = 10 } }.From(Element.Neutral, -10f), minTier: 3);
             Wear("plated_greaves", "Plated Greaves", EquipSlot.Footgear, 30, 0, 1, 60, 120, 60000, "#839192", "+5% Max HP.", new EquipEffect { Modifiers = new StatModifiers { MaxHpPercent = 5f } });
-            Wear("valkyrian_boots", "Valkyrian Boots", EquipSlot.Footgear, 40, 0, 1, 99, 60, 300000, "#F8F9F9", "Ascended only. +10% movement speed, +5% Max HP.",
+            Wear("valkyrian_boots", "Valkyrian Boots", EquipSlot.Footgear, 40, 0, 1, 99, 60, 300000, "#F8F9F9", "Transcendent and expanded jobs only. +10% movement speed, +5% Max HP.",
                 new EquipEffect { Modifiers = new StatModifiers { MoveSpeedPercent = 10f, MaxHpPercent = 5f } }, minTier: 3);
 
             // ---------------------------------------------------------------- everyday armor
