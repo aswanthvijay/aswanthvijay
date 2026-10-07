@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Runeheir.Visuals
 {
-    /// <summary>Appearance inputs for the placeholder humanoid (job outfit, hair, weapon and worn gear).</summary>
+    /// <summary>Appearance inputs for a humanoid avatar (job outfit, hair, weapon and worn gear).</summary>
     public struct AvatarLook
     {
         public Color Outfit;
@@ -15,6 +15,9 @@ namespace Runeheir.Visuals
         public int HairStyle;
         public Gender Gender;
         public WeaponType Weapon;
+
+        /// <summary>The job whose outfit is worn (null: NPCs and humanoid monsters wear the common clothes in <see cref="Outfit"/> color).</summary>
+        public JobId? Job;
 
         /// <summary>Phase 7: Freyja's Kin are cat-folk (smaller, with ears and a tail).</summary>
         public CharacterRace Race;
@@ -60,6 +63,7 @@ namespace Runeheir.Visuals
             bool hasGear = record.EquipmentDataVersion >= EquipmentSet.CurrentDataVersion;
             return new AvatarLook
             {
+                Job = record.Job,
                 Outfit = RuntimeMaterials.Hex(job.ColorHex),
                 Skin = DefaultSkin,
                 Hair = HairPalette[CharacterFactory.Wrap(record.HairColor, HairPalette.Length)],
@@ -100,6 +104,7 @@ namespace Runeheir.Visuals
             int weapon = Int(4);
             return new AvatarLook
             {
+                Job = job.Id,
                 Outfit = RuntimeMaterials.Hex(job.ColorHex),
                 Skin = DefaultSkin,
                 Hair = HairPalette[CharacterFactory.Wrap(Int(3), HairPalette.Length)],

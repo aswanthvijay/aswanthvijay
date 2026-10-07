@@ -48,3 +48,8 @@ Thumbs.db
 !/Tools/**/*.csproj
 /Tools/**/bin/
 /Tools/**/obj/
+
+# Blender character builder (Tools/Blender): renders, the built .blend, Python caches
+/Tools/Blender/Previews/
+/Tools/Blender/Out/
+__pycache__/

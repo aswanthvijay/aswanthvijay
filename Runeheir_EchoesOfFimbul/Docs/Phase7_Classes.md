@@ -150,7 +150,7 @@ A full-road test: make a character, `@job warrior`, `@job berserker`, `@rebirth`
 
 ## 9. Known limits
 
-- **Placeholder art.** New weapons, Freyja's Kin and the songs' rings are primitive shapes, pending Phase 7.2 and the art pass.
+- **Placeholder art.** New weapons and the songs' rings are still primitive shapes. Art Pass 1 ([Art_Characters.md](Art_Characters.md)) gave every human a rigged body and the Warrior line its outfits; the other jobs wear the common clothes in their job color until their own outfits are made.
 - **Balance is untested by players.** Numbers follow Ragnarok's shape (level scaling, chances, caps) but haven't been tuned in play.
 - **Ensembles** (Ragnarok's Bard+Dancer duets) and **homunculi / Lifeweaver summons** aren't in this phase.
 - **Basic Training** isn't required for the first job change.

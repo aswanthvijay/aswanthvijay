@@ -13,6 +13,7 @@ using Runeheir.Movement;
 using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.Stats;
+using Runeheir.Visuals;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.TestTools;
@@ -74,8 +75,14 @@ namespace Runeheir.Tests
             Assert.GreaterOrEqual(hits, 2, "auto-attack loop keeps swinging");
             Assert.IsFalse(dummy.IsDead, "training dummy never dies");
 
-            // --- Skills: unlearned skills are refused; Two-Hand Surge Lv 10 adds +7 ASPD (skill tree -> buffs -> derived stats)
+            // --- The art pass: the player wears the Blender-built body, and a job change puts on that job's outfit
+            var avatar = player.GetComponentInChildren<PlaceholderAvatar>();
+            Assert.IsNotNull(avatar.Rig, "the rigged body, not the primitive doll");
             player.Progression.ForceChangeJob(JobId.Einherjar);
+            Assert.AreEqual("einherjar", avatar.Rig.Outfit.Key, "the Einherjar's outfit");
+            Assert.IsNotNull(avatar.Rig.Bone("RightHand").Find("WeaponGrip"), "the weapon is still in hand");
+
+            // --- Skills: unlearned skills are refused; Two-Hand Surge Lv 10 adds +7 ASPD (skill tree -> buffs -> derived stats)
             var caster = player.GetComponent<SkillCaster>();
             caster.RequestSkill("two_hand_surge", null, null);
             yield return null;
@@ -266,6 +273,47 @@ namespace Runeheir.Tests
             Assert.IsTrue(StorageRules.TryWithdraw(storage, player.Inventory, storage[0], 1, player.Stats.WeightCapacity, player.CurrentWeight, out _));
             Assert.AreEqual(4, player.Inventory.FindFirst("sandals").Refine);
             yield return new WaitForSeconds(0.3f);
+        }
+
+        /// <summary>Archers: equip a bow (the left-hand grip, the drawable string), shoot a dummy, then the transcendent Deadeye.</summary>
+        [UnityTest]
+        public IEnumerator Archer_EquipsABow_AndShoots()
+        {
+            BuildMiniField();
+            yield return null;
+            yield return null;
+
+            var player = PlayerCharacter.Local;
+            var avatar = player.GetComponentInChildren<PlaceholderAvatar>();
+            var dummy = EntityFactory.CreateMonster(MonsterCatalog.Get("training_dummy"), player.Position + new Vector3(5f, 0f, 0f));
+            int hits = 0;
+            System.Action<CombatEntity, DamageResult, CombatEntity> counter = (target, result, attacker) =>
+            {
+                if (target == dummy && attacker == player)
+                {
+                    hits++;
+                }
+            };
+            CombatEntity.AnyDamaged += counter;
+
+            foreach (var job in new[] { JobId.Huntsman, JobId.Deadeye })
+            {
+                player.Progression.ForceChangeJob(job);
+                player.Inventory.Add("hunters_bow", 1);
+                Assert.IsTrue(player.Equip(player.Inventory.FindFirst("hunters_bow")), job + " equips the bow");
+                yield return null;
+                Assert.AreEqual(WeaponStyle.Bow, avatar.Rig.Style, job.ToString());
+                Assert.AreSame(avatar.Rig.Bone("LeftHand"), avatar.Rig.WeaponGrip.parent, "the bow is in the left hand");
+
+                int before = hits;
+                player.GetComponent<AutoAttacker>().Engage(dummy);
+                yield return new WaitForSeconds(3f);
+                Assert.Greater(hits, before, job + " shoots the dummy");
+                player.GetComponent<AutoAttacker>().Disengage();
+                yield return new WaitForSeconds(0.3f);
+            }
+
+            CombatEntity.AnyDamaged -= counter;
         }
 
         private static void BuildMiniField()

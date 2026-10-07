@@ -1,0 +1,333 @@
+{
+  "outfits": [
+    {
+      "key": "common",
+      "jobs": [],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#D9CDB4"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#7FD0FF"
+        }
+      ]
+    },
+    {
+      "key": "warrior",
+      "jobs": [
+        "Warrior"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#9A3B2C"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "#5A241C"
+        },
+        {
+          "slot": "Under",
+          "color": "#DCCFB5"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7E5634"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#45301F"
+        },
+        {
+          "slot": "Metal",
+          "color": "#9AA3AE"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#58616C"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C0923F"
+        },
+        {
+          "slot": "Fur",
+          "color": "#C9BCA6"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FF9A4A"
+        }
+      ]
+    },
+    {
+      "key": "berserker",
+      "jobs": [
+        "Berserker"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#84261C"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "#47150F"
+        },
+        {
+          "slot": "Under",
+          "color": "#C9B99C"
+        },
+        {
+          "slot": "Leather",
+          "color": "#5C3B25"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#33231A"
+        },
+        {
+          "slot": "Metal",
+          "color": "#8A929C"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#454B54"
+        },
+        {
+          "slot": "Gold",
+          "color": "#A97B35"
+        },
+        {
+          "slot": "Fur",
+          "color": "#6B4E3A"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FF6A2E"
+        }
+      ]
+    },
+    {
+      "key": "guardian",
+      "jobs": [
+        "Guardian"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#E4DDCC"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "#3F5872"
+        },
+        {
+          "slot": "Under",
+          "color": "#5D6D7E"
+        },
+        {
+          "slot": "Leather",
+          "color": "#6E4C31"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#3D2B1E"
+        },
+        {
+          "slot": "Metal",
+          "color": "#A4ADB8"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5F6A77"
+        },
+        {
+          "slot": "Gold",
+          "color": "#D4AE55"
+        },
+        {
+          "slot": "Fur",
+          "color": "#D8D0C2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFE6A0"
+        }
+      ]
+    },
+    {
+      "key": "einherjar",
+      "jobs": [
+        "Einherjar"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#9E2A22"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "#4E1512"
+        },
+        {
+          "slot": "Under",
+          "color": "#2E2A33"
+        },
+        {
+          "slot": "Leather",
+          "color": "#4E3426"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#2C1F18"
+        },
+        {
+          "slot": "Metal",
+          "color": "#A9B2BE"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#515B6A"
+        },
+        {
+          "slot": "Gold",
+          "color": "#D8A43A"
+        },
+        {
+          "slot": "Fur",
+          "color": "#E2DCD0"
+        },
+        {
+          "slot": "Glow",
+          "color": "#64C8FF"
+        }
+      ]
+    },
+    {
+      "key": "valkyrie",
+      "jobs": [
+        "Valkyrie"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#E6E1D6"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "#3C72AE"
+        },
+        {
+          "slot": "Under",
+          "color": "#2F4E73"
+        },
+        {
+          "slot": "Leather",
+          "color": "#8A6A4A"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4D3A2A"
+        },
+        {
+          "slot": "Metal",
+          "color": "#B4BDC9"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#707C8C"
+        },
+        {
+          "slot": "Gold",
+          "color": "#DDB656"
+        },
+        {
+          "slot": "Fur",
+          "color": "#EDE9E0"
+        },
+        {
+          "slot": "Glow",
+          "color": "#A6E6FF"
+        }
+      ]
+    }
+  ],
+  "hairStyles": 8,
+  "weaponSlots": [
+    {
+      "slot": "Steel",
+      "color": "#C3CAD3"
+    },
+    {
+      "slot": "SteelDark",
+      "color": "#5D6672"
+    },
+    {
+      "slot": "Wood",
+      "color": "#8A5A34"
+    },
+    {
+      "slot": "WoodDark",
+      "color": "#4E3220"
+    },
+    {
+      "slot": "Leather",
+      "color": "#5B3A26"
+    },
+    {
+      "slot": "Gold",
+      "color": "#D2A443"
+    },
+    {
+      "slot": "Gem",
+      "color": "#6FD3FF"
+    },
+    {
+      "slot": "String",
+      "color": "#EEE6CF"
+    },
+    {
+      "slot": "Paper",
+      "color": "#EDE3C8"
+    },
+    {
+      "slot": "Cover",
+      "color": "#6B2A22"
+    }
+  ]
+}

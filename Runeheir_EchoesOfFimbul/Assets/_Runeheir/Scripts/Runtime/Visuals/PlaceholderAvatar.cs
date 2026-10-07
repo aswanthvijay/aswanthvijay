@@ -9,9 +9,10 @@ using UnityEngine;
 namespace Runeheir.Visuals
 {
     /// <summary>
-    /// Primitive-built stand-in model with procedural animation (walk bob, ASPD-timed weapon swing,
-    /// cast pose, hit shake, death). Lets the whole Phase 2 loop be played and tuned before the
-    /// Blender/Krita art lands; swap it for a real model + Animator via <see cref="CharacterAnimationBridge"/>.
+    /// The procedurally animated avatar (walk, ASPD-timed weapon swing, cast pose, skill motions, hit shake, stagger, death).
+    /// Humanoids wear the Blender-built rigged body for their job (<see cref="RiggedBody"/>, <see cref="OutfitCatalog"/>)
+    /// and fall back to the primitive doll when those models aren't in the project; monsters are still primitives. Worn
+    /// gear is built from primitives on either body. Swap in an Animator via <see cref="CharacterAnimationBridge"/>.
     /// </summary>
     public sealed class PlaceholderAvatar : MonoBehaviour
     {
@@ -26,6 +27,14 @@ namespace Runeheir.Visuals
         private readonly List<Transform> _gearWings = new List<Transform>();
         private Transform _model;
         private Transform _weaponPivot;
+        private RiggedBody _rig;
+        private int _attackIndex;
+        private float _combatUntil = -100f;
+        private float _combatBlend;
+        private CastCircle _castCircle;
+
+        // How long the battle stance (Ragnarok's standby) is held after the last swing, spell or blow.
+        private const float CombatStanceSeconds = 5f;
         private bool _lungeAttack;
         private bool _flyer;
         private float _speed;
@@ -61,6 +70,9 @@ namespace Runeheir.Visuals
             BuildHumanoid(look);
         }
 
+        /// <summary>The Blender-built body, or null for the primitive doll and monsters.</summary>
+        public RiggedBody Rig => _rig;
+
         public void SetLocomotion(float metersPerSecond)
         {
             _speed = metersPerSecond;
@@ -71,11 +83,17 @@ namespace Runeheir.Visuals
         {
             _attackStart = Time.time;
             _attackDuration = Mathf.Max(0.05f, duration);
+            _attackIndex++;
+            EnterCombat();
         }
 
         public void SetCasting(bool casting)
         {
             _casting = casting;
+            if (casting)
+            {
+                EnterCombat();
+            }
         }
 
         public void SetDead(bool dead)
@@ -86,6 +104,13 @@ namespace Runeheir.Visuals
         public void PlayHit()
         {
             _hitUntil = Time.time + 0.15f;
+            EnterCombat();
+        }
+
+        /// <summary>Take (or keep) the battle stance for a few seconds.</summary>
+        public void EnterCombat()
+        {
+            _combatUntil = Time.time + CombatStanceSeconds;
         }
 
         /// <summary>Skill motion (spin, thrust, cast, shoot, punch, leap, buff) lasting <paramref name="duration"/> seconds.</summary>
@@ -100,12 +125,22 @@ namespace Runeheir.Visuals
             _skillMotion = motion;
             _skillStart = Time.time;
             _skillDuration = Mathf.Max(0.1f, motion == SkillMotion.Spin || motion == SkillMotion.Leap ? duration * 1.4f : duration);
+            EnterCombat();
         }
 
         /// <summary>Poise broken: rock back for the stagger.</summary>
         public void PlayStagger()
         {
             _staggerUntil = Time.time + Combat.PoiseRules.StaggerSeconds;
+            EnterCombat();
+        }
+
+        private void OnDestroy()
+        {
+            if (_castCircle != null)
+            {
+                RiggedBody.Discard(_castCircle.gameObject);
+            }
         }
 
         private static PlaceholderAvatar CreateRoot(Transform parent)
@@ -122,12 +157,13 @@ namespace Runeheir.Visuals
             _baseScale = 1f;
             if (_model != null)
             {
-                Destroy(_model.gameObject);
+                RiggedBody.Discard(_model.gameObject);
             }
 
             _wings.Clear();
             _gearWings.Clear();
             _weaponPivot = null;
+            _rig = null;
             _model = new GameObject("Model").transform;
             _model.SetParent(transform, false);
         }
@@ -138,6 +174,25 @@ namespace Runeheir.Visuals
             ResetModel();
             _lungeAttack = false;
             _flyer = false;
+
+            _rig = RiggedBody.Create(_model, look);
+            if (_rig != null)
+            {
+                // The Blender-built weapon in the fist; the primitive one only when a type has no model.
+                if (!_rig.AttachWeapon(look.Weapon) && look.Weapon != WeaponType.Unarmed)
+                {
+                    _weaponPivot = _rig.CreateWeaponPivot(look.Weapon);
+                    BuildWeapon(look.Weapon);
+                }
+
+                if (look.Race == CharacterRace.Doram)
+                {
+                    BuildCatFolk(look.Hair, _rig.HeadUpper, _rig.Tail);
+                }
+
+                BuildGear(look, _rig.HeadUpper, _rig.HeadMid, _rig.HeadLower, _rig.ShieldArm, _rig.Back, _rig.NeckRing);
+                return;
+            }
 
             bool female = look.Gender == Gender.Female;
             Color dark = look.Outfit * 0.55f;
@@ -160,7 +215,7 @@ namespace Runeheir.Visuals
             BuildHair(look.HairStyle, look.Hair);
             if (look.Race == CharacterRace.Doram)
             {
-                BuildCatFolk(look.Hair);
+                BuildCatFolk(look.Hair, _model, _model);
             }
 
             _weaponPivot = new GameObject("WeaponPivot").transform;
@@ -169,17 +224,19 @@ namespace Runeheir.Visuals
             Part(PrimitiveType.Capsule, _weaponPivot, "ArmR", new Vector3(0f, -0.22f, 0f), new Vector3(0.13f, 0.28f, 0.13f), dark);
             BuildWeapon(look.Weapon);
             _weaponPivot.localRotation = Quaternion.Euler(RestAngle, 0f, 0f);
-            BuildGear(look);
+            BuildGear(look, _model, _model, _model, _model, _model, _model);
         }
 
         // ------------------------------------------------------------------ worn gear (GDD §5 visible headgear, shields, wings)
-        private void BuildGear(AvatarLook look)
+        // Every piece is laid out in the primitive doll's coordinates under the given parent: the doll's Model itself, or a
+        // RiggedBody socket that maps those coordinates onto the rigged body (head, forearm, back, neck).
+        private void BuildGear(AvatarLook look, Transform upper, Transform mid, Transform lower, Transform shield, Transform back, Transform neck)
         {
-            BuildUpperHeadgear(ItemCatalog.Get(look.HeadUpper));
-            BuildMidHeadgear(ItemCatalog.Get(look.HeadMid));
-            BuildLowerHeadgear(ItemCatalog.Get(look.HeadLower));
-            BuildShield(ItemCatalog.Get(look.Shield));
-            BuildGarment(ItemCatalog.Get(look.Garment));
+            BuildUpperHeadgear(ItemCatalog.Get(look.HeadUpper), upper);
+            BuildMidHeadgear(ItemCatalog.Get(look.HeadMid), mid);
+            BuildLowerHeadgear(ItemCatalog.Get(look.HeadLower), lower);
+            BuildShield(ItemCatalog.Get(look.Shield), shield);
+            BuildGarment(ItemCatalog.Get(look.Garment), back, neck);
         }
 
         private static Color ViewColor(ItemDefinition item)
@@ -187,7 +244,7 @@ namespace Runeheir.Visuals
             return RuntimeMaterials.Hex(item.ViewColorHex ?? item.IconColorHex ?? "#BDC3C7");
         }
 
-        private void BuildUpperHeadgear(ItemDefinition item)
+        private void BuildUpperHeadgear(ItemDefinition item, Transform parent)
         {
             if (item == null)
             {
@@ -199,66 +256,66 @@ namespace Runeheir.Visuals
             string id = item.Id;
             if (id.Contains("wizard_hat"))
             {
-                Part(PrimitiveType.Cylinder, _model, "HatBrim", new Vector3(0f, 1.7f, 0f), new Vector3(0.7f, 0.02f, 0.7f), color);
-                Part(PrimitiveType.Capsule, _model, "HatCone", new Vector3(0f, 1.98f, -0.04f), new Vector3(0.3f, 0.3f, 0.3f), color, new Vector3(-12f, 0f, 0f));
-                Part(PrimitiveType.Sphere, _model, "HatTip", new Vector3(0f, 2.22f, -0.12f), Vector3.one * 0.1f, new Color(0.96f, 0.82f, 0.25f));
+                Part(PrimitiveType.Cylinder, parent, "HatBrim", new Vector3(0f, 1.7f, 0f), new Vector3(0.7f, 0.02f, 0.7f), color);
+                Part(PrimitiveType.Capsule, parent, "HatCone", new Vector3(0f, 1.98f, -0.04f), new Vector3(0.3f, 0.3f, 0.3f), color, new Vector3(-12f, 0f, 0f));
+                Part(PrimitiveType.Sphere, parent, "HatTip", new Vector3(0f, 2.22f, -0.12f), Vector3.one * 0.1f, new Color(0.96f, 0.82f, 0.25f));
             }
             else if (id.Contains("crown") || id.Contains("circlet"))
             {
-                Part(PrimitiveType.Cylinder, _model, "Band", new Vector3(0f, 1.7f, 0f), new Vector3(0.47f, 0.035f, 0.47f), color);
+                Part(PrimitiveType.Cylinder, parent, "Band", new Vector3(0f, 1.7f, 0f), new Vector3(0.47f, 0.035f, 0.47f), color);
                 if (id.Contains("antler"))
                 {
-                    Part(PrimitiveType.Cylinder, _model, "AntlerL", new Vector3(-0.2f, 1.9f, 0f), new Vector3(0.04f, 0.2f, 0.04f), color, new Vector3(0f, 0f, 30f));
-                    Part(PrimitiveType.Cylinder, _model, "AntlerR", new Vector3(0.2f, 1.9f, 0f), new Vector3(0.04f, 0.2f, 0.04f), color, new Vector3(0f, 0f, -30f));
+                    Part(PrimitiveType.Cylinder, parent, "AntlerL", new Vector3(-0.2f, 1.9f, 0f), new Vector3(0.04f, 0.2f, 0.04f), color, new Vector3(0f, 0f, 30f));
+                    Part(PrimitiveType.Cylinder, parent, "AntlerR", new Vector3(0.2f, 1.9f, 0f), new Vector3(0.04f, 0.2f, 0.04f), color, new Vector3(0f, 0f, -30f));
                 }
                 else
                 {
                     for (int i = -1; i <= 1; i++)
                     {
-                        Part(PrimitiveType.Cube, _model, "Point", new Vector3(i * 0.12f, 1.77f, 0.2f), new Vector3(0.05f, 0.1f, 0.03f), trim, new Vector3(0f, 0f, 45f));
+                        Part(PrimitiveType.Cube, parent, "Point", new Vector3(i * 0.12f, 1.77f, 0.2f), new Vector3(0.05f, 0.1f, 0.03f), trim, new Vector3(0f, 0f, 45f));
                     }
                 }
             }
             else if (id.Contains("hood"))
             {
-                Part(PrimitiveType.Sphere, _model, "Hood", new Vector3(0f, 1.6f, -0.04f), new Vector3(0.52f, 0.46f, 0.52f), color);
+                Part(PrimitiveType.Sphere, parent, "Hood", new Vector3(0f, 1.6f, -0.04f), new Vector3(0.52f, 0.46f, 0.52f), color);
                 if (id.Contains("wolf"))
                 {
-                    Part(PrimitiveType.Cube, _model, "EarL", new Vector3(-0.14f, 1.86f, 0f), new Vector3(0.08f, 0.14f, 0.05f), color);
-                    Part(PrimitiveType.Cube, _model, "EarR", new Vector3(0.14f, 1.86f, 0f), new Vector3(0.08f, 0.14f, 0.05f), color);
+                    Part(PrimitiveType.Cube, parent, "EarL", new Vector3(-0.14f, 1.86f, 0f), new Vector3(0.08f, 0.14f, 0.05f), color);
+                    Part(PrimitiveType.Cube, parent, "EarR", new Vector3(0.14f, 1.86f, 0f), new Vector3(0.08f, 0.14f, 0.05f), color);
                 }
             }
             else if (id.Contains("beret") || id.Contains("cap") || id.Contains("bandana"))
             {
-                Part(PrimitiveType.Sphere, _model, "Cap", new Vector3(0.03f, 1.74f, 0f), new Vector3(0.5f, 0.16f, 0.48f), color, new Vector3(0f, 0f, -8f));
+                Part(PrimitiveType.Sphere, parent, "Cap", new Vector3(0.03f, 1.74f, 0f), new Vector3(0.5f, 0.16f, 0.48f), color, new Vector3(0f, 0f, -8f));
                 if (id.Contains("feather"))
                 {
-                    Part(PrimitiveType.Cube, _model, "Feather", new Vector3(-0.18f, 1.86f, -0.05f), new Vector3(0.03f, 0.22f, 0.06f), Color.white, new Vector3(-20f, 0f, 25f));
+                    Part(PrimitiveType.Cube, parent, "Feather", new Vector3(-0.18f, 1.86f, -0.05f), new Vector3(0.03f, 0.22f, 0.06f), Color.white, new Vector3(-20f, 0f, 25f));
                 }
             }
             else
             {
                 // Helms and crests.
-                Part(PrimitiveType.Sphere, _model, "Helm", new Vector3(0f, 1.63f, 0f), new Vector3(0.48f, 0.36f, 0.48f), color);
+                Part(PrimitiveType.Sphere, parent, "Helm", new Vector3(0f, 1.63f, 0f), new Vector3(0.48f, 0.36f, 0.48f), color);
                 if (id.Contains("horned") || id.Contains("viking") || id.Contains("awe"))
                 {
-                    Part(PrimitiveType.Capsule, _model, "HornL", new Vector3(-0.27f, 1.78f, 0f), new Vector3(0.07f, 0.16f, 0.07f), trim, new Vector3(0f, 0f, 40f));
-                    Part(PrimitiveType.Capsule, _model, "HornR", new Vector3(0.27f, 1.78f, 0f), new Vector3(0.07f, 0.16f, 0.07f), trim, new Vector3(0f, 0f, -40f));
+                    Part(PrimitiveType.Capsule, parent, "HornL", new Vector3(-0.27f, 1.78f, 0f), new Vector3(0.07f, 0.16f, 0.07f), trim, new Vector3(0f, 0f, 40f));
+                    Part(PrimitiveType.Capsule, parent, "HornR", new Vector3(0.27f, 1.78f, 0f), new Vector3(0.07f, 0.16f, 0.07f), trim, new Vector3(0f, 0f, -40f));
                 }
                 else if (id.Contains("winged"))
                 {
-                    Part(PrimitiveType.Cube, _model, "WingletL", new Vector3(-0.27f, 1.7f, -0.05f), new Vector3(0.04f, 0.16f, 0.24f), trim, new Vector3(-25f, 0f, 15f));
-                    Part(PrimitiveType.Cube, _model, "WingletR", new Vector3(0.27f, 1.7f, -0.05f), new Vector3(0.04f, 0.16f, 0.24f), trim, new Vector3(-25f, 0f, -15f));
+                    Part(PrimitiveType.Cube, parent, "WingletL", new Vector3(-0.27f, 1.7f, -0.05f), new Vector3(0.04f, 0.16f, 0.24f), trim, new Vector3(-25f, 0f, 15f));
+                    Part(PrimitiveType.Cube, parent, "WingletR", new Vector3(0.27f, 1.7f, -0.05f), new Vector3(0.04f, 0.16f, 0.24f), trim, new Vector3(-25f, 0f, -15f));
                 }
 
                 if ((item.Slots & EquipSlot.HeadMid) != 0)
                 {
-                    Part(PrimitiveType.Cube, _model, "NasalGuard", new Vector3(0f, 1.55f, 0.21f), new Vector3(0.04f, 0.14f, 0.03f), color);
+                    Part(PrimitiveType.Cube, parent, "NasalGuard", new Vector3(0f, 1.55f, 0.21f), new Vector3(0.04f, 0.14f, 0.03f), color);
                 }
             }
         }
 
-        private void BuildMidHeadgear(ItemDefinition item)
+        private void BuildMidHeadgear(ItemDefinition item, Transform parent)
         {
             if (item == null)
             {
@@ -268,19 +325,19 @@ namespace Runeheir.Visuals
             Color color = ViewColor(item);
             if (item.Id.Contains("eyepatch"))
             {
-                Part(PrimitiveType.Sphere, _model, "Patch", new Vector3(0.08f, 1.55f, 0.2f), new Vector3(0.1f, 0.09f, 0.04f), color);
+                Part(PrimitiveType.Sphere, parent, "Patch", new Vector3(0.08f, 1.55f, 0.2f), new Vector3(0.1f, 0.09f, 0.04f), color);
             }
             else if (item.Id.Contains("monocle"))
             {
-                Part(PrimitiveType.Cylinder, _model, "Monocle", new Vector3(-0.08f, 1.55f, 0.21f), new Vector3(0.1f, 0.01f, 0.1f), color, new Vector3(90f, 0f, 0f));
+                Part(PrimitiveType.Cylinder, parent, "Monocle", new Vector3(-0.08f, 1.55f, 0.21f), new Vector3(0.1f, 0.01f, 0.1f), color, new Vector3(90f, 0f, 0f));
             }
             else
             {
-                Part(PrimitiveType.Cube, _model, "Eyewear", new Vector3(0f, 1.56f, 0.2f), new Vector3(0.34f, 0.07f, 0.04f), color);
+                Part(PrimitiveType.Cube, parent, "Eyewear", new Vector3(0f, 1.56f, 0.2f), new Vector3(0.34f, 0.07f, 0.04f), color);
             }
         }
 
-        private void BuildLowerHeadgear(ItemDefinition item)
+        private void BuildLowerHeadgear(ItemDefinition item, Transform parent)
         {
             if (item == null)
             {
@@ -290,20 +347,20 @@ namespace Runeheir.Visuals
             Color color = ViewColor(item);
             if (item.Id.Contains("pipe"))
             {
-                Part(PrimitiveType.Cylinder, _model, "Pipe", new Vector3(0.06f, 1.42f, 0.27f), new Vector3(0.03f, 0.08f, 0.03f), color, new Vector3(80f, 0f, 0f));
-                Part(PrimitiveType.Cylinder, _model, "Bowl", new Vector3(0.06f, 1.44f, 0.36f), new Vector3(0.07f, 0.05f, 0.07f), color);
+                Part(PrimitiveType.Cylinder, parent, "Pipe", new Vector3(0.06f, 1.42f, 0.27f), new Vector3(0.03f, 0.08f, 0.03f), color, new Vector3(80f, 0f, 0f));
+                Part(PrimitiveType.Cylinder, parent, "Bowl", new Vector3(0.06f, 1.44f, 0.36f), new Vector3(0.07f, 0.05f, 0.07f), color);
             }
             else if (item.Id.Contains("beard"))
             {
-                Part(PrimitiveType.Capsule, _model, "Beard", new Vector3(0f, 1.32f, 0.14f), new Vector3(0.22f, 0.16f, 0.12f), color);
+                Part(PrimitiveType.Capsule, parent, "Beard", new Vector3(0f, 1.32f, 0.14f), new Vector3(0.22f, 0.16f, 0.12f), color);
             }
             else
             {
-                Part(PrimitiveType.Cube, _model, "Mask", new Vector3(0f, 1.43f, 0.19f), new Vector3(0.26f, 0.1f, 0.05f), color);
+                Part(PrimitiveType.Cube, parent, "Mask", new Vector3(0f, 1.43f, 0.19f), new Vector3(0.26f, 0.1f, 0.05f), color);
             }
         }
 
-        private void BuildShield(ItemDefinition item)
+        private void BuildShield(ItemDefinition item, Transform parent)
         {
             if (item == null)
             {
@@ -313,18 +370,19 @@ namespace Runeheir.Visuals
             Color color = ViewColor(item);
             if (item.Id.Contains("kite"))
             {
-                Part(PrimitiveType.Cube, _model, "Shield", new Vector3(-0.44f, 0.92f, 0.08f), new Vector3(0.04f, 0.5f, 0.32f), color);
+                Part(PrimitiveType.Cube, parent, "Shield", new Vector3(-0.44f, 0.92f, 0.08f), new Vector3(0.04f, 0.5f, 0.32f), color);
             }
             else
             {
-                Part(PrimitiveType.Cylinder, _model, "Shield", new Vector3(-0.44f, 0.95f, 0.08f), new Vector3(0.44f, 0.025f, 0.44f), color, new Vector3(0f, 0f, 90f));
-                Part(PrimitiveType.Sphere, _model, "Boss", new Vector3(-0.47f, 0.95f, 0.08f), Vector3.one * 0.1f, Color.Lerp(color, Color.white, 0.5f));
+                Part(PrimitiveType.Cylinder, parent, "Shield", new Vector3(-0.44f, 0.95f, 0.08f), new Vector3(0.44f, 0.025f, 0.44f), color, new Vector3(0f, 0f, 90f));
+                Part(PrimitiveType.Sphere, parent, "Boss", new Vector3(-0.47f, 0.95f, 0.08f), Vector3.one * 0.1f, Color.Lerp(color, Color.white, 0.5f));
             }
         }
 
-        private void BuildGarment(ItemDefinition item)
+        private void BuildGarment(ItemDefinition item, Transform parent, Transform neck)
         {
-            if (item == null)
+            // On the rigged body a cloak is the outfit's fitted GarmentCape (RiggedBody), not a board on the back.
+            if (item == null || (_rig != null && OutfitCatalog.IsCloak(item.Id)))
             {
                 return;
             }
@@ -335,7 +393,7 @@ namespace Runeheir.Visuals
                 for (int side = -1; side <= 1; side += 2)
                 {
                     var pivot = new GameObject(side < 0 ? "WingPivotL" : "WingPivotR").transform;
-                    pivot.SetParent(_model, false);
+                    pivot.SetParent(parent, false);
                     pivot.localPosition = new Vector3(side * 0.1f, 1.18f, -0.22f);
                     Part(PrimitiveType.Cube, pivot, "Wing", new Vector3(side * 0.36f, 0.1f, 0f), new Vector3(0.62f, 0.3f, 0.03f), color, new Vector3(0f, 0f, side * 18f));
                     Part(PrimitiveType.Cube, pivot, "WingTip", new Vector3(side * 0.62f, 0.28f, 0f), new Vector3(0.24f, 0.18f, 0.03f), Color.Lerp(color, Color.white, 0.3f), new Vector3(0f, 0f, side * 40f));
@@ -344,12 +402,12 @@ namespace Runeheir.Visuals
             }
             else if (item.Id.Contains("muffler"))
             {
-                Part(PrimitiveType.Cylinder, _model, "Scarf", new Vector3(0f, 1.28f, 0f), new Vector3(0.4f, 0.06f, 0.38f), color);
-                Part(PrimitiveType.Cube, _model, "ScarfTail", new Vector3(0.1f, 1.08f, -0.2f), new Vector3(0.1f, 0.34f, 0.03f), color, new Vector3(10f, 0f, 8f));
+                Part(PrimitiveType.Cylinder, neck, "Scarf", new Vector3(0f, 1.28f, 0f), new Vector3(0.4f, 0.06f, 0.38f), color);
+                Part(PrimitiveType.Cube, neck, "ScarfTail", new Vector3(0.1f, 1.08f, -0.2f), new Vector3(0.1f, 0.34f, 0.03f), color, new Vector3(10f, 0f, 8f));
             }
             else
             {
-                Part(PrimitiveType.Cube, _model, "Cape", new Vector3(0f, 0.86f, -0.23f), new Vector3(0.52f, 0.86f, 0.04f), color, new Vector3(8f, 0f, 0f));
+                Part(PrimitiveType.Cube, parent, "Cape", new Vector3(0f, 0.86f, -0.23f), new Vector3(0.52f, 0.86f, 0.04f), color, new Vector3(8f, 0f, 0f));
             }
         }
 
@@ -392,18 +450,18 @@ namespace Runeheir.Visuals
         }
 
         /// <summary>Freyja's Kin (Ragnarok's Doram): a head shorter, pointed cat ears and a long tail in the hair color.</summary>
-        private void BuildCatFolk(Color fur)
+        private void BuildCatFolk(Color fur, Transform head, Transform tail)
         {
-            _model.localScale = new Vector3(0.85f, 0.8f, 0.85f);
+            _baseScale = 0.85f;
             Color inner = Color.Lerp(fur, new Color(1f, 0.75f, 0.75f), 0.5f);
             foreach (float side in new[] { -1f, 1f })
             {
-                Part(PrimitiveType.Cube, _model, "Ear", new Vector3(side * 0.14f, 1.82f, -0.02f), new Vector3(0.13f, 0.17f, 0.05f), fur, new Vector3(0f, 0f, side * -18f + 45f));
-                Part(PrimitiveType.Cube, _model, "EarInner", new Vector3(side * 0.14f, 1.81f, 0.01f), new Vector3(0.07f, 0.1f, 0.02f), inner, new Vector3(0f, 0f, side * -18f + 45f));
+                Part(PrimitiveType.Cube, head, "Ear", new Vector3(side * 0.14f, 1.82f, -0.02f), new Vector3(0.13f, 0.17f, 0.05f), fur, new Vector3(0f, 0f, side * -18f + 45f));
+                Part(PrimitiveType.Cube, head, "EarInner", new Vector3(side * 0.14f, 1.81f, 0.01f), new Vector3(0.07f, 0.1f, 0.02f), inner, new Vector3(0f, 0f, side * -18f + 45f));
             }
 
-            Part(PrimitiveType.Capsule, _model, "Tail", new Vector3(0f, 0.6f, -0.32f), new Vector3(0.09f, 0.24f, 0.09f), fur, new Vector3(-55f, 0f, 0f));
-            Part(PrimitiveType.Capsule, _model, "TailTip", new Vector3(0f, 0.86f, -0.52f), new Vector3(0.09f, 0.18f, 0.09f), fur, new Vector3(-15f, 0f, 0f));
+            Part(PrimitiveType.Capsule, tail, "Tail", new Vector3(0f, 0.6f, -0.32f), new Vector3(0.09f, 0.24f, 0.09f), fur, new Vector3(-55f, 0f, 0f));
+            Part(PrimitiveType.Capsule, tail, "TailTip", new Vector3(0f, 0.86f, -0.52f), new Vector3(0.09f, 0.18f, 0.09f), fur, new Vector3(-15f, 0f, 0f));
         }
 
         private void BuildWeapon(WeaponType weapon)
@@ -579,8 +637,9 @@ namespace Runeheir.Visuals
                     if (definition.Race == Race.Undead || definition.Element == Element.Undead || definition.Element == Element.Shadow)
                     {
                         Color glow = definition.Element == Element.Ghost ? new Color(0.6f, 0.85f, 1f) : new Color(0.55f, 0.9f, 1f);
-                        GlowPart(PrimitiveType.Sphere, _model, "EyeGlowL", new Vector3(-0.08f, 1.55f, 0.2f), Vector3.one * 0.08f, glow);
-                        GlowPart(PrimitiveType.Sphere, _model, "EyeGlowR", new Vector3(0.08f, 1.55f, 0.2f), Vector3.one * 0.08f, glow);
+                        var face = _rig != null ? _rig.HeadMid : _model;
+                        GlowPart(PrimitiveType.Sphere, face, "EyeGlowL", new Vector3(-0.08f, 1.55f, 0.2f), Vector3.one * 0.08f, glow);
+                        GlowPart(PrimitiveType.Sphere, face, "EyeGlowR", new Vector3(0.08f, 1.55f, 0.2f), Vector3.one * 0.08f, glow);
                     }
 
                     break;
@@ -796,7 +855,8 @@ namespace Runeheir.Visuals
             _castBlend = Mathf.MoveTowards(_castBlend, _casting ? 1f : 0f, dt * 6f);
             _deadBlend = Mathf.MoveTowards(_deadBlend, _dead ? 1f : 0f, dt * 3f);
 
-            float bob = _speed > 0.2f ? Mathf.Abs(Mathf.Sin(_bobPhase)) * 0.06f : Mathf.Sin(_bobPhase) * 0.01f;
+            // The rigged body's legs carry the stride, so its hop is smaller than the doll's.
+            float bob = _speed > 0.2f ? Mathf.Abs(Mathf.Sin(_bobPhase)) * (_rig != null ? 0.035f : 0.06f) : Mathf.Sin(_bobPhase) * 0.01f;
             float hover = _flyer ? 0.15f + Mathf.Sin(Time.time * 3f) * 0.08f : 0f;
 
             float attackT = (Time.time - _attackStart) / _attackDuration;
@@ -849,13 +909,45 @@ namespace Runeheir.Visuals
                 }
             }
 
+            float fighting = Time.time < _combatUntil && !_dead ? 1f : 0f;
+            _combatBlend = Mathf.MoveTowards(_combatBlend, fighting, dt * 4f);
+            if (_rig != null)
+            {
+                // The weapon sits in the rigged body's hand; the arm swings it, and each attack takes its own step in.
+                lunge = _rig.Animate(new RigMotion
+                {
+                    Time = Time.time,
+                    Speed = _speed,
+                    StridePhase = _bobPhase,
+                    Combat = _combatBlend,
+                    AttackT = _deadBlend > 0f ? -1f : attackT,
+                    AttackIndex = _attackIndex,
+                    Cast = _castBlend,
+                    Skill = skillActive ? _skillMotion : SkillMotion.None,
+                    SkillT = skillActive ? skillT : -1f,
+                    Hit = Time.time < _hitUntil ? (_hitUntil - Time.time) / 0.15f : 0f,
+                    Stagger = stagger,
+                    Dead = _deadBlend,
+                });
+            }
+            else if (_weaponPivot != null)
+            {
+                _weaponPivot.localRotation = Quaternion.Euler(weaponOverride ?? WeaponAngle(attackT), 0f, 0f);
+            }
+
             _model.localPosition = new Vector3(0f, (bob + hover + jump) * (1f - _deadBlend) - _deadBlend * 0.15f, lunge);
             _model.localRotation = Quaternion.Euler(-85f * _deadBlend + staggerTilt, spin, shake);
             _model.localScale = Vector3.one * (_baseScale * scale);
 
-            if (_weaponPivot != null)
+            // Ragnarok's casting circle at the caster's feet.
+            if (_castBlend > 0.01f && _castCircle == null)
             {
-                _weaponPivot.localRotation = Quaternion.Euler(weaponOverride ?? WeaponAngle(attackT), 0f, 0f);
+                _castCircle = CastCircle.Create(transform, new Color(0.55f, 0.85f, 1f, 0.85f));
+            }
+
+            if (_castCircle != null)
+            {
+                _castCircle.SetStrength(_castBlend * (1f - _deadBlend));
             }
 
             for (int i = 0; i < _wings.Count; i++)
@@ -907,7 +999,7 @@ namespace Runeheir.Visuals
             var collider = go.GetComponent<Collider>();
             if (collider != null)
             {
-                Destroy(collider);
+                RiggedBody.Discard(collider);
             }
 
             var t = go.transform;
