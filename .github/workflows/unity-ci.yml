@@ -86,7 +86,9 @@ jobs:
           path: ${{ env.PROJECT_PATH }}/Library
           key: Library-tests-${{ hashFiles('Runeheir_EchoesOfFimbul/Assets/**', 'Runeheir_EchoesOfFimbul/Packages/**', 'Runeheir_EchoesOfFimbul/ProjectSettings/**') }}
           restore-keys: Library-tests-
-      - uses: game-ci/unity-test-runner@v4
+      # Pinned: from v4.4.0 the floating @v4 tag runs game-ci/cli, whose licence-file activation rejects Personal
+      # .ulf licences ("TimeStamp validation failed"). v4.3.2 is the maintainers' backport on the old, working path.
+      - uses: game-ci/unity-test-runner@v4.3.2
         id: tests
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
