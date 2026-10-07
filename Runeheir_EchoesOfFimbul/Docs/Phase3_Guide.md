@@ -65,7 +65,7 @@ Generated from `SkillCatalog` (numbers per level are in the in-game tooltips). "
 
 | Skill | Max Lv | Type | What it does | Needs |
 |---|---|---|---|---|
-| **Basic Training** | 9 | Passive | Survival basics: +1 HIT, +1 FLEE and +1 HP regen per level. Lv 9 is required for your first job change. | – |
+| **Basic Training** | 9 | Passive | Survival basics: +1 HIT, +1 FLEE and +1 HP regen per level. | – |
 | **First Aid** | 1 | Self | Bandage your wounds: heals 25 + Base Level HP. | – |
 
 ### Warrior (after Initiate)

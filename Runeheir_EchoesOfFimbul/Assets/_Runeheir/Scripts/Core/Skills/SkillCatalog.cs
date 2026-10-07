@@ -112,7 +112,7 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = SkillBook.BasicTrainingId, Name = "Basic Training", Job = JobId.Initiate, MaxLevel = 9, Passive = true,
-                Description = "Survival basics: +1 HIT, +1 FLEE and +1 HP regen per level. Lv 9 is required for your first job change.",
+                Description = "Survival basics: +1 HIT, +1 FLEE and +1 HP regen per level.",
                 IconLabel = "BT", IconColorHex = "#9C8D74",
                 PassivePerLevel = new StatModifiers { Hit = 1, Flee = 1, HpRegenFlat = 1 },
             });

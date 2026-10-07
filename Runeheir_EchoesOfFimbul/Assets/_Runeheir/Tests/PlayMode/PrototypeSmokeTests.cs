@@ -131,7 +131,8 @@ namespace Runeheir.Tests
 
             var imp = EntityFactory.CreateMonster(MonsterCatalog.Get("forest_imp"), player.Position + new Vector3(4f, 0f, 2f));
             yield return new WaitForSeconds(1.5f);
-            Assert.AreEqual(player, imp.GetComponent<AutoAttacker>().Target, "aggressive monster engages the player");
+            // The imp may open with Imp Bolt from range instead of swinging, so check whom it hunts, not whom it swings at.
+            Assert.AreEqual(player, imp.AggroTarget, "aggressive monster engages the player");
 
             long expBefore = player.Record.BaseExp + player.Record.BaseLevel * 1000000L;
             player.GetComponent<AutoAttacker>().Engage(imp);
