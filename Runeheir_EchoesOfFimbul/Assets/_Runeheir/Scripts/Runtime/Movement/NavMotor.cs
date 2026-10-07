@@ -26,6 +26,8 @@ namespace Runeheir.Movement
         private Vector3 _faceDirection;
         private Vector3 _knockbackVelocity;
         private float _knockbackUntil;
+        private Vector3 _puppetVelocity;
+        private Vector3 _puppetLastPosition;
 
         public NavMeshAgent Agent => _agent;
 
@@ -33,10 +35,35 @@ namespace Runeheir.Movement
 
         public bool IsLocked => _locked;
 
-        public Vector3 Velocity => IsReady ? _agent.velocity : Vector3.zero;
+        /// <summary>
+        /// Online play (Phase 6): moved by the network (another player, or a monster the server runs) instead of its own
+        /// agent. Its velocity is measured from how the transform moves, so walk animations still play.
+        /// </summary>
+        public bool IsPuppet { get; private set; }
 
-        public bool IsMoving =>
-            IsReady && !_agent.isStopped && (_agent.pathPending || _agent.remainingDistance > _agent.stoppingDistance + 0.05f);
+        public Vector3 Velocity => IsPuppet ? _puppetVelocity : IsReady ? _agent.velocity : Vector3.zero;
+
+        public bool IsMoving => IsPuppet
+            ? _puppetVelocity.sqrMagnitude > 0.04f
+            : IsReady && !_agent.isStopped && (_agent.pathPending || _agent.remainingDistance > _agent.stoppingDistance + 0.05f);
+
+        /// <summary>Hands movement over to the network: the agent stops steering and pushing others.</summary>
+        public void MakePuppet()
+        {
+            IsPuppet = true;
+            if (_agent == null)
+            {
+                _agent = GetComponent<NavMeshAgent>();
+            }
+
+            if (_agent != null)
+            {
+                _agent.enabled = false;
+            }
+
+            _puppetLastPosition = transform.position;
+            _puppetVelocity = Vector3.zero;
+        }
 
         public float BaseMoveSpeed
         {
@@ -178,6 +205,24 @@ namespace Runeheir.Movement
 
         private void Update()
         {
+            if (IsPuppet)
+            {
+                Vector3 position = transform.position;
+                float dt = Mathf.Max(0.0001f, Time.deltaTime);
+                Vector3 measured = (position - _puppetLastPosition) / dt;
+                measured.y = 0f;
+
+                // A teleport (leap, warp) isn't a sprint: ignore jumps the character couldn't walk.
+                if (measured.magnitude > baseMoveSpeed * _speedMultiplier * 4f + 5f)
+                {
+                    measured = Vector3.zero;
+                }
+
+                _puppetVelocity = Vector3.Lerp(_puppetVelocity, measured, Mathf.Clamp01(dt * 12f));
+                _puppetLastPosition = position;
+                return;
+            }
+
             if (!IsReady)
             {
                 return;

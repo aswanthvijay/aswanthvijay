@@ -7,6 +7,7 @@ using Runeheir.Items;
 using Runeheir.Jobs;
 using Runeheir.Monsters;
 using Runeheir.Movement;
+using Runeheir.Online;
 using Runeheir.Session;
 using Runeheir.Skills;
 using Runeheir.Stats;
@@ -22,7 +23,7 @@ namespace Runeheir.Player
     /// <see cref="DerivedStats"/>) to HP/SP, regen, EXP, items, equipment, buffs and death/respawn.
     /// </summary>
     [RequireComponent(typeof(NavMotor))]
-    public sealed class PlayerCharacter : CombatEntity
+    public sealed class PlayerCharacter : PlayerEntity
     {
         [Tooltip("Ragnarok death penalty: % of the current level's EXP lost on death.")]
         [SerializeField, Range(0f, 10f)] private float deathExpPenaltyPercent = 1f;
@@ -86,8 +87,6 @@ namespace Runeheir.Player
         /// <summary>Derived stats were recomputed (level, stat points, buffs, job).</summary>
         public event Action StatsRecalculated;
 
-        public override Faction Faction => Faction.Player;
-
         public override string DisplayName => Record != null ? Record.Name : name;
 
         public override int Level => Record?.BaseLevel ?? 1;
@@ -141,6 +140,7 @@ namespace Runeheir.Player
 
             var modifiers = StatModifiers.Empty();
             modifiers.Add(Gear.Modifiers);
+            modifiers.Add(Social.PushcartRules.Modifiers(Record));
             modifiers.Add(Buffs.Aggregate);
             modifiers.Add(Statuses.Aggregate);
             if (SkillBook != null)
@@ -381,7 +381,7 @@ namespace Runeheir.Player
 
         // ------------------------------------------------------------ EXP
         /// <summary>Rates are already applied by the caller (monster kill).</summary>
-        public void GrantExperience(long baseExp, long jobExp)
+        public override void GrantExperience(long baseExp, long jobExp)
         {
             if (IsDead)
             {
@@ -540,7 +540,7 @@ namespace Runeheir.Player
         /// A monster skill rolled to smash the worn weapon (Ancient Golem Card protects it). A broken weapon stays in your
         /// hands but does nothing until Brokk repairs it.
         /// </summary>
-        public bool TryBreakWeapon(float chancePercent)
+        public override bool TryBreakWeapon(float chancePercent)
         {
             var broken = WeaponBreakRules.TryBreak(Record, chancePercent, SystemRandomSource.Shared);
             if (broken == null)
@@ -552,6 +552,66 @@ namespace Runeheir.Player
             WorldFeedback.Announce(this, "Weapon Broken!", new Color(1f, 0.35f, 0.3f));
             ChatLog.Error($"Your {broken.Definition.Name} broke! Brokk at Vigrid Haven's forge can repair it.");
             return true;
+        }
+
+        /// <summary>Autoloot: a drop from a kill goes straight to the bag (if it fits); MVP rewards and cards get a cheer.</summary>
+        public override void ReceiveLoot(ItemDefinition item, float baseChance, bool mvpReward)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            if (CurrentWeight + item.Weight > Stats.WeightCapacity)
+            {
+                ChatLog.Error($"You are carrying too much to pick up {item.Name}.");
+                return;
+            }
+
+            if (Inventory.Add(item.Id, 1) <= 0)
+            {
+                ChatLog.Error($"Your bag is full: {item.Name} was left behind.");
+                return;
+            }
+
+            if (mvpReward || item.IsCard)
+            {
+                WorldFeedback.Announce(this, item.Name + "!", new Color(1f, 0.82f, 0.25f));
+            }
+
+            ChatLog.Loot($"You got {item.Name} (1).");
+        }
+
+        /// <summary>
+        /// Goods waiting in the Pushcart hold (a closed stall, a trade that didn't fit) go back to the bag while there's room.
+        /// <paramref name="openStall"/>'s goods stay on the stall.
+        /// </summary>
+        public int ReturnCartGoods(Social.VendingStall openStall = null)
+        {
+            if (Record.Cart == null || Record.Cart.Count == 0)
+            {
+                return 0;
+            }
+
+            int moved = Social.ItemTransfer.ReturnCartToBag(Record, Inventory, Stats.WeightCapacity, Equipment.TotalWeight(), openStall);
+            if (moved > 0)
+            {
+                Inventory.NotifyChanged();
+                ChatLog.Loot(Record.Cart.Count == 0 ? "Everything in your Pushcart hold is back in your bag." : "Some goods moved from your Pushcart hold to your bag.");
+            }
+
+            return moved;
+        }
+
+        public override void ReceiveMvp(string monsterName, long bonusExp)
+        {
+            WorldFeedback.Announce(this, "MVP!", new Color(1f, 0.82f, 0.25f));
+            GroundRing.SpawnPulse(Position, new Color(1f, 0.82f, 0.25f, 1f), 0.4f, 4f, 1.2f, 0.16f);
+            if (bonusExp > 0)
+            {
+                ChatLog.Notice($"MVP bonus: {bonusExp:N0} Base EXP.");
+                GrantExperience(bonusExp, 0);
+            }
         }
 
         /// <summary>Dead Branch / Blood Branch: a monster bursts out next to you, already hunting you.</summary>
@@ -570,6 +630,15 @@ namespace Runeheir.Player
             {
                 ChatLog.Error("The branch crumbles: nothing can grow here.");
                 return false;
+            }
+
+            if (OnlineSession.IsRemoteClient)
+            {
+                // The realm runs the monsters: it picks and summons one here.
+                OnlineSession.Current.RequestBranch(boss, hit.position);
+                GroundRing.SpawnPulse(hit.position, boss ? new Color(0.9f, 0.15f, 0.2f, 1f) : new Color(0.55f, 0.4f, 0.25f, 1f), 0.3f, 2.5f, 0.7f);
+                ChatLog.Notice("The branch splinters...");
+                return true;
             }
 
             var monster = EntityFactory.CreateMonster(definition, hit.position, UnityEngine.Random.Range(0f, 360f));
@@ -752,7 +821,9 @@ namespace Runeheir.Player
             }
 
             Record.HasSavedPosition = !IsDead;
-            Vector3 position = IsDead ? FieldContext.SavePoint : transform.position;
+
+            // Saved map-local: online realms place maps at their own spot in the world (FieldContext.Origin).
+            Vector3 position = (IsDead ? FieldContext.SavePoint : transform.position) - FieldContext.Origin;
             Record.PosX = position.x;
             Record.PosY = position.y;
             Record.PosZ = position.z;

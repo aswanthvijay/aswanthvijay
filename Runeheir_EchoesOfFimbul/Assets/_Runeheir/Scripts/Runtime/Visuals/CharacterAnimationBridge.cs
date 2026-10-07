@@ -66,6 +66,12 @@ namespace Runeheir.Visuals
 
         public float AttackPlayRate { get; private set; } = 1f;
 
+        /// <summary>A skill motion played (online, other players see it too).</summary>
+        public event System.Action<SkillMotion> SkillMotionPlayed;
+
+        /// <summary>The casting pose started or stopped.</summary>
+        public event System.Action<bool> CastingChanged;
+
         public Animator Animator => animator;
 
         /// <summary>Re-scan the children for an Animator / placeholder (call after swapping models).</summary>
@@ -150,6 +156,7 @@ namespace Runeheir.Visuals
         /// </summary>
         public void PlaySkill(SkillMotion motion, float playRate, float swingSeconds)
         {
+            SkillMotionPlayed?.Invoke(motion);
             SetAttackPlayRate(playRate);
             if (animator != null)
             {
@@ -276,6 +283,7 @@ namespace Runeheir.Visuals
 
         public void SetCasting(bool casting)
         {
+            CastingChanged?.Invoke(casting);
             if (_hasCasting)
             {
                 animator.SetBool(_castingHash, casting);

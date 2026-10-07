@@ -1,8 +1,10 @@
 using System.Text;
 using Runeheir.Controls;
 using Runeheir.Field;
+using Runeheir.Online;
 using Runeheir.Player;
 using Runeheir.Session;
+using Runeheir.Social;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -97,11 +99,39 @@ namespace Runeheir.UI
                 ChatLog.Add(safe, ChatKind.Normal);
                 GmCommands.Execute(text, _player);
             }
+            else if (OnlineSession.Current != null)
+            {
+                Send(OnlineSession.Current, text);
+            }
             else
             {
-                // Local echo until Mirror chat channels exist (Phase 6).
+                // Offline there's nobody to hear it: a local echo.
                 ChatLog.Add($"{_player.DisplayName} : {safe}");
             }
+        }
+
+        /// <summary>Online chat (Phase 6): map, %party, $guild, /sh shout, /w whisper, /r reply. The realm echoes it back.</summary>
+        private static void Send(IOnlineSession online, string text)
+        {
+            var input = ChatRules.Parse(text, online.Social?.State.LastWhisperFrom);
+            if (input.IsCommand)
+            {
+                ChatLog.Error("Unknown chat command. Try %party, $guild, /sh shout, /w Name message, /r reply.");
+                return;
+            }
+
+            if (input.IsEmpty)
+            {
+                return;
+            }
+
+            if (input.Channel == ChatChannel.Whisper && string.IsNullOrEmpty(input.Target))
+            {
+                ChatLog.Error("Whisper whom? /w Name message (use quotes for names with spaces).");
+                return;
+            }
+
+            online.SendChat(input);
         }
 
         private void OnLine(ChatLine line)

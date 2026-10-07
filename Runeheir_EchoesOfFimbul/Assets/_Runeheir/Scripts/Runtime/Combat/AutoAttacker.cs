@@ -34,6 +34,9 @@ namespace Runeheir.Combat
 
         public event Action<CombatEntity> TargetChanged;
 
+        /// <summary>A swing started at this target (online, everyone else sees it too).</summary>
+        public event Action<CombatEntity> Swung;
+
         public CombatEntity Target { get; private set; }
 
         /// <summary>Keep attacking after each hit (XileRO default). False = one hit per click.</summary>
@@ -146,6 +149,8 @@ namespace Runeheir.Combat
             {
                 _animation.PlayAttack(_owner.AttackPlayRate, swing);
             }
+
+            Swung?.Invoke(Target);
         }
 
         private void ResolveImpact()

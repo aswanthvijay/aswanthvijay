@@ -190,6 +190,15 @@ namespace Runeheir.WorldBuilding
         public Transform Root;
         public Vector3 SavePoint;
         public Bounds Bounds;
+
+        /// <summary>The map's spot in the world (zero offline).</summary>
+        public Vector3 Origin;
+
+        /// <summary>Public so the realm's map copies can be lit by whoever looks at them.</summary>
+        public void ApplyAtmosphere(Camera camera)
+        {
+            WorldBuilder.ApplyAtmosphere(Theme, camera);
+        }
     }
 
     /// <summary>
@@ -200,9 +209,22 @@ namespace Runeheir.WorldBuilding
     {
         public static BuiltWorld Build(MapDefinition map, Camera camera)
         {
+            return Build(map, camera, Vector3.zero, applyAtmosphere: true);
+        }
+
+        /// <summary>
+        /// Builds <paramref name="map"/> with its center at <paramref name="origin"/> (online realms give every map its own
+        /// spot; see <see cref="WorldGrid"/>). A realm server building maps for other players skips the atmosphere, which
+        /// belongs to whoever is looking.
+        /// </summary>
+        public static BuiltWorld Build(MapDefinition map, Camera camera, Vector3 origin, bool applyAtmosphere)
+        {
             var layout = MapLayoutGenerator.Generate(map);
             var theme = WorldTheme.For(map.Theme);
-            ApplyAtmosphere(theme, camera);
+            if (applyAtmosphere)
+            {
+                ApplyAtmosphere(theme, camera);
+            }
 
             var root = new GameObject($"Environment [{map.Name}]").transform;
             float extent = layout.Width * layout.CellSize;
@@ -233,6 +255,10 @@ namespace Runeheir.WorldBuilding
                 PropFactory.Build(prop, map.Theme, props);
             }
 
+            // Everything above was drawn around the world origin: move it (and the layout's points) to the map's spot.
+            origin.y = 0f;
+            root.position = origin;
+            layout.Translate(origin.x, origin.z);
             Physics.SyncTransforms();
             baker.EnsureBaked();
 
@@ -242,8 +268,9 @@ namespace Runeheir.WorldBuilding
                 Layout = layout,
                 Theme = theme,
                 Root = root,
+                Origin = origin,
                 SavePoint = ToWorld(layout.SavePoint),
-                Bounds = new Bounds(Vector3.zero, new Vector3(extent - layout.CellSize, 20f, extent - layout.CellSize)),
+                Bounds = new Bounds(origin, new Vector3(extent - layout.CellSize, 20f, extent - layout.CellSize)),
             };
         }
 
@@ -252,7 +279,7 @@ namespace Runeheir.WorldBuilding
             return new Vector3(point.X, 0f, point.Z);
         }
 
-        private static void ApplyAtmosphere(WorldTheme theme, Camera camera)
+        public static void ApplyAtmosphere(WorldTheme theme, Camera camera)
         {
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = theme.AmbientSky;

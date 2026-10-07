@@ -37,6 +37,12 @@ namespace Runeheir.Accounts
         Task<OpResult> SaveCharacterAndStorageAsync(string username, CharacterRecord record, List<Items.ItemStack> storage);
     }
 
+    /// <summary>An account service that keeps a login on the other end (a realm): logging out tells it.</summary>
+    public interface ILogoutService
+    {
+        Task LogoutAsync();
+    }
+
     /// <summary>
     /// Offline account/character storage in a JSON file under <c>Application.persistentDataPath</c>.
     /// Passwords are PBKDF2-hashed; hashing runs on a worker thread so the UI never hitches.

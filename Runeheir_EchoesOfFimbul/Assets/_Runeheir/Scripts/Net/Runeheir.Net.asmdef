@@ -1,0 +1,21 @@
+{
+    "name": "Runeheir.Net",
+    "rootNamespace": "Runeheir.Net",
+    "references": [
+        "Runeheir.Core",
+        "Runeheir.Runtime",
+        "Mirror",
+        "Mirror.Components",
+        "Mirror.Transports",
+        "kcp2k"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

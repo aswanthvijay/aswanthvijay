@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Runeheir.Cameras;
+using Runeheir.Combat;
 using Runeheir.Field;
 using Runeheir.Player;
 using Runeheir.World;
@@ -24,7 +25,7 @@ namespace Runeheir.UI
         private readonly RectTransform _content;
         private readonly Text _title;
         private readonly RectTransform _playerMarker;
-        private readonly List<(RectTransform marker, BossSpawner boss)> _bosses = new List<(RectTransform, BossSpawner)>();
+        private readonly List<RectTransform> _bossMarkers = new List<RectTransform>();
         private IsometricCameraRig _rig;
         private int _size;
         private float _nextMarkerRefresh;
@@ -88,15 +89,7 @@ namespace Runeheir.UI
             if (Time.unscaledTime >= _nextMarkerRefresh)
             {
                 _nextMarkerRefresh = Time.unscaledTime + 0.5f;
-                foreach (var (marker, boss) in _bosses)
-                {
-                    bool alive = boss != null && boss.Boss != null && !boss.Boss.IsDead;
-                    marker.gameObject.SetActive(alive);
-                    if (alive)
-                    {
-                        Place(marker, boss.Boss.Position.x, boss.Boss.Position.z);
-                    }
-                }
+                RefreshBosses();
             }
 
             float originX = _layout.OriginX;
@@ -134,9 +127,50 @@ namespace Runeheir.UI
             }
 
             Place(Marker(new Color(0.45f, 0.7f, 1f), 6f, "Save point"), _layout.SavePoint.X, _layout.SavePoint.Z);
-            foreach (var boss in Object.FindObjectsByType<BossSpawner>(FindObjectsSortMode.None))
+            RefreshBosses();
+        }
+
+        /// <summary>
+        /// Living bosses on this map (red). Found among the monsters themselves, so online clients (whose bosses are the
+        /// realm's) and hosts (whose other maps also have bosses) see the right ones.
+        /// </summary>
+        private void RefreshBosses()
+        {
+            float width = _layout.Width * _layout.CellSize;
+            float height = _layout.Height * _layout.CellSize;
+            int used = 0;
+            foreach (var entity in CombatEntity.All)
             {
-                _bosses.Add((Marker(new Color(1f, 0.25f, 0.2f), 9f, boss.Spawn?.MonsterId), boss));
+                if (!(entity is Monster monster) || monster.IsDead || monster.Definition == null || !monster.Definition.IsBoss)
+                {
+                    continue;
+                }
+
+                Vector3 at = monster.Position;
+                if (at.x < _layout.OriginX || at.z < _layout.OriginZ || at.x > _layout.OriginX + width || at.z > _layout.OriginZ + height)
+                {
+                    continue;
+                }
+
+                if (used == _bossMarkers.Count)
+                {
+                    _bossMarkers.Add(Marker(new Color(1f, 0.25f, 0.2f), 9f, "Boss"));
+                }
+
+                var marker = _bossMarkers[used++];
+                marker.gameObject.SetActive(true);
+                Place(marker, at.x, at.z);
+            }
+
+            for (int i = used; i < _bossMarkers.Count; i++)
+            {
+                _bossMarkers[i].gameObject.SetActive(false);
+            }
+
+            // Bosses stay on top of the other markers; you (white) stay on top of everything.
+            if (_playerMarker != null)
+            {
+                _playerMarker.SetAsLastSibling();
             }
         }
 

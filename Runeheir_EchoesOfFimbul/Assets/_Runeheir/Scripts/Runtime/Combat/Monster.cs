@@ -5,7 +5,7 @@ using Runeheir.Field;
 using Runeheir.Items;
 using Runeheir.Monsters;
 using Runeheir.Movement;
-using Runeheir.Player;
+using Runeheir.Online;
 using Runeheir.Session;
 using Runeheir.Skills;
 using Runeheir.Visuals;
@@ -33,7 +33,7 @@ namespace Runeheir.Combat
         /// <summary>A cast Strike still lands if the target is within the monster's reach plus this (else it was dodged).</summary>
         private const float StrikeReachSlack = 1.2f;
 
-        private readonly Dictionary<PlayerCharacter, long> _damageByPlayer = new Dictionary<PlayerCharacter, long>();
+        private readonly Dictionary<PlayerEntity, long> _damageByPlayer = new Dictionary<PlayerEntity, long>();
         private readonly Dictionary<string, float> _skillReadyAt = new Dictionary<string, float>();
         private readonly List<Monster> _minions = new List<Monster>();
         private readonly List<CombatEntity> _hitBuffer = new List<CombatEntity>();
@@ -116,6 +116,9 @@ namespace Runeheir.Combat
 
         public IReadOnlyList<Monster> Minions => _minions;
 
+        /// <summary>The realm server watches its monsters through this (casts, announcements) to show them on every client.</summary>
+        public IMonsterObserver Observer { get; set; }
+
         public void Initialize(MonsterDefinition definition, Vector3 home)
         {
             Definition = definition;
@@ -185,6 +188,16 @@ namespace Runeheir.Combat
         /// <summary>Provoke / War Cry / a packmate's call: drop whatever it was doing and come after <paramref name="provoker"/>.</summary>
         public void Provoke(CombatEntity provoker)
         {
+            if (Remote != null)
+            {
+                if (provoker != null && !IsDead)
+                {
+                    Remote.RelayProvoke(provoker);
+                }
+
+                return;
+            }
+
             if (Definition == null || Definition.Passive || IsDead || provoker == null || provoker.IsDead)
             {
                 return;
@@ -271,6 +284,12 @@ namespace Runeheir.Combat
             base.Update();
             if (Definition == null || IsDead)
             {
+                return;
+            }
+
+            if (IsMirror)
+            {
+                UpdateMirrorCast();
                 return;
             }
 
@@ -398,7 +417,7 @@ namespace Runeheir.Combat
             float bestDistance = range;
             foreach (var entity in All)
             {
-                if (entity is PlayerCharacter player && !player.IsDead && CanSee(player))
+                if (entity is PlayerEntity player && !player.IsDead && CanSee(player))
                 {
                     float distance = HorizontalDistance(Position, player.Position);
                     if (distance <= bestDistance)
@@ -481,8 +500,10 @@ namespace Runeheir.Combat
             WorldFeedback.Announce(this, skill.Name + "!", Color.Lerp(color, Color.white, 0.35f));
             if (!string.IsNullOrEmpty(skill.Shout))
             {
-                ChatLog.Notice($"{Definition.Name}: {skill.Shout}");
+                Announce($"{Definition.Name}: {skill.Shout}");
             }
+
+            Observer?.CastBegan(skill, target, _castPoint);
 
             if (skill.CastTime > 0f && _animation != null)
             {
@@ -515,6 +536,7 @@ namespace Runeheir.Combat
                 return;
             }
 
+            var skill = _cast;
             _cast = null;
             _castTarget = null;
             CloseTelegraph();
@@ -527,6 +549,8 @@ namespace Runeheir.Combat
             {
                 WorldFeedback.Announce(this, reason, new Color(1f, 0.85f, 0.4f));
             }
+
+            Observer?.CastEnded(skill, null, Position, resolved: false);
         }
 
         private void CloseTelegraph()
@@ -555,6 +579,7 @@ namespace Runeheir.Combat
                 return;
             }
 
+            Observer?.CastEnded(skill, target, _castPoint, resolved: true);
             bool targetValid = target != null && !target.IsDead && target.isActiveAndEnabled && CanSee(target);
             switch (skill.Kind)
             {
@@ -656,7 +681,7 @@ namespace Runeheir.Combat
                 target.Knockback(away.sqrMagnitude > 0.01f ? away.normalized : transform.forward, skill.Knockback);
             }
 
-            if (skill.BreakWeaponPercent > 0f && target is PlayerCharacter player)
+            if (skill.BreakWeaponPercent > 0f && target is PlayerEntity player)
             {
                 player.TryBreakWeapon(skill.BreakWeaponPercent);
             }
@@ -810,9 +835,154 @@ namespace Runeheir.Combat
         /// <summary>Gone without a trace (a summon whose master fell): no rewards.</summary>
         private void Vanish()
         {
+            if (IsMirror)
+            {
+                return; // the realm removes it everywhere
+            }
+
             CancelCast(null);
             GroundRing.SpawnPulse(Position, new Color(0.5f, 0.5f, 0.6f, 1f), 1.2f, 0.1f, 0.4f);
             Destroy(gameObject);
+        }
+
+        // ================================================================ mirrors (online play: the realm runs the real one)
+        /// <summary>Turns this into a mirror of a monster the realm runs: no brain, moved by the network.</summary>
+        public void MakeMirror(IRemoteEntity remote)
+        {
+            Remote = remote;
+            _attacker.Disengage();
+            _motor.MakePuppet();
+        }
+
+        /// <summary>The realm's monster started a skill: the bar, the ground circle and the name, here too.</summary>
+        public void MirrorCast(MonsterSkill skill, CombatEntity target, Vector3 point)
+        {
+            if (skill == null || IsDead)
+            {
+                return;
+            }
+
+            CloseTelegraph();
+            _cast = skill;
+            _castTarget = target;
+            _castStart = Time.time;
+            _castEnd = Time.time + Mathf.Max(0f, skill.CastTime);
+            _castPoint = point;
+            Color color = ElementColors.Of(skill.Element);
+            if (skill.HasTelegraph && skill.CastTime > 0f)
+            {
+                _telegraph = SkillTelegraph.Show(point, skill.Radius, Mathf.Max(0.2f, skill.CastTime), color);
+            }
+
+            if (target != null)
+            {
+                _motor.FaceTowards(target.Position, instant: true);
+            }
+
+            WorldFeedback.Announce(this, skill.Name + "!", Color.Lerp(color, Color.white, 0.35f));
+            if (skill.CastTime > 0f && _animation != null)
+            {
+                _animation.SetCasting(true);
+            }
+        }
+
+        /// <summary>The realm's cast finished (or was interrupted): the effect's look, without its gameplay.</summary>
+        public void MirrorCastEnd(MonsterSkill skill, CombatEntity target, Vector3 point, bool resolved)
+        {
+            _cast = null;
+            _castTarget = null;
+            CloseTelegraph();
+            if (_animation != null)
+            {
+                _animation.SetCasting(false);
+            }
+
+            if (!resolved || skill == null || IsDead)
+            {
+                return;
+            }
+
+            Color color = ElementColors.Of(skill.Element);
+            switch (skill.Kind)
+            {
+                case MonsterSkillKind.Strike:
+                    PlayMotion(SkillMotion.Swing);
+                    break;
+                case MonsterSkillKind.Bolt:
+                    PlayMotion(skill.Magical ? SkillMotion.Cast : SkillMotion.Shoot);
+                    if (target != null && !target.IsDead)
+                    {
+                        ProjectileFx.Launch(this, target, color, ProjectileFx.BoltSpeed, null, arrow: !skill.Magical, width: skill.Magical ? 0.14f : 0.07f);
+                    }
+
+                    break;
+                case MonsterSkillKind.Area:
+                    PlayMotion(skill.CenteredOnSelf ? SkillMotion.Spin : SkillMotion.Cast);
+                    GroundRing.SpawnPulse(skill.CenteredOnSelf ? Position : point, color, 0.3f, skill.Radius, 0.45f, 0.14f);
+                    break;
+                case MonsterSkillKind.Leap:
+                    PlayMotion(SkillMotion.Leap);
+                    GroundRing.SpawnPulse(point, color, 0.3f, skill.Radius, 0.45f, 0.14f);
+                    break;
+                case MonsterSkillKind.Teleport:
+                    GroundRing.SpawnPulse(Position, new Color(0.65f, 0.5f, 1f, 1f), 0.2f, 1.6f, 0.4f);
+                    break;
+                default:
+                    PlayMotion(SkillMotion.Buff);
+                    break;
+            }
+        }
+
+        /// <summary>The realm's monster swung its basic attack.</summary>
+        public void MirrorSwing(CombatEntity target)
+        {
+            if (target != null)
+            {
+                _motor.FaceTowards(target.Position, instant: true);
+            }
+
+            if (_animation != null)
+            {
+                _animation.PlayAttack(AttackPlayRate, SwingDuration);
+            }
+
+            if (IsRangedAttacker && target != null)
+            {
+                ProjectileFx.Launch(this, target, ProjectileFx.ArrowColor, ProjectileFx.ArrowSpeed, null, arrow: true);
+            }
+        }
+
+        /// <summary>The boss crossed into another phase on the realm (its HP plate shows it).</summary>
+        public void MirrorPhase(int phase)
+        {
+            _phase = Mathf.Max(0, phase);
+        }
+
+        private void UpdateMirrorCast()
+        {
+            if (_cast == null)
+            {
+                return;
+            }
+
+            if (_castTarget != null && !_castTarget.IsDead && !_cast.CenteredOnSelf && _cast.Kind != MonsterSkillKind.Area && _cast.Kind != MonsterSkillKind.Leap)
+            {
+                _motor.FaceTowards(_castTarget.Position);
+            }
+
+            // The end arrives from the realm; if it got lost, don't leave the bar up forever.
+            if (Time.time > _castEnd + 1.5f)
+            {
+                MirrorCastEnd(_cast, null, _castPoint, resolved: false);
+            }
+        }
+
+        protected override void OnMirroredHit(DamageResult result, CombatEntity attacker)
+        {
+            if (_animation != null && result.Amount > 0 && !result.IsDamageOverTime)
+            {
+                _animation.PlayHit();
+            }
         }
 
         // ================================================================ phases
@@ -837,9 +1007,11 @@ namespace Runeheir.Combat
 
             if (!string.IsNullOrEmpty(phase.Shout))
             {
-                ChatLog.Notice($"⚔ {phase.Shout}");
+                Announce($"⚔ {phase.Shout}");
                 WorldFeedback.Announce(this, phase.Shout, new Color(1f, 0.45f, 0.35f));
             }
+
+            Observer?.PhaseChanged(_phase);
 
             GroundRing.SpawnPulse(Position, new Color(1f, 0.35f, 0.25f, 1f), Radius, Radius + 7f, 0.9f, 0.18f);
             if (!string.IsNullOrEmpty(phase.SummonId) && phase.SummonCount > 0)
@@ -856,7 +1028,7 @@ namespace Runeheir.Combat
                 _animation.PlayHit();
             }
 
-            if (attacker is PlayerCharacter player && result.Amount > 0)
+            if (attacker is PlayerEntity player && result.Amount > 0)
             {
                 _damageByPlayer.TryGetValue(player, out long dealt);
                 _damageByPlayer[player] = dealt + result.Amount;
@@ -942,6 +1114,21 @@ namespace Runeheir.Combat
             CancelCast(null);
             _attacker.Disengage();
             _motor.Stop();
+            if (IsMirror)
+            {
+                // A mirror only looks dead: the realm hands out the rewards and removes the body.
+                if (_animation != null)
+                {
+                    _animation.SetDead(true);
+                }
+
+                foreach (var collider in GetComponentsInChildren<Collider>())
+                {
+                    collider.enabled = false;
+                }
+
+                return;
+            }
 
             // Leave the crowd simulation so the corpse no longer pushes or blocks other agents.
             if (_motor.Agent != null)
@@ -959,7 +1146,7 @@ namespace Runeheir.Combat
                 collider.enabled = false;
             }
 
-            AwardRewards(killer as PlayerCharacter);
+            AwardRewards(killer as PlayerEntity);
             if (Spawner != null)
             {
                 Spawner.NotifyDeath(this);
@@ -974,7 +1161,7 @@ namespace Runeheir.Combat
             CloseTelegraph();
         }
 
-        private void AwardRewards(PlayerCharacter killer)
+        private void AwardRewards(PlayerEntity killer)
         {
             long total = 0;
             foreach (var pair in _damageByPlayer)
@@ -993,7 +1180,12 @@ namespace Runeheir.Combat
                 double share = total > 0 ? pair.Value / (double)total : 1.0;
                 long baseExp = (long)Math.Round(Definition.BaseExp * rates.BaseExp * share);
                 long jobExp = (long)Math.Round(Definition.JobExp * rates.JobExp * share);
-                pair.Key.GrantExperience(baseExp, jobExp);
+
+                // Online, an Even Share party splits it between the members on this map (GDD §8).
+                if (RealmHooks.ShareExperience == null || !RealmHooks.ShareExperience(pair.Key, baseExp, jobExp))
+                {
+                    pair.Key.GrantExperience(baseExp, jobExp);
+                }
             }
 
             if (Definition.IsBoss)
@@ -1027,58 +1219,35 @@ namespace Runeheir.Combat
                     continue;
                 }
 
-                GiveLoot(killer, item, drop.ChancePercent, mvpReward: false);
+                if (item.IsCard)
+                {
+                    Announce($"★ {killer.DisplayName} got a {item.Name}! ({drop.ChancePercent:0.##}% drop)");
+                }
+
+                killer.ReceiveLoot(item, drop.ChancePercent, mvpReward: false);
             }
         }
 
-        private void AwardMvp(PlayerCharacter mvp, ServerRates rates)
+        private void AwardMvp(PlayerEntity mvp, ServerRates rates)
         {
-            ChatLog.Notice($"★★ MVP! {mvp.DisplayName} is the Most Valuable Player of the fight against {Definition.Name}!");
-            WorldFeedback.Announce(mvp, "MVP!", new Color(1f, 0.82f, 0.25f));
-            GroundRing.SpawnPulse(mvp.Position, new Color(1f, 0.82f, 0.25f, 1f), 0.4f, 4f, 1.2f, 0.16f);
+            Announce($"★★ MVP! {mvp.DisplayName} is the Most Valuable Player of the fight against {Definition.Name}!");
             long bonus = (long)Math.Round(Definition.MvpExp * rates.BaseExp);
-            if (bonus > 0)
-            {
-                ChatLog.Notice($"MVP bonus: {bonus:N0} Base EXP.");
-                mvp.GrantExperience(bonus, 0);
-            }
+            mvp.ReceiveMvp(Definition.Name, bonus);
 
             string reward = MvpRules.RollMvpDrop(Definition, rates.Drop, SystemRandomSource.Shared);
             var item = ItemCatalog.Get(reward);
             if (item != null)
             {
-                GiveLoot(mvp, item, 0f, mvpReward: true);
+                Announce($"★ MVP reward: {mvp.DisplayName} receives {item.Name}!");
+                mvp.ReceiveLoot(item, 0f, mvpReward: true);
             }
         }
 
-        private static void GiveLoot(PlayerCharacter player, ItemDefinition item, float baseChance, bool mvpReward)
+        /// <summary>A line for everyone nearby: this screen's chat, and (on a realm server) every player on the map.</summary>
+        private void Announce(string line)
         {
-            if (player.CurrentWeight + item.Weight > player.Stats.WeightCapacity)
-            {
-                ChatLog.Error($"You are carrying too much to pick up {item.Name}.");
-                return;
-            }
-
-            if (player.Inventory.Add(item.Id, 1) <= 0)
-            {
-                ChatLog.Error($"Your bag is full: {item.Name} was left behind.");
-                return;
-            }
-
-            if (mvpReward)
-            {
-                WorldFeedback.Announce(player, item.Name + "!", new Color(1f, 0.82f, 0.25f));
-                ChatLog.Notice($"★ MVP reward: {player.DisplayName} receives {item.Name}!");
-            }
-            else if (item.IsCard)
-            {
-                WorldFeedback.Announce(player, item.Name + "!", new Color(1f, 0.82f, 0.25f));
-                ChatLog.Notice($"★ {player.DisplayName} got a {item.Name}! ({baseChance:0.##}% drop)");
-            }
-            else
-            {
-                ChatLog.Loot($"You got {item.Name} (1).");
-            }
+            ChatLog.Notice(line);
+            RealmHooks.MapNotice?.Invoke(this, line);
         }
 
         private void TrackDps(DamageResult result)

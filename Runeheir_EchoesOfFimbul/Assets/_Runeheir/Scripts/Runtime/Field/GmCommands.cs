@@ -6,6 +6,7 @@ using Runeheir.Characters;
 using Runeheir.Items;
 using Runeheir.Jobs;
 using Runeheir.Monsters;
+using Runeheir.Online;
 using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.Skills;
@@ -23,13 +24,14 @@ namespace Runeheir.Field
     /// </summary>
     public static class GmCommands
     {
-        public static bool Enabled => Debug.isDebugBuild;
+        /// <summary>Offline: editor and development builds. Online: whatever the realm allows (its realm.json).</summary>
+        public static bool Enabled => OnlineSession.Current != null ? OnlineSession.Current.AllowGmCommands : Debug.isDebugBuild;
 
         public static void Execute(string input, PlayerCharacter player)
         {
             if (!Enabled)
             {
-                ChatLog.Error("@commands are disabled in release builds.");
+                ChatLog.Error(OnlineSession.Current != null ? "This realm doesn't allow @commands." : "@commands are disabled in release builds.");
                 return;
             }
 
@@ -47,6 +49,14 @@ namespace Runeheir.Field
 
             string command = parts[0].ToLowerInvariant();
             string rest = parts.Length > 1 ? string.Join(" ", parts.Skip(1)) : string.Empty;
+
+            // On someone else's realm the monsters and bosses live on their machine: only the host can change them.
+            if (OnlineSession.IsRemoteClient && command is "monster" or "spawn" or "bossrespawn" or "bosstime")
+            {
+                ChatLog.Error("That command changes the realm's world: only the host can use it.");
+                return;
+            }
+
             var progression = player.Progression;
 
             switch (command)

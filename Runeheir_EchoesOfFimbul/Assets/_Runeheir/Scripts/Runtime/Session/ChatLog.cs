@@ -11,6 +11,12 @@ namespace Runeheir.Session
         Error = 3,
         Loot = 4,
         Gm = 5,
+
+        // Phase 6 chat channels.
+        Party = 6,
+        Guild = 7,
+        Whisper = 8,
+        Shout = 9,
     }
 
     public readonly struct ChatLine

@@ -7,9 +7,13 @@ namespace Runeheir.WorldBuilding
     /// <summary>Places everything that lives on a built map: warp portals, NPCs, monster spawners and boss spawners.</summary>
     public static class WorldPopulator
     {
-        public static Transform Populate(BuiltWorld world)
+        /// <param name="monsters">
+        /// Monster and boss spawners too. Off on a client of an online realm: the realm runs the monsters and sends them over.
+        /// </param>
+        public static Transform Populate(BuiltWorld world, bool monsters = true)
         {
             var root = new GameObject("Population").transform;
+            root.SetParent(world.Root, true);
             var layout = world.Layout;
             foreach (var portal in layout.Portals)
             {
@@ -20,13 +24,18 @@ namespace Runeheir.WorldBuilding
             {
                 var at = WorldBuilder.ToWorld(npc.At);
                 // Town NPCs face the plaza; camp couriers face the campfire and the save point.
-                var face = world.Map.IsTown ? Vector3.zero : world.SavePoint;
+                var face = world.Map.IsTown ? world.Origin : world.SavePoint;
                 if ((face - at).sqrMagnitude < 1f)
                 {
                     face = at + Vector3.back;
                 }
 
-                NpcActor.Spawn(npc.Npc, at, face);
+                NpcActor.Spawn(npc.Npc, at, face).transform.SetParent(root, true);
+            }
+
+            if (!monsters)
+            {
+                return root;
             }
 
             foreach (var spawn in layout.Spawns)

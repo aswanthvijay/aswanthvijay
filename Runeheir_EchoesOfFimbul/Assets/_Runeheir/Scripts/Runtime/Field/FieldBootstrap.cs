@@ -2,6 +2,7 @@ using Runeheir.Cameras;
 using Runeheir.Characters;
 using Runeheir.Controls;
 using Runeheir.Movement;
+using Runeheir.Online;
 using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.UI;
@@ -47,6 +48,11 @@ namespace Runeheir.Field
 
         private PlayerCharacter _player;
         private float _nextAutosave;
+        private bool _saveOnAttach;
+        private HudController _hud;
+
+        /// <summary>The map that is up right now (online, the network layer hands it the character when it arrives).</summary>
+        public static FieldBootstrap Active { get; private set; }
 
         public PlayerCharacter Player => _player;
 
@@ -65,12 +71,31 @@ namespace Runeheir.Field
             set => mapId = value;
         }
 
+        private void Awake()
+        {
+            Active = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (Active == this)
+            {
+                Active = null;
+            }
+        }
+
         private void Start()
         {
             var settings = RuneheirSettings.Instance;
-            ServerRates.Current = settings != null && settings.overrideRates
-                ? new ServerRates { BaseExp = settings.baseExpRate, JobExp = settings.jobExpRate, Drop = settings.dropRate, CardDrop = settings.cardDropRate }
-                : new ServerRates { BaseExp = baseExpRate, JobExp = jobExpRate, Drop = dropRate };
+            var online = OnlineSession.Current;
+            if (online == null)
+            {
+                // Online, the realm sets the rates (and its monsters are the only ones that use them).
+                ServerRates.Current = settings != null && settings.overrideRates
+                    ? new ServerRates { BaseExp = settings.baseExpRate, JobExp = settings.jobExpRate, Drop = settings.dropRate, CardDrop = settings.cardDropRate }
+                    : new ServerRates { BaseExp = baseExpRate, JobExp = jobExpRate, Drop = dropRate };
+            }
+
             EventSystemBootstrap.Ensure();
             ResolveCameraRig();
 
@@ -85,13 +110,35 @@ namespace Runeheir.Field
             Vector3 save;
             string arrivalPortal = null;
             bool warped = false;
+            bool hostedCopy = false;
+            var camera = cameraRig != null ? cameraRig.GetComponent<Camera>() : Camera.main;
             if (generateMap)
             {
                 warped = WorldTravel.TakeArrival(out arrivalPortal);
                 var map = MapCatalog.Get(record.MapId) ?? MapCatalog.Get(MapCatalog.StartingMapId);
-                World = WorldBuilder.Build(map, cameraRig != null ? cameraRig.GetComponent<Camera>() : Camera.main);
+                if (online != null)
+                {
+                    // Online, every map has its own spot in the world. A host shows the realm's own copy of the map;
+                    // a client builds the same map at the same spot, so positions agree.
+                    World = online.HostedWorld(map.Id);
+                    hostedCopy = World != null;
+                    if (hostedCopy)
+                    {
+                        World.ApplyAtmosphere(camera);
+                    }
+                    else
+                    {
+                        var origin = WorldGrid.Origin(map.Id);
+                        World = WorldBuilder.Build(map, camera, new Vector3(origin.X, 0f, origin.Z), applyAtmosphere: true);
+                    }
+                }
+                else
+                {
+                    World = WorldBuilder.Build(map, camera);
+                }
+
                 save = World.SavePoint;
-                FieldContext.Set(map.Id, map.Name, save, World.Bounds, World.Layout);
+                FieldContext.Set(map.Id, map.Name, save, World.Bounds, World.Layout, World.Origin);
             }
             else
             {
@@ -107,14 +154,24 @@ namespace Runeheir.Field
                 spawn = hit.position;
             }
 
-            var visual = settings != null && settings.playerVisualPrefab != null ? settings.playerVisualPrefab : playerVisualPrefab;
-            _player = EntityFactory.CreatePlayer(record, spawn, visual, settings != null ? settings.playerAnimatorController : null);
-            if (cameraRig != null)
+            if (online != null && World != null)
             {
-                cameraRig.SetTarget(_player.transform, snap: true);
+                // The realm runs the monsters; NPCs and portals are ours to place (a host's copy already has them).
+                if (!hostedCopy)
+                {
+                    WorldPopulator.Populate(World, monsters: false);
+                }
+
+                WorldUiLayer.Create();
+                _saveOnAttach = warped;
+                online.EnterMap(World.Map.Id, spawn);
+                return; // AttachPlayer runs when the realm's spawn of our character arrives
             }
 
-            // NPCs, portals and boss lairs first: the HUD's minimap marks them.
+            var visual = settings != null && settings.playerVisualPrefab != null ? settings.playerVisualPrefab : playerVisualPrefab;
+            _player = EntityFactory.CreatePlayer(record, spawn, visual, settings != null ? settings.playerAnimatorController : null);
+
+            // NPCs, portals and boss lairs before the HUD: its minimap marks them.
             if (World != null)
             {
                 WorldPopulator.Populate(World);
@@ -124,16 +181,47 @@ namespace Runeheir.Field
                 NpcActor.SpawnTownNpcs(save);
             }
 
-            WorldUiLayer.Create();
-            var hud = HudController.Create(_player, this);
-            if (World != null)
+            _saveOnAttach = warped;
+            AttachPlayer(_player);
+        }
+
+        /// <summary>
+        /// Builds the local character's object (online, the network layer calls this when the realm spawns it, with its
+        /// network components added before the object wakes up).
+        /// </summary>
+        public PlayerCharacter CreatePlayerObject(Characters.CharacterRecord record, Vector3 position, System.Action<GameObject> beforeActivate)
+        {
+            var settings = RuneheirSettings.Instance;
+            var visual = settings != null && settings.playerVisualPrefab != null ? settings.playerVisualPrefab : playerVisualPrefab;
+            return EntityFactory.CreatePlayer(record, position, visual, settings != null ? settings.playerAnimatorController : null, beforeActivate);
+        }
+
+        /// <summary>The character is in the world: camera, HUD, greeting and saves.</summary>
+        public void AttachPlayer(PlayerCharacter player)
+        {
+            if (player == null || (_player == player && _hud != null))
             {
-                hud.ShowMapBanner(World.Map);
+                return;
             }
 
-            Greet(record, session);
-            if (warped)
+            _player = player;
+            if (cameraRig != null)
             {
+                cameraRig.SetTarget(_player.transform, snap: true);
+            }
+
+            WorldUiLayer.Create();
+            _hud = HudController.Create(_player, this);
+            if (World != null)
+            {
+                _hud.ShowMapBanner(World.Map);
+            }
+
+            Greet(_player.Record, GameSession.Instance);
+            _player.ReturnCartGoods(); // a stall that closed with the game, a trade that didn't fit
+            if (_saveOnAttach)
+            {
+                _saveOnAttach = false;
                 _player.SaveNow(); // the warp's save, now that the character stands on the new map
             }
 
@@ -184,7 +272,7 @@ namespace Runeheir.Field
 
             if (record.HasSavedPosition && record.MapId == FieldContext.MapId)
             {
-                var saved = new Vector3(record.PosX, record.PosY, record.PosZ);
+                var saved = new Vector3(record.PosX, record.PosY, record.PosZ) + FieldContext.Origin;
                 if (World == null || World.Layout.IsWalkable(new GroundPoint(saved.x, saved.z)))
                 {
                     return saved;
@@ -204,8 +292,15 @@ namespace Runeheir.Field
                            "Ctrl+Tab map · Enter to chat · @help");
             if (map != null && map.IsTown)
             {
-                ChatLog.System("Ásta sells supplies, Hrafn arms you, Brokk forges and repairs, the Norn Courier stores and teleports, Sigrun changes jobs. " +
-                               "The south gate leads to the Whisperwood Plains.");
+                ChatLog.System("Ásta sells supplies, Hrafn arms you, Brokk forges and repairs, the Norn Courier stores and teleports, Sigrun changes jobs, " +
+                               "Gunnar rents Pushcarts. The south gate leads to the Whisperwood Plains.");
+            }
+
+            var online = OnlineSession.Current;
+            if (online != null)
+            {
+                ChatLog.System($"Online on {online.RealmName}. Chat: plain text = map, %text = party, $text = guild, /sh text = shout, " +
+                               "/w Name text = whisper. Click a player to trade, party or browse their stall. Alt+Z party · Alt+G guild.");
             }
 
             if (session.IsTemporaryCharacter)

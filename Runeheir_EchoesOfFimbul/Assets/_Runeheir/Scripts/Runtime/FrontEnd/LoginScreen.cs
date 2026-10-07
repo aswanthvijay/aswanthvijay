@@ -1,6 +1,7 @@
 using System;
 using Runeheir.Accounts;
 using Runeheir.Controls;
+using Runeheir.Online;
 using Runeheir.Session;
 using Runeheir.UI;
 using UnityEngine;
@@ -50,8 +51,10 @@ namespace Runeheir.FrontEnd
             _registerButton = UIFactory.CreateButton(content, "Register", OnRegister, 18);
             _registerButton.GetComponent<RectTransform>().SetRect(innerWidth / 2f + 6f, 210f, innerWidth / 2f - 6f, 44f);
 
+            var realms = UIFactory.CreateButton(content, "Realms", OnRealms, 16);
+            realms.GetComponent<RectTransform>().SetRect(innerWidth / 2f - 146f, 270f, 140f, 36f);
             var exit = UIFactory.CreateButton(content, "Exit", GameSession.QuitGame, 16);
-            exit.GetComponent<RectTransform>().SetRect(innerWidth / 2f - 70f, 270f, 140f, 36f);
+            exit.GetComponent<RectTransform>().SetRect(innerWidth / 2f + 6f, 270f, 140f, 36f);
 
             var hint = UIFactory.CreateText(content, "New here? Type a username + password and press Register.", 13, UITheme.TextDim, TextAnchor.MiddleCenter);
             hint.rectTransform.SetRect(0f, 314f, innerWidth, 24f);
@@ -61,6 +64,12 @@ namespace Runeheir.FrontEnd
         {
             if (Busy)
             {
+                return;
+            }
+
+            if (GameInput.KeyDown(GameKey.Escape))
+            {
+                OnRealms();
                 return;
             }
 
@@ -85,12 +94,29 @@ namespace Runeheir.FrontEnd
             {
                 SetStatus(_status, storageError, error: true);
             }
+            else if (OnlineSession.Launcher != null && OnlineSession.Launcher.IsConnected && !Context.Session.Accounts.IsOffline)
+            {
+                SetStatus(_status, "Connected. Log in, or Register a new account on this realm.");
+            }
             else
             {
-                SetStatus(_status, "Welcome, wanderer. The Fimbulwinter has begun.");
+                SetStatus(_status, "Offline realm (this PC). The Fimbulwinter has begun.");
             }
 
             Focus(string.IsNullOrEmpty(saved) ? _username : _password);
+        }
+
+        /// <summary>Back to the realm choice (leaves an online realm).</summary>
+        private void OnRealms()
+        {
+            if (Busy)
+            {
+                return;
+            }
+
+            OnlineSession.Launcher?.Shutdown();
+            Context.Session.Logout();
+            Context.ShowRealm();
         }
 
         private static void Label(Transform parent, string text, float y)

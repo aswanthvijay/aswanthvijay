@@ -71,6 +71,44 @@ namespace Runeheir.Visuals
             };
         }
 
+        /// <summary>
+        /// The look as one line of text (Phase 6: other players see your outfit, hair and gear):
+        /// job|gender|hair style|hair color|weapon|head upper|head mid|head lower|shield|garment.
+        /// </summary>
+        public static string Code(CharacterRecord record)
+        {
+            var look = FromRecord(record);
+            return string.Join("|", (int)record.Job, (int)record.Gender, look.HairStyle,
+                CharacterFactory.Wrap(record.HairColor, HairPalette.Length), (int)look.Weapon,
+                look.HeadUpper, look.HeadMid, look.HeadLower, look.Shield, look.Garment);
+        }
+
+        /// <summary>Reads <see cref="Code"/>; anything missing or unknown falls back to an Initiate's plain look.</summary>
+        public static AvatarLook FromCode(string code)
+        {
+            string[] parts = (code ?? string.Empty).Split('|');
+            int Int(int index) => index < parts.Length && int.TryParse(parts[index], out int value) ? value : 0;
+            string Item(int index) => index < parts.Length && ItemCatalog.Get(parts[index]) != null ? parts[index] : null;
+
+            var jobId = (JobId)Int(0);
+            var job = JobDatabase.Get(JobDatabase.Exists(jobId) ? jobId : JobId.Initiate);
+            int weapon = Int(4);
+            return new AvatarLook
+            {
+                Outfit = RuntimeMaterials.Hex(job.ColorHex),
+                Skin = DefaultSkin,
+                Hair = HairPalette[CharacterFactory.Wrap(Int(3), HairPalette.Length)],
+                HairStyle = CharacterFactory.Wrap(Int(2), CharacterFactory.HairStyleCount),
+                Gender = Int(1) == (int)Gender.Female ? Gender.Female : Gender.Male,
+                Weapon = System.Enum.IsDefined(typeof(WeaponType), weapon) ? (WeaponType)weapon : WeaponType.Unarmed,
+                HeadUpper = Item(5),
+                HeadMid = Item(6),
+                HeadLower = Item(7),
+                Shield = Item(8),
+                Garment = Item(9),
+            };
+        }
+
         private static ItemDefinition Worn(CharacterRecord record, EquipPosition position)
         {
             var equipment = record.Equipment;

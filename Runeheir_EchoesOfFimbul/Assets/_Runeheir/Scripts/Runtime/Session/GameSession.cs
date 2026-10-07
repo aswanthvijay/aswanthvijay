@@ -94,6 +94,12 @@ namespace Runeheir.Session
 
         public void Logout()
         {
+            // Online, the realm forgets the login too (the connection stays open for the next one).
+            if (_accounts is ILogoutService realm && IsLoggedIn)
+            {
+                _ = realm.LogoutAsync();
+            }
+
             ChatLog.Clear();
             _storage = null;
             Username = null;
@@ -173,6 +179,9 @@ namespace Runeheir.Session
             }
 
             bool canReturn = IsLoggedIn && !IsTemporaryCharacter;
+
+            // Online, the realm takes the character out of the world (the account stays logged in).
+            Online.OnlineSession.Current?.LeaveWorld();
             ActiveCharacter = null;
             IsTemporaryCharacter = false;
             OpenCharacterSelectOnLoad = canReturn;

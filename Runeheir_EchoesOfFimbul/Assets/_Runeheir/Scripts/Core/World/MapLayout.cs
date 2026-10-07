@@ -250,6 +250,54 @@ namespace Runeheir.World
         /// <summary>True when the map has water under its gaps (fjord, isle, caverns) rather than darkness or wall.</summary>
         public bool HasWater;
 
+        /// <summary>
+        /// Moves the whole map by (<paramref name="dx"/>, <paramref name="dz"/>) meters: the grid origin and every placed
+        /// point. Online realms build each map at its own spot in one scene (<see cref="WorldGrid"/>).
+        /// </summary>
+        public void Translate(float dx, float dz)
+        {
+            if (dx == 0f && dz == 0f)
+            {
+                return;
+            }
+
+            OriginX += dx;
+            OriginZ += dz;
+            GroundPoint Move(GroundPoint p) => new GroundPoint(p.X + dx, p.Z + dz);
+            for (int i = 0; i < Walls.Count; i++)
+            {
+                Walls[i] = new WallSegment { From = Move(Walls[i].From), To = Move(Walls[i].To) };
+            }
+
+            foreach (var prop in Props)
+            {
+                prop.At = Move(prop.At);
+            }
+
+            foreach (var spawn in Spawns)
+            {
+                spawn.Center = Move(spawn.Center);
+            }
+
+            foreach (var boss in Bosses)
+            {
+                boss.At = Move(boss.At);
+            }
+
+            foreach (var portal in Portals)
+            {
+                portal.At = Move(portal.At);
+                portal.Arrival = Move(portal.Arrival);
+            }
+
+            foreach (var npc in Npcs)
+            {
+                npc.At = Move(npc.At);
+            }
+
+            SavePoint = Move(SavePoint);
+        }
+
         public bool InBounds(int x, int z)
         {
             return x >= 0 && z >= 0 && x < Width && z < Height;

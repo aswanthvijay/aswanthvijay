@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Runeheir.Movement;
+using Runeheir.Online;
 using Runeheir.Stats;
 using UnityEngine;
 
@@ -43,10 +44,22 @@ namespace Runeheir.Combat
 
         public event Action<CombatEntity> Died;
 
+        /// <summary>A status landed on this entity (online, the realm tells everyone who can see it).</summary>
+        public event Action<StatusEffect> StatusLanded;
+
         /// <summary>HP, SP or their maximums changed.</summary>
         public event Action VitalsChanged;
 
         public static IReadOnlyList<CombatEntity> All => Registry;
+
+        /// <summary>
+        /// Online play (Phase 6): set when this entity only mirrors one that lives elsewhere (a monster the realm runs,
+        /// another player's character). Hits, statuses, buffs, heals and knockbacks then go there instead of applying here.
+        /// </summary>
+        public IRemoteEntity Remote { get; set; }
+
+        /// <summary>A mirror of an entity that lives elsewhere (see <see cref="Remote"/>).</summary>
+        public bool IsMirror => Remote != null;
 
         public BuffContainer Buffs { get; } = new BuffContainer();
 
@@ -92,7 +105,7 @@ namespace Runeheir.Combat
         public bool CanUseSkills => !IsDead && !Statuses.BlocksSkills;
 
         /// <summary>Stealth (Shadow Cloak, Shadow Veil): monsters can't see or target this entity.</summary>
-        public bool IsHidden => Buffs.HasTrait(BuffTraits.Stealth);
+        public virtual bool IsHidden => Buffs.HasTrait(BuffTraits.Stealth);
 
         public virtual bool CanBeKnockedBack => true;
 
@@ -208,6 +221,14 @@ namespace Runeheir.Combat
                 return DamageResult.Miss();
             }
 
+            if (Remote != null)
+            {
+                // A mirror: the real entity takes the hit (blocks, shields and reflects happen there). The caller goes on
+                // as if it landed, so on-hit effects follow it to the realm too.
+                Remote.RelayDamage(result, attacker, physicalMelee, poiseDamage);
+                return result;
+            }
+
             if (physicalMelee && !result.IsMiss && !result.IsBlocked)
             {
                 if (Buffs.TryConsumeCharge(BuffTraits.MeleeBlockCharges)
@@ -291,6 +312,16 @@ namespace Runeheir.Combat
         /// <summary>Chips poise; at zero the entity is staggered (unless immune).</summary>
         public void ApplyPoiseDamage(float amount)
         {
+            if (Remote != null)
+            {
+                if (!IsDead && amount > 0f)
+                {
+                    Remote.RelayPoise(amount);
+                }
+
+                return;
+            }
+
             if (IsDead || amount <= 0f || Buffs.HasTrait(BuffTraits.CrowdControlImmune)
                 || StatusResistances.IsImmuneTo(StatusEffect.Stagger))
             {
@@ -310,6 +341,12 @@ namespace Runeheir.Combat
                 return;
             }
 
+            if (Remote != null)
+            {
+                Remote.RelayHeal(amount, false, showNumber);
+                return;
+            }
+
             int before = Hp;
             Hp = Mathf.Min(MaxHp, Hp + amount);
             if (showNumber)
@@ -324,6 +361,12 @@ namespace Runeheir.Combat
         {
             if (IsDead || amount <= 0)
             {
+                return;
+            }
+
+            if (Remote != null)
+            {
+                Remote.RelayHeal(amount, true, showNumber);
                 return;
             }
 
@@ -396,6 +439,13 @@ namespace Runeheir.Combat
                 return false;
             }
 
+            if (Remote != null)
+            {
+                // The real entity rolls against its own resistances; a mirror can't know whether it landed.
+                Remote.RelayStatus(status, chancePercent, seconds, true, false);
+                return false;
+            }
+
             var resist = StatusResistances;
             if (!StatusRules.Roll(status, chancePercent, resist, SystemRandomSource.Shared))
             {
@@ -411,6 +461,18 @@ namespace Runeheir.Combat
         /// </summary>
         public bool ApplyStatus(StatusEffect status, float seconds, bool ignoreImmunity = false)
         {
+            if (Remote != null)
+            {
+                if (!IsDead && seconds > 0f && status != StatusEffect.None && !Buffs.HasTrait(BuffTraits.CrowdControlImmune)
+                    && (ignoreImmunity || !StatusResistances.IsImmuneTo(status)))
+                {
+                    Remote.RelayStatus(status, 100f, seconds, false, ignoreImmunity);
+                    return true;
+                }
+
+                return false;
+            }
+
             if (IsDead || seconds <= 0f || status == StatusEffect.None || Buffs.HasTrait(BuffTraits.CrowdControlImmune)
                 || (!ignoreImmunity && StatusResistances.IsImmuneTo(status)))
             {
@@ -423,6 +485,7 @@ namespace Runeheir.Combat
             }
 
             OnStatusApplied(status);
+            StatusLanded?.Invoke(status);
             AnyStatusApplied?.Invoke(this, status);
             return true;
         }
@@ -435,6 +498,12 @@ namespace Runeheir.Combat
         /// <summary>Purify / Sowilo: removes every negative status and every debuff.</summary>
         public void Cleanse()
         {
+            if (Remote != null)
+            {
+                Remote.RelayCleanse();
+                return;
+            }
+
             Statuses.Clear();
             Buffs.RemoveWhere(b => b.Definition.IsDebuff);
         }
@@ -446,11 +515,97 @@ namespace Runeheir.Combat
                 return;
             }
 
+            if (Remote != null)
+            {
+                Remote.RelayKnockback(direction, distance);
+                return;
+            }
+
             var motor = GetComponent<NavMotor>();
             if (motor != null)
             {
                 motor.Knockback(direction, distance);
             }
+        }
+
+        /// <summary>
+        /// Puts a buff or debuff on this entity from someone else (a heal-and-bless on a party member, a Provoke debuff on
+        /// a monster). Mirrors pass it to the real entity. Returns the buff applied here (null when relayed).
+        /// </summary>
+        public ActiveBuff ApplyBuff(BuffDefinition buff, int level = 1, float duration = 0f, int charges = 0, int stackLimit = 0)
+        {
+            if (buff == null || IsDead)
+            {
+                return null;
+            }
+
+            if (Remote != null)
+            {
+                Remote.RelayBuff(buff, level, duration, charges, stackLimit);
+                return null;
+            }
+
+            return Buffs.Apply(buff, Time.timeAsDouble, level, duration, charges, stackLimit);
+        }
+
+        // ------------------------------------------------------------ mirrors (online play)
+        /// <summary>The realm says what this mirror's HP and SP are.</summary>
+        public void MirrorVitals(int hp, int maxHp, int sp, int maxSp)
+        {
+            if (hp != Hp || maxHp != MaxHp || sp != Sp || maxSp != MaxSp)
+            {
+                SetVitals(hp, maxHp, sp, maxSp);
+            }
+        }
+
+        /// <summary>The realm says this mirror died (no rewards here: the realm hands them out).</summary>
+        public void MirrorDeath(CombatEntity killer)
+        {
+            if (!IsDead)
+            {
+                Die(killer);
+            }
+        }
+
+        /// <summary>The realm says this mirror is back on its feet.</summary>
+        public void MirrorRevive(int hp, int sp)
+        {
+            if (IsDead)
+            {
+                Revive(hp, sp);
+            }
+        }
+
+        /// <summary>
+        /// A hit the realm applied to the real entity: floating numbers, the hit reaction and listeners, without touching HP
+        /// (that arrives with the vitals).
+        /// </summary>
+        public void MirrorHit(DamageResult result, CombatEntity attacker)
+        {
+            OnMirroredHit(result, attacker);
+            Damaged?.Invoke(result, attacker);
+            AnyDamaged?.Invoke(this, result, attacker);
+        }
+
+        /// <summary>A heal the realm applied to the real entity (the number only).</summary>
+        public void MirrorHeal(int amount, bool isSp)
+        {
+            if (amount > 0)
+            {
+                AnyHealed?.Invoke(this, amount, isSp);
+            }
+        }
+
+        /// <summary>A status landed on the real entity: the mirror's reaction (stagger, interrupted casts).</summary>
+        public void MirrorStatus(StatusEffect status)
+        {
+            OnStatusApplied(status);
+            AnyStatusApplied?.Invoke(this, status);
+        }
+
+        /// <summary>A mirror's reaction to a hit (flinch animation). Damage numbers come from <see cref="MirrorHit"/>.</summary>
+        protected virtual void OnMirroredHit(DamageResult result, CombatEntity attacker)
+        {
         }
 
         /// <summary>Frozen targets take extra blunt damage (GDD Glacial Tempest combo).</summary>
@@ -556,6 +711,11 @@ namespace Runeheir.Combat
             _dueDots.Clear();
             Statuses.Tick(now, _dueDots);
             Poise.Tick(now);
+            if (Remote != null)
+            {
+                return; // a mirror's poison and bleeding tick on the real entity
+            }
+
             foreach (float percent in _dueDots)
             {
                 TakeDamageOverTime(percent);

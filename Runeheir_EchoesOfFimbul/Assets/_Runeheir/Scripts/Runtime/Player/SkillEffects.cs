@@ -316,6 +316,13 @@ namespace Runeheir.Player
                 return;
             }
 
+            if (monster.IsMirror)
+            {
+                // Online: the realm's monster is the one robbed; the loot (or the reason) comes back from the realm.
+                monster.Remote.RelaySteal(cast.Level, cast.Caster.Stats.Total.Dex);
+                return;
+            }
+
             string itemId = monster.TrySteal(cast.Level, cast.Caster.Stats.Total.Dex, out string reason);
             var item = Items.ItemCatalog.Get(itemId);
             if (item != null && cast.Caster.Inventory.Add(item.Id, 1) > 0)
@@ -461,7 +468,7 @@ namespace Runeheir.Player
             float duration = durationOverride > 0f ? durationOverride : cast.Skill.BuffDuration.At(cast.Level);
             int charges = cast.Skill.BuffCharges.AtInt(cast.Level);
             int stackLimit = buff.MaxStacks > 1 ? cast.Level : 0;
-            receiver.Buffs.Apply(buff, Time.timeAsDouble, cast.Level, duration, charges, stackLimit);
+            receiver.ApplyBuff(buff, cast.Level, duration, charges, stackLimit);
             if (buff.Modifiers.MaxHpMultiplier > 1f)
             {
                 // Rage of Thor: the new HP pool starts full.
@@ -482,7 +489,7 @@ namespace Runeheir.Player
                 return;
             }
 
-            enemy.Buffs.Apply(debuff, Time.timeAsDouble, cast.Level, cast.Skill.DebuffDuration.At(cast.Level));
+            enemy.ApplyBuff(debuff, cast.Level, cast.Skill.DebuffDuration.At(cast.Level));
         }
 
         internal static void TryStatus(SkillCast cast, CombatEntity target)

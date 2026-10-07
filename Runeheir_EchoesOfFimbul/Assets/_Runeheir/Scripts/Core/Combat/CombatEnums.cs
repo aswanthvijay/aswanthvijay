@@ -48,5 +48,8 @@ namespace Runeheir.Combat
         public const int Elements = 10;
         public const int Races = 10;
         public const int Sizes = 3;
+
+        /// <summary>Values of <see cref="StatusEffect"/>, None included.</summary>
+        public const int StatusEffects = 13;
     }
 }

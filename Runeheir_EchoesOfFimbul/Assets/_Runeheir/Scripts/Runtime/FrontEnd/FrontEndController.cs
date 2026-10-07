@@ -1,4 +1,5 @@
 using Runeheir.Controls;
+using Runeheir.Online;
 using Runeheir.Session;
 using Runeheir.UI;
 using UnityEngine;
@@ -7,15 +8,17 @@ using UnityEngine.UI;
 namespace Runeheir.FrontEnd
 {
     /// <summary>
-    /// The RH_Login scene: Login → Server Select → Character Select ⇄ Character Create → enter the field.
-    /// Same flow as Ragnarok/XileRO clients; backed by <see cref="Accounts.IAccountService"/> (offline JSON for now).
+    /// The RH_Login scene: Realm (offline / host / join) → Login → Server Select → Character Select ⇄ Character Create →
+    /// enter the field. Same flow as Ragnarok/XileRO clients; backed by <see cref="Accounts.IAccountService"/> (a JSON file
+    /// offline, the realm's account store online).
     /// </summary>
     public sealed class FrontEndController : MonoBehaviour
     {
         [SerializeField] private string gameTitle = "RUNEHEIR";
         [SerializeField] private string gameSubtitle = "Echoes of Fimbul";
-        [SerializeField] private string footerText = "Phase 2 Prototype · Offline realm (accounts stored on this PC)";
+        [SerializeField] private string footerText = "Phase 6 Alpha · Play offline, host a realm or join one (Mirror networking)";
 
+        private RealmScreen _realm;
         private LoginScreen _login;
         private ServerSelectScreen _servers;
         private CharacterSelectScreen _select;
@@ -29,6 +32,11 @@ namespace Runeheir.FrontEnd
         public CharacterPreviewStage Preview { get; private set; }
 
         public GameSession Session => GameSession.Instance;
+
+        public void ShowRealm()
+        {
+            Switch(_realm);
+        }
 
         public void ShowLogin()
         {
@@ -54,6 +62,13 @@ namespace Runeheir.FrontEnd
 
         private void Start()
         {
+            // A headless realm server has no menus.
+            if (OnlineSession.Launcher != null && OnlineSession.Launcher.IsDedicatedServer)
+            {
+                enabled = false;
+                return;
+            }
+
             EventSystemBootstrap.Ensure();
             Canvas = UIFactory.CreateCanvas("FrontEnd", 0);
             BuildBackdrop();
@@ -62,6 +77,7 @@ namespace Runeheir.FrontEnd
             ScreensRoot.Stretch();
             Preview = CharacterPreviewStage.Create();
 
+            _realm = new RealmScreen(this);
             _login = new LoginScreen(this);
             _servers = new ServerSelectScreen(this);
             _select = new CharacterSelectScreen(this);
@@ -76,8 +92,10 @@ namespace Runeheir.FrontEnd
             }
             else
             {
+                // A fresh start (or a dropped connection): leave any realm and choose again.
+                OnlineSession.Launcher?.Shutdown();
                 session.Logout();
-                ShowLogin();
+                ShowRealm();
             }
         }
 

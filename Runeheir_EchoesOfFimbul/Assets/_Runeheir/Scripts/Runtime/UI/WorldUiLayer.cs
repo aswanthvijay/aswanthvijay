@@ -199,7 +199,7 @@ namespace Runeheir.UI
 
         private Plate CreatePlate(CombatEntity entity)
         {
-            bool isPlayer = entity is PlayerCharacter;
+            bool isPlayer = entity is PlayerEntity;
             var root = UIFactory.CreateRect("Plate_" + entity.DisplayName, _plateRoot);
             root.anchorMin = root.anchorMax = Vector2.zero;
             root.pivot = new Vector2(0.5f, 1f);
@@ -266,7 +266,7 @@ namespace Runeheir.UI
                 plate.Name.gameObject.SetActive(hoveredNow || plate.IsPlayer || plate.IsBoss || casting);
                 if (plate.Name.gameObject.activeSelf)
                 {
-                    plate.Name.text = plate.IsPlayer ? string.Empty : $"{entity.DisplayName} <size=12>Lv {entity.Level}</size>";
+                    plate.Name.text = plate.IsPlayer ? OtherPlayerName(entity as RemotePlayer) : $"{entity.DisplayName} <size=12>Lv {entity.Level}</size>";
                     plate.Name.color = plate.IsBoss
                         ? monster.Definition.IsMvp ? new Color(1f, 0.82f, 0.3f) : new Color(0.85f, 0.88f, 1f)
                         : monster != null && monster.Definition != null && monster.Definition.Aggressive
@@ -283,6 +283,19 @@ namespace Runeheir.UI
                     }
                 }
             }
+        }
+
+        /// <summary>Online: other players' names under their feet, with their guild (your own stays clean).</summary>
+        private static string OtherPlayerName(RemotePlayer other)
+        {
+            if (other == null)
+            {
+                return string.Empty;
+            }
+
+            return string.IsNullOrEmpty(other.GuildName)
+                ? other.DisplayName
+                : $"{other.DisplayName}\n<size=11><color=#9FE6A0>[{other.GuildName}]</color></size>";
         }
 
         // ------------------------------------------------------------ NPC names (always shown, Ragnarok style)

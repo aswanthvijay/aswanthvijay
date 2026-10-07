@@ -153,6 +153,14 @@ namespace Runeheir.Player
                 return;
             }
 
+            // Online: clicking another player opens their menu (trade, party, whisper, their stall).
+            if (HoveredEntity is RemotePlayer other)
+            {
+                _holdingMove = false;
+                other.NotifyClicked();
+                return;
+            }
+
             // Walking cancels nothing mid-cast, so it is only allowed with Free Cast.
             if (!HoveredGround.HasValue || (_caster.IsCasting && !_caster.CanMoveWhileCasting))
             {

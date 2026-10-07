@@ -21,14 +21,21 @@ namespace Runeheir.Field
 
         public static Bounds Bounds { get; private set; }
 
+        /// <summary>
+        /// Where this map sits in the world: zero offline; online, each map has its own spot (<see cref="WorldGrid"/>).
+        /// Saved positions are relative to it.
+        /// </summary>
+        public static Vector3 Origin { get; private set; }
+
         /// <summary>Dead and Blood Branches can be cracked here (everywhere but Vigrid Haven).</summary>
         public static bool AllowsBranches => Map == null || Map.AllowBranches;
 
         /// <summary>Wind Rune Shards work here (not in towns or the arena).</summary>
         public static bool AllowsRandomTeleport => Map == null || Map.AllowRandomTeleport;
 
-        public static void Set(string mapId, string mapName, Vector3 savePoint, Bounds bounds, MapLayout layout = null)
+        public static void Set(string mapId, string mapName, Vector3 savePoint, Bounds bounds, MapLayout layout = null, Vector3 origin = default)
         {
+            Origin = origin;
             MapId = mapId;
             MapName = mapName;
             Map = MapCatalog.Get(mapId);

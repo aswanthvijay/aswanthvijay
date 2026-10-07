@@ -1,4 +1,5 @@
 using Runeheir.Field;
+using Runeheir.Online;
 using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.World;
@@ -34,6 +35,11 @@ namespace Runeheir.WorldBuilding
         private static string s_arrivalPortal;
         private static bool s_arriving;
 
+        // Online warps wait for the realm's answer; a refusal puts the record back as it was.
+        private static PlayerCharacter s_warpingPlayer;
+        private static string s_previousMapId;
+        private static bool s_previousHadPosition;
+
         /// <summary>A warp is loading (portals and couriers ignore further requests until the new map is up).</summary>
         public static bool InTransit { get; private set; }
 
@@ -46,6 +52,7 @@ namespace Runeheir.WorldBuilding
         /// </summary>
         public static bool TakeArrival(out string portal)
         {
+            s_warpingPlayer = null;
             bool arriving = s_arriving;
             portal = s_arrivalPortal;
             s_arrivalPortal = null;
@@ -78,6 +85,9 @@ namespace Runeheir.WorldBuilding
             if (player != null)
             {
                 player.WriteBackToRecord();
+                s_warpingPlayer = player;
+                s_previousMapId = player.Record.MapId;
+                s_previousHadPosition = player.Record.HasSavedPosition;
                 player.Record.MapId = map.Id;
                 player.Record.HasSavedPosition = false;
             }
@@ -85,6 +95,20 @@ namespace Runeheir.WorldBuilding
             InTransit = true;
             s_arriving = true;
             s_arrivalPortal = arrivalPortalId;
+
+            // Online: the realm moves the character between its maps first, then the new map loads here.
+            var online = OnlineSession.Current;
+            if (online != null)
+            {
+                if (!online.Warp(player, map.Id, arrivalPortalId, message))
+                {
+                    AbortWarp(null);
+                    return false;
+                }
+
+                return true;
+            }
+
             if (!string.IsNullOrEmpty(message))
             {
                 ChatLog.System(message);
@@ -109,8 +133,28 @@ namespace Runeheir.WorldBuilding
             Warp(player, saveMap, null, message);
         }
 
+        /// <summary>The realm refused an online warp: stay here, as if nothing happened.</summary>
+        public static void AbortWarp(string reason)
+        {
+            if (s_warpingPlayer != null && s_warpingPlayer.Record != null)
+            {
+                s_warpingPlayer.Record.MapId = s_previousMapId ?? s_warpingPlayer.Record.MapId;
+                s_warpingPlayer.Record.HasSavedPosition = s_previousHadPosition;
+            }
+
+            s_warpingPlayer = null;
+            s_arrivalPortal = null;
+            s_arriving = false;
+            InTransit = false;
+            if (!string.IsNullOrEmpty(reason))
+            {
+                ChatLog.Error(reason);
+            }
+        }
+
         internal static void ResetForNewGame()
         {
+            s_warpingPlayer = null;
             s_arrivalPortal = null;
             s_arriving = false;
             InTransit = false;

@@ -98,6 +98,10 @@ namespace Runeheir.UI
                 case ChatKind.Error: return Error;
                 case ChatKind.Loot: return new Color(0.55f, 1f, 0.55f);
                 case ChatKind.Gm: return new Color(1f, 0.65f, 1f);
+                case ChatKind.Party: return new Color(1f, 0.72f, 0.82f);
+                case ChatKind.Guild: return new Color(0.62f, 1f, 0.62f);
+                case ChatKind.Whisper: return new Color(1f, 1f, 0.45f);
+                case ChatKind.Shout: return new Color(1f, 0.62f, 0.35f);
                 default: return Text;
             }
         }
