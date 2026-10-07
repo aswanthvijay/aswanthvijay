@@ -4,6 +4,8 @@
     "references": [
         "Runeheir.Core",
         "Runeheir.Runtime",
+        "Runeheir.Net",
+        "Mirror",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

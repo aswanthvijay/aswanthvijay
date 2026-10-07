@@ -110,10 +110,16 @@ namespace Runeheir.Session
 
         public void EnterWorld(CharacterRecord record)
         {
+            SelectCharacter(record);
+            SceneFlow.LoadMap(record.MapId);
+        }
+
+        /// <summary>Makes <paramref name="record"/> the character in play without loading its map (tests, map bootstraps).</summary>
+        public void SelectCharacter(CharacterRecord record)
+        {
             ActiveCharacter = record ?? throw new ArgumentNullException(nameof(record));
             IsTemporaryCharacter = false;
             ChatLog.Clear(); // the previous character's chat, loot and GM output stays with them
-            SceneFlow.LoadMap(record.MapId);
         }
 
         /// <summary>Dev convenience: pressing Play in a field scene without logging in.</summary>

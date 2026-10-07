@@ -4,7 +4,9 @@ using Runeheir.Controls;
 using Runeheir.Field;
 using Runeheir.Items;
 using Runeheir.Player;
+using Runeheir.Online;
 using Runeheir.Session;
+using Runeheir.Social;
 using Runeheir.World;
 using Runeheir.WorldBuilding;
 using UnityEngine;
@@ -14,8 +16,8 @@ namespace Runeheir.UI
     /// <summary>
     /// Builds and drives the in-game HUD. Keys (when not typing in chat):
     /// A or Alt+A status · S / Alt+S skills · E / Alt+E items · Q / Alt+Q equipment · Enter chat · Esc close / menu.
-    /// Ctrl+Tab cycles the minimap. Also routes NPCs (shops, forge and repairs, courier storage/save/teleport, job master)
-    /// to their windows.
+    /// Online (Phase 6): Z party · G guild · V street stall. Ctrl+Tab cycles the minimap. Also routes NPCs (shops, forge
+    /// and repairs, courier storage/save/teleport, job master, Pushcart rental) to their windows.
     /// </summary>
     public sealed class HudController : MonoBehaviour
     {
@@ -42,6 +44,7 @@ namespace Runeheir.UI
         private BuffTray _buffs;
         private MinimapView _minimap;
         private MapBanner _banner;
+        private SocialHud _social;
         private UIWindow _menu;
         private UIWindow _deathDialog;
         private bool _chatFocusedLastFrame;
@@ -104,6 +107,12 @@ namespace Runeheir.UI
             }
         }
 
+        /// <summary>Opens chat ready to whisper <paramref name="name"/>.</summary>
+        public void StartWhisper(string name)
+        {
+            _chat.Prefill(name.Contains(" ") ? $"/w \"{name}\" " : $"/w {name} ");
+        }
+
         public void OpenCardCompound(string cardId)
         {
             _compound.Open(cardId);
@@ -146,6 +155,20 @@ namespace Runeheir.UI
                 case NpcKind.JobMaster:
                     options.Add(Option("Change job", () => _jobChange.Window.Show()));
                     break;
+                case NpcKind.CartMerchant:
+                    if (!_player.Record.HasPushcart)
+                    {
+                        options.Add(Option($"Rent a Pushcart ({PushcartRules.RentalFee:N0} z)", RentPushcart));
+                    }
+
+                    options.Add(Option("Set up a street stall", () => _social.VendSetup.Toggle()));
+                    if (_player.Record.Cart != null && _player.Record.Cart.Count > 0 && SocialHud.State?.MyStall == null)
+                    {
+                        options.Add(Option("Unload my Pushcart hold into my bag", () => _player.ReturnCartGoods()));
+                    }
+
+                    options.Add(Option("How does vending work?", ExplainVending));
+                    break;
                 default:
                     options.Add(Option("Open storage", _storage.Open));
                     if (FieldContext.Map != null)
@@ -160,6 +183,33 @@ namespace Runeheir.UI
 
             options.Add(Option("Goodbye", null));
             _npcDialog.Open(npc, options);
+        }
+
+        private void RentPushcart()
+        {
+            if (!IsAtNpc(NpcKind.CartMerchant))
+            {
+                return;
+            }
+
+            if (PushcartRules.TryRent(_player.Record, out string message))
+            {
+                _player.Recalculate(); // +8,000 weight
+                _player.Inventory.NotifyChanged();
+                ChatLog.System(message);
+                _player.SaveNow();
+            }
+            else
+            {
+                ChatLog.Error(message);
+            }
+        }
+
+        private static void ExplainVending()
+        {
+            ChatLog.System($"Rent a Pushcart (+{PushcartRules.WeightBonus:N0} weight), then press V anywhere in Vigrid Haven's streets: " +
+                           $"put up to {VendingRules.MaxEntries} items on your stall with a price each and open it. Other players click you to buy; " +
+                           "the zeny goes straight to you, and unsold goods come back when you close. Stalls need an online realm.");
         }
 
         private void RepairWeapons()
@@ -299,6 +349,7 @@ namespace Runeheir.UI
             _forge = new ForgeWindow(this, _player);
             _compound = new CardCompoundWindow(this, _player);
             _confirm = new ConfirmDialog(this);
+            _social = new SocialHud(this, _player);
             NpcActor.Interacted += OnNpcInteracted;
             _menu = BuildMenu();
             _deathDialog = BuildDeathDialog();
@@ -350,6 +401,8 @@ namespace Runeheir.UI
             _buffs.Tick();
             _minimap?.Tick();
             _banner?.Tick();
+            _social.Tick();
+            _chat.Tick();
 
             if (_player.IsDead != _deathDialog.IsOpen)
             {
@@ -425,6 +478,21 @@ namespace Runeheir.UI
             {
                 ToggleEquipment();
             }
+
+            if (GameInput.KeyDown(GameKey.Z))
+            {
+                _social.Party.Toggle();
+            }
+
+            if (GameInput.KeyDown(GameKey.G))
+            {
+                _social.Guild.Toggle();
+            }
+
+            if (GameInput.KeyDown(GameKey.V))
+            {
+                _social.VendSetup.Toggle();
+            }
         }
 
         private void HandleEscape()
@@ -444,12 +512,20 @@ namespace Runeheir.UI
 
             // Close the top-most open window first (Ragnarok behaviour), then toggle the menu.
             UIWindow top = null;
-            foreach (var window in new[]
-                     {
-                         _status.Window, _skills.Window, _inventory.Window, _equipment.Window, _jobChange.Window, _npcDialog.Window, _shop.Window,
-                         _storage.Window, _forge.Window, _compound.Window, _confirm.Window, _menu,
-                     })
+            var windows = new List<UIWindow>
             {
+                _status.Window, _skills.Window, _inventory.Window, _equipment.Window, _jobChange.Window, _npcDialog.Window, _shop.Window,
+                _storage.Window, _forge.Window, _compound.Window, _confirm.Window, _menu,
+            };
+            windows.AddRange(_social.Windows);
+            foreach (var window in windows)
+            {
+                // The trade window closes through its Cancel button (both sides must know).
+                if (window == _social.Trade.Window)
+                {
+                    continue;
+                }
+
                 if (window.IsOpen && (top == null || window.transform.GetSiblingIndex() > top.transform.GetSiblingIndex()))
                 {
                     top = window;
@@ -481,6 +557,7 @@ namespace Runeheir.UI
             _jobChange?.Dispose();
             _chat?.Dispose();
             _buffs?.Dispose();
+            _social?.Dispose();
         }
     }
 }

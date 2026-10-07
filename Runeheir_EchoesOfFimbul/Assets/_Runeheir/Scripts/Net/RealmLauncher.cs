@@ -98,7 +98,10 @@ namespace Runeheir.Net
         public bool IsDedicatedServer { get; private set; }
 
         /// <summary>Default home for a realm's files: accounts, guilds and realm.json.</summary>
-        public static string DefaultDataDirectory => Path.Combine(Application.persistentDataPath, "realm");
+        public static string DefaultDataDirectory => DataDirectoryOverride ?? Path.Combine(Application.persistentDataPath, "realm");
+
+        /// <summary>Tests point hosted realms at a scratch folder.</summary>
+        public static string DataDirectoryOverride { get; set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Register()

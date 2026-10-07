@@ -12,6 +12,8 @@ namespace Runeheir.EditorTools
     /// GameCI: <c>buildMethod: Runeheir.EditorTools.RuneheirBuild.BuildFromCommandLine</c>
     /// (reads <c>-buildTarget</c> and <c>-customBuildPath</c>).
     /// Local: <c>Unity -batchmode -quit -projectPath . -executeMethod Runeheir.EditorTools.RuneheirBuild.BuildWindows</c>.
+    /// Phase 6 realm servers: the Realm Server menu items (or <c>-realmServer</c> on the command line) build a headless
+    /// "Dedicated Server" player that starts the realm on launch. Any normal build also runs one with <c>-server</c>.
     /// </summary>
     public static class RuneheirBuild
     {
@@ -27,8 +29,22 @@ namespace Runeheir.EditorTools
             Build(BuildTarget.StandaloneLinux64, "Builds/Linux/Runeheir.x86_64");
         }
 
+        [MenuItem("Runeheir/Build/Linux Realm Server (headless)", priority = 110)]
+        public static void BuildLinuxServer()
+        {
+            Build(BuildTarget.StandaloneLinux64, "Builds/LinuxServer/RuneheirRealm.x86_64", server: true);
+        }
+
+        [MenuItem("Runeheir/Build/Windows Realm Server (headless)", priority = 111)]
+        public static void BuildWindowsServer()
+        {
+            Build(BuildTarget.StandaloneWindows64, "Builds/WindowsServer/RuneheirRealm.exe", server: true);
+        }
+
         [MenuItem("Runeheir/Build/Windows Player", true)]
         [MenuItem("Runeheir/Build/Linux Player", true)]
+        [MenuItem("Runeheir/Build/Linux Realm Server (headless)", true)]
+        [MenuItem("Runeheir/Build/Windows Realm Server (headless)", true)]
         public static bool CanBuild()
         {
             return !EditorApplication.isPlayingOrWillChangePlaymode && !BuildPipeline.isBuildingPlayer;
@@ -43,20 +59,23 @@ namespace Runeheir.EditorTools
                 target = parsed;
             }
 
+            bool server = Array.IndexOf(Environment.GetCommandLineArgs(), "-realmServer") >= 0;
             string path = GetArgument("-customBuildPath");
             if (string.IsNullOrEmpty(path))
             {
-                path = target == BuildTarget.StandaloneWindows64 ? "Builds/Windows/Runeheir.exe" : "Builds/Linux/Runeheir.x86_64";
+                path = target == BuildTarget.StandaloneWindows64
+                    ? server ? "Builds/WindowsServer/RuneheirRealm.exe" : "Builds/Windows/Runeheir.exe"
+                    : server ? "Builds/LinuxServer/RuneheirRealm.x86_64" : "Builds/Linux/Runeheir.x86_64";
             }
 
-            Build(target, path);
+            Build(target, path, server);
         }
 
-        private static void Build(BuildTarget target, string path)
+        private static void Build(BuildTarget target, string path, bool server = false)
         {
             if (Application.isBatchMode)
             {
-                BuildPlayer(target, path);
+                BuildPlayer(target, path, server);
                 return;
             }
 
@@ -69,7 +88,7 @@ namespace Runeheir.EditorTools
             var setup = EditorSceneManager.GetSceneManagerSetup();
             try
             {
-                BuildPlayer(target, path);
+                BuildPlayer(target, path, server);
             }
             finally
             {
@@ -80,7 +99,7 @@ namespace Runeheir.EditorTools
             }
         }
 
-        private static void BuildPlayer(BuildTarget target, string path)
+        private static void BuildPlayer(BuildTarget target, string path, bool server)
         {
             (string login, string world) scenes;
             try
@@ -110,12 +129,14 @@ namespace Runeheir.EditorTools
                 locationPathName = path,
                 target = target,
                 targetGroup = BuildPipeline.GetBuildTargetGroup(target),
+                // A realm server is Unity's headless "Dedicated Server" player (UNITY_SERVER: the realm starts on launch).
+                subtarget = (int)(server ? StandaloneBuildSubtarget.Server : StandaloneBuildSubtarget.Player),
                 options = BuildOptions.None,
             };
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
             var summary = report.summary;
-            Debug.Log($"[Runeheir] Build {summary.result}: {summary.totalErrors} errors, {summary.totalWarnings} warnings, {summary.totalSize / (1024 * 1024)} MB -> {path}");
+            Debug.Log($"[Runeheir] {(server ? "Realm server" : "Player")} build {summary.result}: {summary.totalErrors} errors, {summary.totalWarnings} warnings, {summary.totalSize / (1024 * 1024)} MB -> {path}");
             if (Application.isBatchMode)
             {
                 EditorApplication.Exit(summary.result == BuildResult.Succeeded ? 0 : 1);

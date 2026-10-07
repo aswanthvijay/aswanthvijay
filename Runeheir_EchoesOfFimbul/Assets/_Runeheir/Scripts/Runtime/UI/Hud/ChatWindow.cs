@@ -21,6 +21,7 @@ namespace Runeheir.UI
         private readonly Text _log;
         private readonly InputField _input;
         private readonly StringBuilder _builder = new StringBuilder();
+        private int _caretToEndFrames;
 
         public ChatWindow(HudController hud, PlayerCharacter player)
         {
@@ -64,6 +65,22 @@ namespace Runeheir.UI
             }
 
             _input.ActivateInputField();
+        }
+
+        /// <summary>Opens the chat box with <paramref name="text"/> typed in (a whisper to someone you clicked).</summary>
+        public void Prefill(string text)
+        {
+            Focus();
+            _input.text = text ?? string.Empty;
+            _caretToEndFrames = 2; // focusing selects everything a frame later: move the caret after that
+        }
+
+        public void Tick()
+        {
+            if (_caretToEndFrames > 0 && --_caretToEndFrames == 0 && _input.isFocused)
+            {
+                _input.MoveTextEnd(false);
+            }
         }
 
         public void Blur()

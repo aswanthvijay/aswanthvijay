@@ -22,6 +22,9 @@ namespace Runeheir.Controls
         E,
         S,
         Q,
+        Z,
+        G,
+        V,
         Insert,
         Delete,
         Space,
@@ -105,17 +108,18 @@ namespace Runeheir.Controls
             }
         }
 
-        private static readonly KeyControl[] LetterKeys = new KeyControl[4];
+        private static readonly KeyControl[] LetterKeys = new KeyControl[7];
         private static Keyboard s_letterKeyboard;
         private static string s_letterLayout;
 
         /// <summary>
-        /// Input System keys are physical (US positions). Letter shortcuts (A/S/E/Q) follow the active layout
+        /// Input System keys are physical (US positions). Letter shortcuts (A/S/E/Q/Z/G/V) follow the active layout
         /// instead, so "A" opens the Status window on AZERTY too; every other key stays positional.
         /// </summary>
         private static KeyControl KeyFor(Keyboard keyboard, GameKey key)
         {
-            int letter = key == GameKey.A ? 0 : key == GameKey.E ? 1 : key == GameKey.S ? 2 : key == GameKey.Q ? 3 : -1;
+            int letter = key == GameKey.A ? 0 : key == GameKey.E ? 1 : key == GameKey.S ? 2 : key == GameKey.Q ? 3
+                : key == GameKey.Z ? 4 : key == GameKey.G ? 5 : key == GameKey.V ? 6 : -1;
             if (letter < 0)
             {
                 return keyboard[ToKey(key)];
@@ -159,6 +163,9 @@ namespace Runeheir.Controls
                 case GameKey.E: return Key.E;
                 case GameKey.S: return Key.S;
                 case GameKey.Q: return Key.Q;
+                case GameKey.Z: return Key.Z;
+                case GameKey.G: return Key.G;
+                case GameKey.V: return Key.V;
                 case GameKey.Insert: return Key.Insert;
                 case GameKey.Delete: return Key.Delete;
                 case GameKey.Space: return Key.Space;
@@ -241,6 +248,9 @@ namespace Runeheir.Controls
                 case GameKey.E: return KeyCode.E;
                 case GameKey.S: return KeyCode.S;
                 case GameKey.Q: return KeyCode.Q;
+                case GameKey.Z: return KeyCode.Z;
+                case GameKey.G: return KeyCode.G;
+                case GameKey.V: return KeyCode.V;
                 case GameKey.Insert: return KeyCode.Insert;
                 case GameKey.Delete: return KeyCode.Delete;
                 case GameKey.Space: return KeyCode.Space;

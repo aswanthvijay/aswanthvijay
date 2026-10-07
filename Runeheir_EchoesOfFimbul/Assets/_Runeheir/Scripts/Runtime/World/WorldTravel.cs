@@ -57,8 +57,21 @@ namespace Runeheir.WorldBuilding
             portal = s_arrivalPortal;
             s_arrivalPortal = null;
             s_arriving = false;
-            InTransit = false;
+
+            // Online, the character arrives a moment later (the realm spawns it): stay in transit until then, so a host's
+            // previous body, still standing on the old map's portal, can't set off a second warp.
+            if (OnlineSession.Current == null)
+            {
+                InTransit = false;
+            }
+
             return arriving;
+        }
+
+        /// <summary>The character stands on the new map (online: the realm's spawn arrived).</summary>
+        public static void FinishArrival()
+        {
+            InTransit = false;
         }
 
         /// <summary>

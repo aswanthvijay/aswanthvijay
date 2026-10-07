@@ -217,6 +217,7 @@ namespace Runeheir.Field
                 _hud.ShowMapBanner(World.Map);
             }
 
+            WorldTravel.FinishArrival();
             Greet(_player.Record, GameSession.Instance);
             _player.ReturnCartGoods(); // a stall that closed with the game, a trade that didn't fit
             if (_saveOnAttach)
