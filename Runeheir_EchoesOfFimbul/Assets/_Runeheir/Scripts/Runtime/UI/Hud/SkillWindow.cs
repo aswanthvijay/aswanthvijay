@@ -12,8 +12,10 @@ using UnityEngine.UI;
 namespace Runeheir.UI
 {
     /// <summary>
-    /// Alt+S skill tree: one tab per job in your line (Initiate → first job → second job → Ascended). Spend skill
-    /// points with "+", drag learned skills onto F1–F10, double-click to use. Locked skills show what they need.
+    /// Alt+S skill tree: one tab per job in your line (Initiate → first job → second job → transcendent; the Wanderer also
+    /// gets a tab for each first job it borrows from). The list scrolls. Spend skill points with "+", drag learned skills onto
+    /// F1–F10, double-click to use. Locked skills show what they need. A skill copied with Loki's Mimicry shows at the top of
+    /// the Mimicry job's page.
     /// </summary>
     public sealed class SkillWindow
     {
@@ -25,6 +27,7 @@ namespace Runeheir.UI
         private readonly HotkeyController _hotkeys;
         private readonly RectTransform _tabBar;
         private readonly RectTransform _list;
+        private readonly ScrollRect _scroll;
         private readonly Text _header;
         private readonly List<GameObject> _rows = new List<GameObject>();
         private readonly List<GameObject> _tabs = new List<GameObject>();
@@ -44,8 +47,22 @@ namespace Runeheir.UI
 
             _tabBar = UIFactory.CreateRect("Tabs", Window.Content);
             _tabBar.SetRect(0f, 42f, ListWidth, 28f);
-            _list = UIFactory.CreateRect("List", Window.Content);
-            _list.Stretch(0f, 76f, 0f, 0f);
+            var viewport = UIFactory.CreatePanel(Window.Content, "SkillList", new Color(0f, 0f, 0f, 0.001f), rounded: false);
+            viewport.rectTransform.Stretch(0f, 76f, 0f, 0f);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            _list = UIFactory.CreateRect("List", viewport.transform);
+            _list.anchorMin = new Vector2(0f, 1f);
+            _list.anchorMax = new Vector2(1f, 1f);
+            _list.pivot = new Vector2(0.5f, 1f);
+            _list.anchoredPosition = Vector2.zero;
+            _list.sizeDelta = Vector2.zero;
+            _scroll = viewport.gameObject.AddComponent<ScrollRect>();
+            _scroll.content = _list;
+            _scroll.viewport = viewport.rectTransform;
+            _scroll.horizontal = false;
+            _scroll.movementType = ScrollRect.MovementType.Clamped;
+            _scroll.scrollSensitivity = 28f;
+            _scroll.inertia = false;
 
             _page = player.Record.Job;
             player.Progression.JobChanged += OnJobChanged;
@@ -71,6 +88,7 @@ namespace Runeheir.UI
         {
             _page = _player.Record.Job;
             Rebuild();
+            _scroll.verticalNormalizedPosition = 1f;
         }
 
         private void OnJobLevelUp(int level)
@@ -100,11 +118,21 @@ namespace Runeheir.UI
             }
 
             _rows.Clear();
-            var skills = SkillCatalog.OwnedBy(_page);
-            for (int i = 0; i < skills.Count; i++)
+            float y = 0f;
+            var copied = MimicryRules.Copied(_player.Record);
+            if (copied != null && SkillCatalog.Get(MimicryRules.SkillId)?.Job == _page)
             {
-                _rows.Add(CreateRow(skills[i], i * RowHeight));
+                _rows.Add(CreateRow(copied, y, MimicryRules.CopiedLevel(_player.Record, copied.Id)));
+                y += RowHeight;
             }
+
+            foreach (var skill in SkillCatalog.OwnedBy(_page))
+            {
+                _rows.Add(CreateRow(skill, y));
+                y += RowHeight;
+            }
+
+            _list.sizeDelta = new Vector2(0f, y);
         }
 
         /// <summary>Tabs for every job of the line, Initiate first.</summary>
@@ -117,16 +145,27 @@ namespace Runeheir.UI
 
             _tabs.Clear();
             var line = new List<JobInfo>();
+            var borrowed = new List<JobInfo>();
             for (var job = JobDatabase.Get(_player.Record.Job); ; job = JobDatabase.Get(job.Parent))
             {
                 line.Insert(0, job);
+                foreach (var extra in job.ExtraAncestors)
+                {
+                    borrowed.Add(JobDatabase.Get(extra));
+                }
+
                 if (!job.HasParent)
                 {
                     break;
                 }
             }
 
+            // The Wanderer's borrowed first jobs go right after the Initiate.
+            borrowed.RemoveAll(b => line.Exists(j => j.Id == b.Id));
+            line.InsertRange(Mathf.Min(1, line.Count), borrowed);
+
             float width = ListWidth / Mathf.Max(1, line.Count);
+            int fontSize = line.Count > 5 ? 11 : 13;
             for (int i = 0; i < line.Count; i++)
             {
                 var job = line[i];
@@ -134,7 +173,8 @@ namespace Runeheir.UI
                 {
                     _page = job.Id;
                     Rebuild();
-                }, 13);
+                    _scroll.verticalNormalizedPosition = 1f;
+                }, fontSize);
                 button.GetComponent<RectTransform>().SetRect(i * width, 0f, width - 4f, 26f);
                 if (job.Id == _page)
                 {
@@ -148,11 +188,14 @@ namespace Runeheir.UI
             }
         }
 
-        private GameObject CreateRow(SkillDefinition skill, float y)
+        /// <param name="copiedLevel">Above 0 for the skill Loki's Mimicry holds: shown as a copy, no "+".</param>
+        private GameObject CreateRow(SkillDefinition skill, float y, int copiedLevel = 0)
         {
             var book = _player.SkillBook;
-            int level = book.GetLevel(skill.Id);
-            bool canLearn = book.CanLearn(skill.Id, out string reason);
+            bool copy = copiedLevel > 0;
+            int level = copy ? copiedLevel : book.GetLevel(skill.Id);
+            string reason = null;
+            bool canLearn = !copy && book.CanLearn(skill.Id, out reason);
             bool lockedByRequirement = level == 0 && !canLearn && _player.Record.SkillPoints > 0 && reason != null && reason.StartsWith("Requires");
             bool usable = level > 0 && !skill.Passive;
 
@@ -169,7 +212,8 @@ namespace Runeheir.UI
             icon.rectTransform.SetRect(4f, 4f, 42f, 42f);
             icon.raycastTarget = true;
 
-            string passive = skill.Passive ? "  <size=11><color=#9AA8BC>passive</color></size>" : string.Empty;
+            string passive = copy ? "  <size=11><color=#C39BD3>copied with Loki's Mimicry</color></size>"
+                : skill.Passive ? "  <size=11><color=#9AA8BC>passive</color></size>" : string.Empty;
             var name = UIFactory.CreateText(row.transform, skill.Name + passive, 16, level > 0 ? UITheme.Text : UITheme.TextDim, TextAnchor.MiddleLeft, FontStyle.Bold);
             name.rectTransform.SetRect(56f, 3f, 300f, 22f);
 
@@ -184,9 +228,12 @@ namespace Runeheir.UI
             info.horizontalOverflow = HorizontalWrapMode.Wrap;
             info.verticalOverflow = VerticalWrapMode.Truncate;
 
-            var learn = UIFactory.CreateButton(row.transform, "+", () => Learn(skill), 18);
-            learn.GetComponent<RectTransform>().SetRect(398f, 9f, 32f, 32f);
-            learn.interactable = canLearn;
+            if (!copy)
+            {
+                var learn = UIFactory.CreateButton(row.transform, "+", () => Learn(skill), 18);
+                learn.GetComponent<RectTransform>().SetRect(398f, 9f, 32f, 32f);
+                learn.interactable = canLearn;
+            }
 
             if (usable)
             {

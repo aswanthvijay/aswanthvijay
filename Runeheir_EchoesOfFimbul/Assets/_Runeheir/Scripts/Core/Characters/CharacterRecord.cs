@@ -112,6 +112,11 @@ namespace Runeheir.Characters
         /// <summary>0 = saved before skill levels existed; <see cref="Sanitize"/> migrates it to <see cref="SkillBook.CurrentDataVersion"/>.</summary>
         public int SkillDataVersion;
 
+        /// <summary>Loki's Mimicry (Phase 7): the skill this Outlaw copied last, and the level it can be used at.</summary>
+        public string MimicSkillId;
+
+        public int MimicSkillLevel;
+
         public long CreatedUnixMs;
         public long LastPlayedUnixMs;
 
@@ -218,6 +223,7 @@ namespace Runeheir.Characters
             }
 
             RebirthRules.Sanitize(this);
+            MimicryRules.Sanitize(this);
 
             if (Gender != Gender.Male && Gender != Gender.Female)
             {

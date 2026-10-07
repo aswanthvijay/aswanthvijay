@@ -45,7 +45,8 @@ namespace Runeheir.Skills
         /// <summary>The learned level of <paramref name="id"/>, or 0 if it isn't learned or the current job can't use it.</summary>
         public int UsableLevel(string id)
         {
-            return SkillCatalog.CanUse(_record.Job, id) ? GetLevel(id) : 0;
+            int own = SkillCatalog.CanUse(_record.Job, id) ? GetLevel(id) : 0;
+            return Math.Max(own, MimicryRules.CopiedLevel(_record, id));
         }
 
         public static int LevelIn(CharacterRecord record, string id)

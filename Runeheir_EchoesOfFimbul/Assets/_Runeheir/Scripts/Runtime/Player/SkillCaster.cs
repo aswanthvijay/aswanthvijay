@@ -57,6 +57,21 @@ namespace Runeheir.Player
         /// <summary>Targeting started/ended, cast started/ended, cooldowns changed.</summary>
         public event Action StateChanged;
 
+        /// <summary>This character used a skill (its costs are paid): the realm tells the other players.</summary>
+        public event Action<SkillDefinition, int> SkillUsed;
+
+        /// <summary>Any player used a skill, here or (relayed by the realm) elsewhere on the map. Loki's Mimicry listens.</summary>
+        public static event Action<CombatEntity, SkillDefinition, int> AnySkillUsed;
+
+        /// <summary>A mirrored player used a skill on their own machine.</summary>
+        public static void RaiseSkillUsed(CombatEntity caster, SkillDefinition skill, int level)
+        {
+            if (caster != null && skill != null && level > 0)
+            {
+                AnySkillUsed?.Invoke(caster, skill, level);
+            }
+        }
+
         public SkillDefinition TargetingSkill { get; private set; }
 
         /// <summary>The level the target cursor's skill will be cast at.</summary>
@@ -310,7 +325,7 @@ namespace Runeheir.Player
                 return false;
             }
 
-            if (!SkillCatalog.CanUse(_owner.Record.Job, skill.Id))
+            if (!SkillCatalog.CanUse(_owner.Record.Job, skill.Id) && MimicryRules.CopiedLevel(_owner.Record, skill.Id) <= 0)
             {
                 reason = $"{_owner.Job.Name}s cannot use {skill.Name}.";
                 return false;
@@ -611,6 +626,8 @@ namespace Runeheir.Player
 
             StartCoroutine(SkillEffects.Run(cast));
             StateChanged?.Invoke();
+            SkillUsed?.Invoke(skill, level);
+            AnySkillUsed?.Invoke(_owner, skill, level);
         }
 
         private void Awake()

@@ -295,5 +295,45 @@ namespace Runeheir.Tests
                 }
             }
         }
+
+        [Test]
+        public void LokisMimicry_CopiesAnAllysSkill_UpToItsLevel()
+        {
+            var outlaw = NewRecord(JobId.Outlaw);
+            var bolt = SkillCatalog.Get("muspel_bolt");
+            Assert.IsFalse(MimicryRules.TryCopy(outlaw, bolt, 10, false, out _), "nothing to copy with until Loki's Mimicry is learned");
+
+            Learn(outlaw, MimicryRules.SkillId, 5);
+            Assert.IsTrue(MimicryRules.TryCopy(outlaw, bolt, 10, false, out int level));
+            Assert.AreEqual(5, level, "capped by the Mimicry level");
+            Assert.AreEqual(5, new SkillBook(outlaw).UsableLevel("muspel_bolt"), "the copy can be cast");
+            Assert.AreSame(bolt, MimicryRules.Copied(outlaw));
+
+            // A weaker use copies at its own level; the same copy again changes nothing.
+            var frost = SkillCatalog.Get("frost_spike");
+            Assert.IsTrue(MimicryRules.TryCopy(outlaw, frost, 3, false, out level));
+            Assert.AreEqual(3, level);
+            Assert.AreEqual(0, new SkillBook(outlaw).UsableLevel("muspel_bolt"), "one copy at a time");
+            Assert.IsFalse(MimicryRules.TryCopy(outlaw, frost, 3, false, out _));
+
+            // Preserve keeps it.
+            Assert.IsFalse(MimicryRules.TryCopy(outlaw, bolt, 10, preserved: true, out _));
+            Assert.AreEqual("frost_spike", outlaw.MimicSkillId);
+
+            // Not copyable: passives, songs, crafting, transcendent skills and the thief line's own.
+            Assert.IsFalse(MimicryRules.CanCopy(SkillCatalog.Get("sword_mastery")));
+            Assert.IsFalse(MimicryRules.CanCopy(SkillCatalog.Get("whistle_of_heimdall")));
+            Assert.IsFalse(MimicryRules.CanCopy(SkillCatalog.Get("rune_forging")));
+            Assert.IsFalse(MimicryRules.CanCopy(SkillCatalog.Get("two_hand_surge")));
+            Assert.IsFalse(MimicryRules.CanCopy(SkillCatalog.Get("cut_purse")));
+            Assert.IsTrue(MimicryRules.CanCopy(SkillCatalog.Get("eirs_blessing")), "Heal is fair game");
+
+            // Another job can't use the copy; an unknown copy is dropped on load.
+            outlaw.Job = JobId.Berserker;
+            Assert.AreEqual(0, MimicryRules.CopiedLevel(outlaw, "frost_spike"));
+            outlaw.MimicSkillId = "no_such_skill";
+            outlaw.Sanitize();
+            Assert.IsNull(outlaw.MimicSkillId);
+        }
     }
 }

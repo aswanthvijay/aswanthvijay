@@ -39,6 +39,7 @@ namespace Runeheir.Net
         private RemotePlayer _remote;
         private AutoAttacker _attacker;
         private CharacterAnimationBridge _animation;
+        private SkillCaster _caster;
         private bool _subscribed;
         private string _appliedAuras;
         private bool _appliedCasting;
@@ -229,6 +230,12 @@ namespace Runeheir.Net
                 _animation.CastingChanged += OnCastingChanged;
             }
 
+            _caster = GetComponent<SkillCaster>();
+            if (_caster != null)
+            {
+                _caster.SkillUsed += OnSkillUsed;
+            }
+
             _player.Damaged += OnDamaged;
         }
 
@@ -251,6 +258,11 @@ namespace Runeheir.Net
                 _animation.CastingChanged -= OnCastingChanged;
             }
 
+            if (_caster != null)
+            {
+                _caster.SkillUsed -= OnSkillUsed;
+            }
+
             if (_player != null)
             {
                 _player.Damaged -= OnDamaged;
@@ -270,6 +282,14 @@ namespace Runeheir.Net
             if (NetworkClient.ready)
             {
                 CmdSkillMotion((byte)motion);
+            }
+        }
+
+        private void OnSkillUsed(SkillDefinition skill, int level)
+        {
+            if (NetworkClient.ready && skill != null)
+            {
+                CmdSkillUsed(skill.Id, (byte)Mathf.Clamp(level, 1, 255));
             }
         }
 
@@ -333,6 +353,16 @@ namespace Runeheir.Net
         }
 
         [Command]
+        private void CmdSkillUsed(string skillId, byte level)
+        {
+            // Only real skills go out (Loki's Mimicry on other machines copies from it).
+            if (SkillCatalog.Get(skillId) != null && level > 0)
+            {
+                RpcSkillUsed(skillId, level);
+            }
+        }
+
+        [Command]
         private void CmdShowHit(int amount, byte flags, uint attacker)
         {
             RpcShowHit(amount, flags, attacker);
@@ -342,6 +372,12 @@ namespace Runeheir.Net
         private void RpcSwing(uint target, float playRate, float swingSeconds)
         {
             _remote?.MirrorSwing(NetWire.Entity(target), playRate, swingSeconds);
+        }
+
+        [ClientRpc(includeOwner = false)]
+        private void RpcSkillUsed(string skillId, byte level)
+        {
+            SkillCaster.RaiseSkillUsed(_remote, SkillCatalog.Get(skillId), level);
         }
 
         [ClientRpc(includeOwner = false)]

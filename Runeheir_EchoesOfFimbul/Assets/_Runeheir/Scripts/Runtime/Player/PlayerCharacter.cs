@@ -121,6 +121,7 @@ namespace Runeheir.Player
             Statuses.Changed += Recalculate;
             SkillBook.Changed += Recalculate;
             Equipment.Changed += OnEquipmentChanged;
+            SkillCaster.AnySkillUsed += OnAnySkillUsed;
 
             Recalculate();
             SetVitals(record.Hp < 0 ? MaxHp : record.Hp, MaxHp, record.Sp < 0 ? MaxSp : record.Sp, MaxSp);
@@ -900,6 +901,22 @@ namespace Runeheir.Player
             SaveNow();
         }
 
+        /// <summary>Loki's Mimicry: an ally nearby used a skill this Outlaw can copy.</summary>
+        private void OnAnySkillUsed(CombatEntity caster, SkillDefinition skill, int level)
+        {
+            if (caster == this || !(caster is PlayerEntity) || caster.Faction != Faction || IsDead || Record == null
+                || HorizontalDistance(caster.Position, Position) > MimicryRules.CopyRange)
+            {
+                return;
+            }
+
+            if (MimicryRules.TryCopy(Record, skill, level, Buffs.Has(SkillBuffs.PreserveCopy), out int copied))
+            {
+                ChatLog.Notice($"Loki's Mimicry copies {skill.Name} (Lv {copied}) from {caster.DisplayName}. Find it in your Skill window.");
+                SkillBook.NotifyChanged();
+            }
+        }
+
         /// <summary>
         /// The Norns' rebirth (Phase 7): back to High Initiate at Base and Job Lv 1 with 100 status points, skills cleared, gear in
         /// the bag. Saves at once.
@@ -997,6 +1014,7 @@ namespace Runeheir.Player
         protected override void OnDestroy()
         {
             base.OnDestroy();
+            SkillCaster.AnySkillUsed -= OnAnySkillUsed;
             if (Local == this)
             {
                 Local = null;
