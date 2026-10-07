@@ -211,6 +211,14 @@ namespace Runeheir.Field
             }
 
             WorldUiLayer.Create();
+
+            // Online, every map the realm puts you on brings a new character object: the old HUD (and its chat box, still
+            // bound to the old object) must go, or typed commands reach a character that no longer exists.
+            if (_hud != null)
+            {
+                Destroy(_hud.gameObject);
+            }
+
             _hud = HudController.Create(_player, this);
             if (World != null)
             {

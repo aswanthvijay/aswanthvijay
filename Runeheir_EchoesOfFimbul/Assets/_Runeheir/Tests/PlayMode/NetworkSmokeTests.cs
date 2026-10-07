@@ -16,6 +16,7 @@ using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.Social;
 using Runeheir.World;
+using Runeheir.WorldBuilding;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -180,6 +181,16 @@ namespace Runeheir.Tests
             social.VendClose();
             yield return Until(() => social.State.MyStall == null, "the stall to close");
             Assert.AreEqual(tonics, player.Inventory.Count(ItemCatalog.LingonberryTonic), "unsold goods are back in the bag");
+
+            // --- A warp: the realm places a new character object on the next map, and only its HUD remains (a stale HUD's
+            // chat box would send @commands to the old, destroyed character).
+            var before = PlayerCharacter.Local;
+            Assert.IsTrue(WorldTravel.Warp(before, MapCatalog.WhisperwoodPlains, null), "warp accepted");
+            yield return Until(() => PlayerCharacter.Local != null && PlayerCharacter.Local != before, "the realm to place us on the plains", 20f);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(MapCatalog.WhisperwoodPlains, FieldContext.MapId);
+            Assert.AreEqual(1, UnityEngine.Object.FindObjectsByType<Runeheir.UI.HudController>(FindObjectsSortMode.None).Length, "one HUD after a warp");
 
             // --- Leaving the realm puts the game back offline.
             OnlineSession.Launcher.Shutdown();

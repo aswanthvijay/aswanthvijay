@@ -452,6 +452,12 @@ namespace Runeheir.UI
         {
             if (_player == null)
             {
+                // Our character's object was destroyed (an online warp brings a new one with its own HUD): don't linger.
+                if (!ReferenceEquals(_player, null))
+                {
+                    Destroy(gameObject);
+                }
+
                 return;
             }
 
