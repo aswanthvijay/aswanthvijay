@@ -120,7 +120,9 @@ namespace Runeheir.Controls
         {
             int letter = key == GameKey.A ? 0 : key == GameKey.E ? 1 : key == GameKey.S ? 2 : key == GameKey.Q ? 3
                 : key == GameKey.Z ? 4 : key == GameKey.G ? 5 : key == GameKey.V ? 6 : -1;
-            if (letter < 0)
+            // Headless (batch mode, -nographics, CI, a realm server) there is no display to ask for the keyboard layout: on
+            // Linux that query goes to GTK and crashes the process without X. Physical key positions are fine there.
+            if (letter < 0 || Application.isBatchMode)
             {
                 return keyboard[ToKey(key)];
             }
