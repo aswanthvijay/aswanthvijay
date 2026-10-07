@@ -61,6 +61,10 @@ namespace Runeheir.Characters
         public int Sp = -1;
 
         public long Zeny;
+
+        /// <summary>Rented a Merchant Pushcart (Phase 6): +8,000 weight capacity, and street vending in Vigrid Haven.</summary>
+        public bool HasPushcart;
+
         public string MapId;
 
         /// <summary>Where you revive and where Raven Feathers take you: the map of the last Norn Courier you saved with.</summary>
@@ -72,6 +76,13 @@ namespace Runeheir.Characters
         public float PosZ;
 
         public List<ItemStack> Inventory = new List<ItemStack>();
+
+        /// <summary>
+        /// The Pushcart hold (Phase 6): goods out on a street stall, and anything a trade or a purchase couldn't fit in
+        /// the bag. Returned to the bag when there's room (see <see cref="Social.ItemTransfer.ReturnCartToBag"/>).
+        /// </summary>
+        public List<ItemStack> Cart = new List<ItemStack>();
+
         public HotkeySlot[] Hotkeys = HotkeyLayout.CreateEmptyArray();
 
         /// <summary>The 10-slot paperdoll, indexed by <see cref="EquipPosition"/>. Null/empty entries are empty slots.</summary>
@@ -99,6 +110,18 @@ namespace Runeheir.Characters
                 foreach (var stack in Inventory)
                 {
                     copy.Inventory.Add(stack.Clone());
+                }
+            }
+
+            copy.Cart = new List<ItemStack>();
+            if (Cart != null)
+            {
+                foreach (var stack in Cart)
+                {
+                    if (stack != null)
+                    {
+                        copy.Cart.Add(stack.Clone());
+                    }
                 }
             }
 
@@ -154,6 +177,7 @@ namespace Runeheir.Characters
             }
 
             Inventory = repaired;
+            Cart = Social.ItemTransfer.Clean(Cart);
 
             Hotkeys = HotkeyLayout.Normalize(Hotkeys);
             // Unknown enum values (hand-edited save, or written by a newer build) are repaired, never thrown on,

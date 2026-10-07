@@ -123,6 +123,9 @@ namespace Runeheir.Stats
 
         public float MdefBypassPercent;
 
+        /// <summary>Extra weight capacity (the Merchant Pushcart: +8,000).</summary>
+        public int WeightCapacity;
+
         public static StatModifiers Empty()
         {
             return new StatModifiers();
@@ -198,6 +201,7 @@ namespace Runeheir.Stats
             MdefPercent += other.MdefPercent * times;
             HpRegenFlat += Scale(other.HpRegenFlat, times);
             SpRegenFlat += Scale(other.SpRegenFlat, times);
+            WeightCapacity += Scale(other.WeightCapacity, times);
             AttackRange += other.AttackRange * times;
             DamageTakenPercent += other.DamageTakenPercent * times;
             BlockChance += other.BlockChance * times;

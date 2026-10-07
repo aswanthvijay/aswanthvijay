@@ -112,6 +112,12 @@ namespace Runeheir.World
                 Greeting = "Every hero starts as an Initiate. Prove yourself and the guilds will teach you a path.",
                 OutfitHex = "#8E44AD", Gender = 1, Head = "valkyrie_winged_helm", Garment = "valkyrian_manteau",
             });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.CartMerchant, Name = "Gunnar", Title = "Pushcart Rental", X = -8f, Z = -34f,
+                Greeting = "A sturdy Pushcart carries 8,000 more weight, and with one you can set up a stall anywhere in Vigrid's streets.",
+                OutfitHex = "#A04000", Head = "fur_cap", Lower = "braided_beard", Garment = "bear_pelt",
+            });
 
             var hall = Add(new MapDefinition
             {

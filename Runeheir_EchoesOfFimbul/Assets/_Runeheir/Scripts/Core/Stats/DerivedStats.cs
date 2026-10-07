@@ -143,7 +143,7 @@ namespace Runeheir.Stats
             d.CastTimeMultiplier = StatFormulas.CastTimeMultiplier(total.Dex) * Math.Max(0f, 1f + mods.CastTimePercent / 100f);
             d.MoveSpeedMultiplier = Math.Max(0.1f, 1f + mods.MoveSpeedPercent / 100f);
             d.AttackRange = WeaponRules.AttackRange(weapon.Type) + Math.Max(0f, mods.AttackRange);
-            d.WeightCapacity = StatFormulas.WeightCapacity(total.Str);
+            d.WeightCapacity = StatFormulas.WeightCapacity(total.Str) + Math.Max(0, mods.WeightCapacity);
             d.HpRegenPerTick = StatFormulas.HpRegenPerTick(d.MaxHp, total.Vit) + Math.Max(0, mods.HpRegenFlat);
             d.SpRegenPerTick = StatFormulas.SpRegenPerTick(d.MaxSp, total.Int) + Math.Max(0, mods.SpRegenFlat);
 

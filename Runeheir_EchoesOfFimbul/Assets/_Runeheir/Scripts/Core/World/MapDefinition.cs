@@ -42,6 +42,9 @@ namespace Runeheir.World
 
         /// <summary>Guild master: job changes.</summary>
         JobMaster = 3,
+
+        /// <summary>Phase 6: rents the Merchant Pushcart (+8,000 weight, street vending) and explains the market.</summary>
+        CartMerchant = 4,
     }
 
     /// <summary>A group of one monster type kept alive around a point (Ragnarok spawn).</summary>
