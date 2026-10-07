@@ -567,6 +567,31 @@ namespace Runeheir.Combat
             }
         }
 
+        /// <summary>
+        /// Return from Hel (Phase 7, Ragnarok's Resurrection): a fallen player stands up where they fell with
+        /// <paramref name="hpPercent"/>% of their HP. Mirrors pass it to the player's own game.
+        /// </summary>
+        public void Resurrect(float hpPercent)
+        {
+            if (!IsDead)
+            {
+                return;
+            }
+
+            if (Remote != null)
+            {
+                Remote.RelayResurrect(hpPercent);
+                return;
+            }
+
+            OnResurrected(hpPercent);
+        }
+
+        /// <summary>Only players can be called back; monsters ignore it.</summary>
+        protected virtual void OnResurrected(float hpPercent)
+        {
+        }
+
         /// <summary>The realm says this mirror is back on its feet.</summary>
         public void MirrorRevive(int hp, int sp)
         {

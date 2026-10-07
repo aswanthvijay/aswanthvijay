@@ -286,6 +286,11 @@ namespace Runeheir.Net
             CmdSteal(skillLevel, dex);
         }
 
+        public void RelayResurrect(float hpPercent)
+        {
+            // Monsters aren't called back from Hel.
+        }
+
         // ------------------------------------------------------------ realm side of those requests
         [Command(requiresAuthority = false)]
         private void CmdDamage(int amount, byte flags, float elementMultiplier, bool physicalMelee, float poiseDamage,

@@ -116,7 +116,7 @@ namespace Runeheir.Player
                     break;
 
                 case SkillTarget.Friend:
-                    if (quickCastOnHover && hovered != null && IsFriendly(hovered))
+                    if (quickCastOnHover && hovered != null && IsFriendlyTarget(skill, hovered))
                     {
                         BeginOrApproach(skill, level, hovered, hovered.Position);
                     }
@@ -145,15 +145,17 @@ namespace Runeheir.Player
         public void ConfirmTarget(CombatEntity target)
         {
             var skill = TargetingSkill;
-            if (skill == null || target == null || target.IsDead)
+            bool raisesDead = skill != null && skill.Special == SkillSpecial.Resurrect;
+            if (skill == null || target == null || (target.IsDead && !raisesDead))
             {
                 return;
             }
 
-            bool valid = skill.Target == SkillTarget.Enemy ? IsValidEnemy(target) : skill.Target == SkillTarget.Friend && IsFriendly(target);
+            bool valid = skill.Target == SkillTarget.Enemy ? IsValidEnemy(target) : skill.Target == SkillTarget.Friend && IsFriendlyTarget(skill, target);
             if (!valid)
             {
-                ChatLog.Error(skill.Target == SkillTarget.Enemy ? "Invalid target: choose an enemy." : "Invalid target: choose yourself or an ally.");
+                ChatLog.Error(skill.Target == SkillTarget.Enemy ? "Invalid target: choose an enemy."
+                    : raisesDead ? "Choose a fallen ally." : "Invalid target: choose yourself or an ally.");
                 return;
             }
 
@@ -273,6 +275,27 @@ namespace Runeheir.Player
             return entity != null && !entity.IsDead && (entity == _owner || entity.Faction == _owner.Faction);
         }
 
+        /// <summary>Friendly for this skill: Return from Hel wants a fallen ally; everything else a living one.</summary>
+        private bool IsFriendlyTarget(SkillDefinition skill, CombatEntity entity)
+        {
+            if (skill.Special == SkillSpecial.Resurrect)
+            {
+                return entity is PlayerEntity && entity != _owner && entity.IsDead && entity.Faction == _owner.Faction;
+            }
+
+            return IsFriendly(entity);
+        }
+
+        private static string ResourceName(string buffId, int count)
+        {
+            if (buffId == SkillBuffs.ThorsCoins)
+            {
+                return count == 1 ? "Thor's Coin (flip one with Thor's Coin)" : "Thor's Coins (flip them with Thor's Coin)";
+            }
+
+            return count == 1 ? "Spirit Sphere (Spirit Call)" : "Spirit Spheres (Spirit Call)";
+        }
+
         private bool CanStart(SkillDefinition skill, int level, out string reason)
         {
             reason = null;
@@ -341,9 +364,28 @@ namespace Runeheir.Player
             }
 
             int spheresNeeded = skill.Special == SkillSpecial.SpiritRelease ? Mathf.Max(1, skill.SphereCost) : skill.SphereCost;
-            if (spheresNeeded > 0 && _owner.Buffs.StacksOf(SkillBuffs.SpiritSpheres) < spheresNeeded)
+            if (spheresNeeded > 0 && _owner.Buffs.StacksOf(skill.SphereResource) < spheresNeeded)
             {
-                reason = $"{skill.Name} needs {spheresNeeded} Spirit Sphere{(spheresNeeded > 1 ? "s" : string.Empty)} (Spirit Call).";
+                reason = $"{skill.Name} needs {spheresNeeded} {ResourceName(skill.SphereResource, spheresNeeded)}.";
+                return false;
+            }
+
+            int zeny = skill.ZenyCost.AtInt(level);
+            if (zeny > 0 && _owner.Record.Zeny < zeny)
+            {
+                reason = $"{skill.Name} costs {zeny:N0} zeny.";
+                return false;
+            }
+
+            if (skill.RequiresPushcart && !_owner.Record.HasPushcart)
+            {
+                reason = $"{skill.Name} needs a Pushcart: rent one from Gunnar in Vigrid Haven.";
+                return false;
+            }
+
+            if (skill.Special == SkillSpecial.Performance && _owner.Buffs.StacksOf(SkillBuffs.Performing) > 0)
+            {
+                reason = "Finish your current performance first.";
                 return false;
             }
 
@@ -477,14 +519,21 @@ namespace Runeheir.Player
 
         private void Execute(SkillDefinition skill, int level, CombatEntity target, Vector3 point)
         {
-            if (target != null && target != _owner && target.IsDead)
+            if (target != null && target != _owner && target.IsDead != (skill.Special == SkillSpecial.Resurrect))
             {
                 return;
             }
 
-            if (skill.SphereCost > 0 && _owner.Buffs.StacksOf(SkillBuffs.SpiritSpheres) < skill.SphereCost)
+            if (skill.SphereCost > 0 && _owner.Buffs.StacksOf(skill.SphereResource) < skill.SphereCost)
             {
-                ChatLog.Error("Not enough Spirit Spheres.");
+                ChatLog.Error($"Not enough {ResourceName(skill.SphereResource, skill.SphereCost)}.");
+                return;
+            }
+
+            int zenyCost = skill.ZenyCost.AtInt(level);
+            if (zenyCost > 0 && _owner.Record.Zeny < zenyCost)
+            {
+                ChatLog.Error($"{skill.Name} costs {zenyCost:N0} zeny.");
                 return;
             }
 
@@ -496,7 +545,13 @@ namespace Runeheir.Player
 
             if (skill.SphereCost > 0)
             {
-                _owner.Buffs.TakeStacks(SkillBuffs.SpiritSpheres, skill.SphereCost);
+                _owner.Buffs.TakeStacks(skill.SphereResource, skill.SphereCost);
+            }
+
+            if (zenyCost > 0)
+            {
+                _owner.Record.Zeny -= zenyCost;
+                _owner.Inventory.NotifyChanged();
             }
 
             float hpCost = skill.HpCostPercent.At(level);
@@ -594,7 +649,8 @@ namespace Runeheir.Player
                 return;
             }
 
-            if (_approachTarget != null && (_approachTarget.IsDead || !_owner.CanSee(_approachTarget)))
+            bool wantsDead = _approachSkill.Special == SkillSpecial.Resurrect;
+            if (_approachTarget != null && (_approachTarget.IsDead != wantsDead || !_owner.CanSee(_approachTarget)))
             {
                 _approachSkill = null;
                 _approachTarget = null;
@@ -635,7 +691,8 @@ namespace Runeheir.Player
                 return;
             }
 
-            if (_castTarget != null && _castTarget != _owner && _castTarget.IsDead)
+            // Return from Hel aims at the dead; it stops if they stand up (someone else raised them) first.
+            if (_castTarget != null && _castTarget != _owner && _castTarget.IsDead != (CastingSkill != null && CastingSkill.Special == SkillSpecial.Resurrect))
             {
                 EndCast();
                 return;

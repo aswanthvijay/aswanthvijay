@@ -443,6 +443,19 @@ namespace Runeheir.Net
             // Players can't be robbed.
         }
 
+        public void RelayResurrect(float hpPercent)
+        {
+            hpPercent = NetWire.Clamp(hpPercent, 1f, 100f);
+            if (isServer)
+            {
+                TargetResurrect(hpPercent);
+            }
+            else
+            {
+                CmdResurrectOther(hpPercent);
+            }
+        }
+
         public void RelayExperience(long baseExp, long jobExp)
         {
             if (isServer)
@@ -490,6 +503,15 @@ namespace Runeheir.Net
                 {
                     Entity?.Heal(amount, showNumber);
                 }
+            }
+        }
+
+        [Command(requiresAuthority = false)]
+        private void CmdResurrectOther(float hpPercent, NetworkConnectionToClient sender = null)
+        {
+            if (RealmServer.Instance != null && RealmServer.Instance.MayAffect(sender, this))
+            {
+                Entity?.Resurrect(NetWire.Clamp(hpPercent, 1f, 100f));
             }
         }
 
@@ -559,6 +581,12 @@ namespace Runeheir.Net
             {
                 _player?.Heal(amount, showNumber);
             }
+        }
+
+        [TargetRpc]
+        private void TargetResurrect(float hpPercent)
+        {
+            _player?.Resurrect(NetWire.Clamp(hpPercent, 1f, 100f));
         }
 
         [TargetRpc]

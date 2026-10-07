@@ -141,6 +141,7 @@ namespace Runeheir.Player
             var modifiers = StatModifiers.Empty();
             modifiers.Add(Gear.Modifiers);
             modifiers.Add(Social.PushcartRules.Modifiers(Record));
+            modifiers.Add(RebirthRules.Modifiers(Record)); // reborn: +25% Max HP and SP
             modifiers.Add(Buffs.Aggregate);
             modifiers.Add(Statuses.Aggregate);
             if (SkillBook != null)
@@ -735,6 +736,20 @@ namespace Runeheir.Player
 
             _motor.SetLocked(false);
             WorldTravel.ToSavePoint(this, "You have been revived at your save point.");
+        }
+
+        /// <summary>Called back from Hel by a Gothi: up where you fell, no trip to the save point.</summary>
+        protected override void OnResurrected(float hpPercent)
+        {
+            Revive(Mathf.Max(1, Mathf.RoundToInt(MaxHp * hpPercent / 100f)), Sp);
+            if (_animation != null)
+            {
+                _animation.SetDead(false);
+            }
+
+            _motor.SetLocked(false);
+            GroundRing.SpawnPulse(transform.position, new Color(1f, 0.97f, 0.8f, 1f), 0.2f, 2f, 0.7f);
+            ChatLog.System("You were called back from Hel's road.");
         }
 
         protected override void OnDamaged(DamageResult result, CombatEntity attacker)

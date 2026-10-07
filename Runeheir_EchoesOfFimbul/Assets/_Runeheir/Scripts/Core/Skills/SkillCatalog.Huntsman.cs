@@ -56,9 +56,10 @@ namespace Runeheir.Skills
             Register(new SkillDefinition
             {
                 Id = "muspel_mine", Name = "Muspel Mine", Job = JobId.Ranger, MaxLevel = 5, Requires = Req("rune_mine", 1),
-                Description = "Ragnarok's Blast Mine: a fire rune that explodes over a wide area.",
+                Description = "Ragnarok's Blast Mine: a fire rune that explodes over everyone near it.",
                 IconLabel = "BMN", IconColorHex = "#E74C3C",
-                Target = SkillTarget.Ground, Special = SkillSpecial.Zone, ZoneTrap = true, Damage = SkillDamage.Physical, Motion = SkillMotion.Cast,
+                Target = SkillTarget.Ground, Special = SkillSpecial.Zone, ZoneTrap = true, Area = SkillArea.AtGround,
+                Damage = SkillDamage.Physical, Motion = SkillMotion.Cast,
                 Element = Element.Fire, UseWeaponElement = false, NeverMiss = true,
                 Range = 3f, Radius = 2.5f, Power = L(200f, 60f), ZoneDuration = L(60f, 15f), SpCost = 10f, AfterCastDelay = 0.5f,
             });
@@ -77,7 +78,7 @@ namespace Runeheir.Skills
                 Id = "thorn_of_sleep", Name = "Thorn of Sleep", Job = JobId.Ranger, MaxLevel = 5, Requires = Req("ankle_snare", 1),
                 Description = "Ragnarok's Sandman: a sleep-thorn trap, the same that felled Brynhildr. Puts foes around it to sleep.",
                 IconLabel = "SND", IconColorHex = "#BB8FCE",
-                Target = SkillTarget.Ground, Special = SkillSpecial.Zone, ZoneTrap = true, Motion = SkillMotion.Cast,
+                Target = SkillTarget.Ground, Special = SkillSpecial.Zone, ZoneTrap = true, Area = SkillArea.AtGround, Motion = SkillMotion.Cast,
                 Range = 3f, Radius = 2.5f, ZoneDuration = L(90f, 30f), SpCost = 12f, AfterCastDelay = 0.5f,
                 Status = StatusEffect.Sleep, StatusChance = L(50f, 10f), StatusDuration = 6f,
             });

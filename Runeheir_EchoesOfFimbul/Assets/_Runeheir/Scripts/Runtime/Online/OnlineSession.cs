@@ -116,6 +116,9 @@ namespace Runeheir.Online
 
         /// <summary>Pilfer: the realm rolls it and sends the item (or the reason it failed) back.</summary>
         void RelaySteal(int skillLevel, int dex);
+
+        /// <summary>Return from Hel (Phase 7): a fallen player stands up with this share of their HP.</summary>
+        void RelayResurrect(float hpPercent);
     }
 
     /// <summary>The realm side of another player's character: rewards and hits go to that player's own game.</summary>

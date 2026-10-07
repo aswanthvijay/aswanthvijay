@@ -251,6 +251,9 @@ namespace Runeheir.Combat
         }
 
         /// <summary>Called once the stolen item is actually in the thief's inventory: no second steal from this monster.</summary>
+        /// <summary>An Outlaw already cut this monster's purse (Cut Purse works once per monster).</summary>
+        public bool CoinsTaken { get; set; }
+
         public void MarkStolenFrom()
         {
             _stolenFrom = true;

@@ -104,9 +104,10 @@ namespace Runeheir.Player
                 return;
             }
 
-            if (skill.ZoneTrap)
+            if (skill.ZoneTrap && skill.Area != SkillArea.AtGround)
             {
-                // A trap springs on the first enemy to step in (the nearest one if several arrive together).
+                // A trap springs on the first enemy to step in (the nearest one if several arrive together). Area traps
+                // (Muspel Mine, Thorn of Sleep) burst over everyone inside instead.
                 CombatEntity first = inside[0];
                 foreach (var enemy in inside)
                 {

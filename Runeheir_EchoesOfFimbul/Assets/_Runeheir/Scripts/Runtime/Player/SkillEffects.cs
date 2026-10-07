@@ -25,11 +25,26 @@ namespace Runeheir.Player
         private const float LineWidth = 0.7f;
         private const float DashStrikeReach = 1.5f;
 
+        /// <summary>A crafting skill (Rune Forging, Brewing) was used: the HUD opens its window.</summary>
+        public static event System.Action<SkillCast> CraftRequested;
+
         public static IEnumerator Run(SkillCast cast)
         {
             var skill = cast.Skill;
             switch (skill.Special)
             {
+                case SkillSpecial.Performance:
+                    PerformanceAura.Begin(cast);
+                    yield break;
+                case SkillSpecial.Resurrect:
+                    DoResurrect(cast);
+                    yield break;
+                case SkillSpecial.StealCoin:
+                    DoStealCoin(cast);
+                    yield break;
+                case SkillSpecial.Craft:
+                    CraftRequested?.Invoke(cast);
+                    yield break;
                 case SkillSpecial.Heal:
                     DoHeal(cast);
                     yield break;
@@ -56,7 +71,7 @@ namespace Runeheir.Player
 
                     break;
                 case SkillSpecial.SpiritRelease:
-                    cast.HitsOverride = cast.Caster.Buffs.TakeStacks(SkillBuffs.SpiritSpheres, cast.Level);
+                    cast.HitsOverride = cast.Caster.Buffs.TakeStacks(skill.SphereResource, cast.Level);
                     if (cast.HitsOverride <= 0)
                     {
                         ChatLog.Error("You have no Spirit Spheres. (Spirit Call)");
@@ -205,6 +220,11 @@ namespace Runeheir.Player
 
             var defender = target.BuildDefenderProfile();
             float power = skill.Power.At(level) * powerScale;
+            if (skill.WeightPowerPerThousand > 0f && caster is PlayerCharacter hauler)
+            {
+                // Cart Charge, Brokkr's Cart Crush: the load behind the blow.
+                power *= 1f + skill.WeightPowerPerThousand * hauler.CurrentWeight / 100000f;
+            }
             if (skill.BonusVsUndeadPercent > 0f && (defender.Race == Race.Undead || defender.Race == Race.Demon || defender.Element == Element.Undead))
             {
                 power *= 1f + skill.BonusVsUndeadPercent / 100f;
@@ -299,6 +319,52 @@ namespace Runeheir.Player
                 : StatFormulas.HealAmount(cast.Caster.Level, cast.Caster.Stats.Total.Int, cast.Skill.HealLevel.AtInt(cast.Level));
             receiver.Heal(amount);
             GroundRing.SpawnPulse(receiver.Position, new Color(0.45f, 1f, 0.55f, 1f), 0.2f, 1.2f, 0.5f);
+        }
+
+        private static void DoResurrect(SkillCast cast)
+        {
+            var fallen = cast.Target;
+            if (fallen == null || !fallen.IsDead || !(fallen is PlayerEntity))
+            {
+                ChatLog.Error("Choose a fallen ally.");
+                return;
+            }
+
+            // Ragnarok: 10% HP at Lv 1, then 30%, 50%, 80%.
+            float[] share = { 10f, 30f, 50f, 80f };
+            fallen.Resurrect(share[Mathf.Clamp(cast.Level, 1, share.Length) - 1]);
+            GroundRing.SpawnPulse(fallen.Position, new Color(1f, 0.97f, 0.8f, 1f), 0.2f, 2f, 0.7f);
+            WorldFeedback.Announce(fallen, "Return from Hel", new Color(1f, 0.97f, 0.8f));
+        }
+
+        /// <summary>Cut Purse: once per monster, DEX and LUK against its level, a handful of zeny that grows with its level.</summary>
+        private static void DoStealCoin(SkillCast cast)
+        {
+            if (!(cast.Target is Monster monster) || !IsValid(cast.Caster, monster) || !(cast.Caster is PlayerCharacter thief))
+            {
+                return;
+            }
+
+            if (monster.CoinsTaken)
+            {
+                WorldFeedback.Announce(monster, "Empty purse", new Color(0.75f, 0.75f, 0.75f));
+                return;
+            }
+
+            var stats = thief.Stats.Total;
+            float chance = Mathf.Clamp(cast.Level * 4f + stats.Dex * 0.3f + stats.Luk * 0.2f - monster.Level * 0.25f, 5f, 95f);
+            if (Random.value * 100f >= chance)
+            {
+                WorldFeedback.Announce(monster, "Missed the purse", new Color(0.75f, 0.75f, 0.75f));
+                return;
+            }
+
+            monster.CoinsTaken = true;
+            int zeny = Mathf.Max(1, Mathf.RoundToInt(monster.Level * Random.Range(8f, 16f) * (1f + cast.Level * 0.1f)));
+            thief.Record.Zeny += zeny;
+            thief.Inventory.NotifyChanged();
+            WorldFeedback.Announce(monster, $"+{zeny:N0} z", new Color(1f, 0.85f, 0.3f));
+            ChatLog.Loot($"You cut {zeny:N0} zeny from {monster.DisplayName}'s purse.");
         }
 
         private static void DoCleanse(SkillCast cast)
@@ -475,7 +541,7 @@ namespace Runeheir.Player
                 receiver.Heal(receiver.MaxHp, showNumber: false);
             }
 
-            if (cast.Skill.Special != SkillSpecial.Zone)
+            if (cast.Skill.Special != SkillSpecial.Zone && cast.Skill.Special != SkillSpecial.Performance)
             {
                 GroundRing.SpawnPulse(receiver.Position, RuntimeMaterials.Hex(buff.IconColorHex), 0.3f, 1.4f, 0.6f, 0.12f);
             }
@@ -486,6 +552,18 @@ namespace Runeheir.Player
             var debuff = BuffCatalog.Get(cast.Skill.DebuffId);
             if (debuff == null || enemy == null || enemy.IsDead)
             {
+                return;
+            }
+
+            // Strips and charms roll; most debuffs always land.
+            float chance = cast.Skill.DebuffChance.At(cast.Level);
+            if (chance > 0f && Random.value * 100f >= chance)
+            {
+                if (cast.Skill.Special != SkillSpecial.Performance)
+                {
+                    WorldFeedback.Announce(enemy, "Failed", new Color(0.75f, 0.75f, 0.75f));
+                }
+
                 return;
             }
 
