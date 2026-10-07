@@ -39,6 +39,9 @@ namespace Runeheir.Net
         /// <summary>Their open street stall, as the realm lists it.</summary>
         public VendingStall Stall;
 
+        /// <summary>Where the stall was set up: walking away from it closes it.</summary>
+        public Vector3 StallSpot;
+
         public bool IsLocal => Connection is LocalConnectionToClient;
 
         /// <summary>The connection is going away: nothing more is sent to it.</summary>

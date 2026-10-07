@@ -38,6 +38,7 @@ namespace Runeheir.Player
         private Camera _camera;
         private bool _holdingMove;
         private float _nextHoldRepath;
+        private float _nextVendingHint;
         private GroundRing _clickMarker;
         private GroundRing _targetRing;
         private GroundRing _hoverRing;
@@ -167,6 +168,11 @@ namespace Runeheir.Player
                 return;
             }
 
+            if (RefuseWhileVending())
+            {
+                return;
+            }
+
             _attacker.Disengage();
             _caster.CancelApproach();
             if (_motor.MoveTo(HoveredGround.Value))
@@ -188,10 +194,34 @@ namespace Runeheir.Player
             _pendingNpc = npc;
             if (npc.EdgeDistanceTo(_player) > NpcActor.TalkRange)
             {
+                if (RefuseWhileVending())
+                {
+                    _pendingNpc = null;
+                    return;
+                }
+
                 _motor.MoveTo(npc.Position);
             }
 
             UpdatePendingNpc();
+        }
+
+        /// <summary>A vendor minds their stall (Ragnarok): no walking until it's closed.</summary>
+        private bool RefuseWhileVending()
+        {
+            if (Online.OnlineSession.Current?.Social?.State?.MyStall == null)
+            {
+                return false;
+            }
+
+            _holdingMove = false;
+            if (Time.time >= _nextVendingHint)
+            {
+                _nextVendingHint = Time.time + 3f;
+                Session.ChatLog.System("You're minding your stall: press V and close it to walk again.");
+            }
+
+            return true;
         }
 
         private void UpdatePendingNpc()

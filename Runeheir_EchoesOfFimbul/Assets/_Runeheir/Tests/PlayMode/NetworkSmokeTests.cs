@@ -168,6 +168,7 @@ namespace Runeheir.Tests
 
             // --- A street stall: the goods go to the cart hold while it's open and come back when it closes.
             player.Record.Zeny = 10000;
+            player.Record.BaseLevel = Mathf.Max(player.Record.BaseLevel, PushcartRules.MinBaseLevel);
             Assert.IsTrue(PushcartRules.TryRent(player.Record, out string rentMessage), rentMessage);
             player.Recalculate();
             player.Inventory.Add(ItemCatalog.LingonberryTonic, 20);

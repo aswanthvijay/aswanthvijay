@@ -213,7 +213,7 @@ Items: Lingonberry Tonic, Honey Mead, Aether Sap Vial, **Uruz / Tiwaz / Sowilo r
 | Screen | XileRO-style behaviour |
 |---|---|
 | Login | ID + password, **Save ID**, Register, Exit. Enter = login, Tab = switch field. |
-| Realm | **Vigrid Haven** (offline, this PC) and **Asgard** (greyed out until Mirror in Phase 6). |
+| Realm | Offline: **Vigrid Haven** (this PC). Online (Phase 6): the realm you hosted or joined, with its message of the day. Hosting and joining happen on the realm screen before login ([Phase 6 guide](Phase6_Guide.md)). |
 | Character select | 9 slots (3×3); stat sheet (Base/Job Lv, EXP %, map, STR..LUK); rotating 3D preview; Start / Create / Delete / Logout. Arrows move, Enter starts, Del deletes (you must type the character name). |
 | Character create | Name (4–23 characters: letters, numbers and single spaces; unique across all accounts, ignoring case), gender, 8 hair styles, 9 hair colors, live preview. You start as an Initiate in Whisperwood Plains. |
 
@@ -222,7 +222,7 @@ Menu **Runeheir ▸ Debug ▸ Reveal / Delete Local Account Database** to inspec
 
 **Crash safety:** each save writes `.tmp` and then swaps it in, keeping the previous file as `.bak`. A damaged file is kept as `.corrupt-…` and the game recovers from `.tmp` or `.bak`. If the file can't be read (locked by another program, no permission), or another game window changed it, the game won't overwrite it: saves fail with a message in chat (once per error), on the login screen and in the Console, and `@save` only confirms a save that really landed. A failed save is rolled back in the stored data, so character select always shows what is on disk; the character you are playing keeps its unsaved progress until you leave the field.
 
-**Going online (Phase 6):** the screens only talk to `IAccountService`. Implement it over Mirror or HTTP and assign `GameSession.Instance.Accounts = new YourService()` before the login screen opens. The screens are ready for slow replies: each one locks its controls while a request is in flight and ignores replies that arrive after you've moved on. Returning to character select waits for the save before reloading the list, and saves send a snapshot of the character. The quit-time save is best-effort: a network service should also save on a timer, as the autosave already does. `AccountStore` (in Core) holds the login/char-server rules and can run on the server unchanged.
+**Going online (Phase 6, done):** the screens only talk to `IAccountService`; online, `NetworkAccountService` (in `Scripts/Net`) talks to the realm over Mirror, and the realm keeps the accounts with the same `LocalAccountService` rules in `realm_accounts.json`. The screens are ready for slow replies: each one locks its controls while a request is in flight and ignores replies that arrive after you've moved on. Returning to character select waits for the save before reloading the list, and saves send a snapshot of the character. The quit-time save is best-effort: a network service should also save on a timer, as the autosave already does. `AccountStore` (in Core) holds the login/char-server rules and can run on the server unchanged.
 
 ---
 
@@ -314,6 +314,10 @@ To turn on the Unity jobs, add these repository secrets (GitHub → **Settings �
 
 Until then those jobs show as skipped, with a notice explaining why.
 
+The test job pins `game-ci/unity-test-runner@v4.3.2`. From v4.4.0, GameCI's runner can't activate Personal `.ulf` licences: the job stops at "TimeStamp validation failed" before any test runs. Keep the pin until GameCI fixes that.
+
+**Realm servers:** **Runeheir ▸ Build ▸ Linux / Windows Realm Server (headless)**, or add `-realmServer` to the command-line build ([Phase 6 guide §4](Phase6_Guide.md#4-dedicated-realm-server)).
+
 ---
 
 ## 12. Troubleshooting
@@ -345,4 +349,5 @@ These numbers weren't fixed by the GDD, so I picked Ragnarok-style defaults. Eac
 - **Phase 2 Step 5 polish:** smoothed-normal outline bake for imported Blender models; optional Shader Graph port for artists.
 - **Phase 3 (done):** skill trees, 105 skills, statuses, poise/stagger and the animator builder. See [Phase3_Guide.md](Phase3_Guide.md).
 - **Phase 4 (done):** the 10-slot paperdoll, 87 items, 35 Soul Cards, refining to +20, runewords, shops and storage. See [Phase4_Guide.md](Phase4_Guide.md).
-- **Phase 6:** Mirror server authority (move `DamageCalculator` / `AccountStore` calls server-side) and a networked `IAccountService`.
+- **Phase 5 (done):** the 14 maps, the bestiary, monster skills, bosses and MVPs. See [Phase5_Guide.md](Phase5_Guide.md).
+- **Phase 6 (done):** Mirror multiplayer (host, join, dedicated realm servers), chat, parties with Even Share, guilds, trades, the Pushcart and street stalls. See [Phase6_Guide.md](Phase6_Guide.md).

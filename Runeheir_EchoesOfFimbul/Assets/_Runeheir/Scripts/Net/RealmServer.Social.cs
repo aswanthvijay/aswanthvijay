@@ -107,7 +107,10 @@ namespace Runeheir.Net
             }
         }
 
-        /// <summary>Once a second: party members' HP, levels and maps; trades that drifted apart.</summary>
+        /// <summary>Vendors stay put (Ragnarok): a stall closes if its owner leaves the spot it was set up on.</summary>
+        private const float StallDrift = 1.5f;
+
+        /// <summary>Once a second: party members' HP, levels and maps; stalls left behind; trades that drifted apart.</summary>
         private void RefreshSocial()
         {
             foreach (var party in new List<PartyInfo>(_parties.All))
@@ -135,6 +138,15 @@ namespace Runeheir.Net
                 if (!_partyJson.TryGetValue(party.Id, out string last) || last != json)
                 {
                     PushParty(party);
+                }
+            }
+
+            foreach (var session in _sessions.Values)
+            {
+                if (session.Stall != null && session.Entity != null
+                    && CombatEntity.HorizontalDistance(session.Entity.Position, session.StallSpot) > StallDrift)
+                {
+                    CloseStall(session, "Your stall closed: you left its spot.");
                 }
             }
 
@@ -846,6 +858,7 @@ namespace Runeheir.Net
 
             stall.Owner = session.CharacterName;
             session.Stall = stall;
+            session.StallSpot = entity.Position;
             session.Connection.Send(new SocialUpdate { Kind = SocialEvent.StallOpened, Json = Json.Write(stall) });
         }
 
@@ -880,7 +893,7 @@ namespace Runeheir.Net
             return null;
         }
 
-        private void CloseStall(RealmSession session)
+        private void CloseStall(RealmSession session, string reason = "Your stall is closed.")
         {
             if (session?.Stall == null)
             {
@@ -897,7 +910,7 @@ namespace Runeheir.Net
                 }
             }
 
-            Send(session, new SocialUpdate { Kind = SocialEvent.StallClosed, Text = "Your stall is closed." });
+            Send(session, new SocialUpdate { Kind = SocialEvent.StallClosed, Text = reason });
         }
 
         private void VendBrowse(RealmSession session, string owner)

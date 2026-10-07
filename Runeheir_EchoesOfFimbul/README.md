@@ -1,13 +1,13 @@
 # RUNEHEIR: Echoes of Fimbul
 
-2.5D isometric Norse action MMORPG (Unity 6.3 LTS · URP 17.3 · C# · Mirror later), inspired by the high-rate XileRO / Ragnarok Online loop.
+2.5D isometric Norse action MMORPG (Unity 6.3 LTS · URP 17.3 · C# · Mirror), inspired by the high-rate XileRO / Ragnarok Online loop.
 
 [![Unity CI](https://github.com/aswanthvijay/aswanthvijay/actions/workflows/unity-ci.yml/badge.svg?branch=claude/runeheir-core-mechanics-piezc9)](https://github.com/aswanthvijay/aswanthvijay/actions/workflows/unity-ci.yml)
 
-This folder is the Unity project. Guides: **[Phase 2 — Core Mechanics & Isometric Prototype](Docs/Phase2_SetupGuide.md)** (setup, controls, stat engine) **[Phase 3 — Combat, Skills & Animation](Docs/Phase3_Guide.md)** (skill trees, all skills, statuses, poise, animator), **[Phase 4 — Loot, Inventory & Card Compounding](Docs/Phase4_Guide.md)** (gear, cards, refining, runewords, shops, storage, every item) and **[Phase 5 — World Maps & Monster AI](Docs/Phase5_Guide.md)** (the 14 maps, travel, the bestiary, monster skills, bosses and MVPs).
+This folder is the Unity project. Guides: **[Phase 2 — Core Mechanics & Isometric Prototype](Docs/Phase2_SetupGuide.md)** (setup, controls, stat engine) **[Phase 3 — Combat, Skills & Animation](Docs/Phase3_Guide.md)** (skill trees, all skills, statuses, poise, animator), **[Phase 4 — Loot, Inventory & Card Compounding](Docs/Phase4_Guide.md)** (gear, cards, refining, runewords, shops, storage, every item), **[Phase 5 — World Maps & Monster AI](Docs/Phase5_Guide.md)** (the 14 maps, travel, the bestiary, monster skills, bosses and MVPs) and **[Phase 6 — Multiplayer, Vending & the Alpha](Docs/Phase6_Guide.md)** (hosting, joining, dedicated servers, chat, parties, guilds, trades, street stalls).
 
 ## What's playable
-- **Login → Realm → Character Select (9 slots, 3D preview) → Character Create** (offline accounts, PBKDF2-hashed passwords)
+- **Realm screen → Login → Character Select (9 slots, 3D preview) → Character Create** (offline accounts, PBKDF2-hashed passwords)
 - **2.5D isometric camera:** Pitch −45°, Yaw 45°, smooth follow, wheel zoom, right-drag rotate
 - **NavMesh click-to-move**, hold-to-walk, and **click-to-attack** auto-attack loop
 - **Stat engine:** STR..LUK up to 255, **Base Lv 255 / Job Lv 120**, GDD §4 formulas, **150 DEX instant cast**, **ASPD 150–197 → attack animation 1.0x–3.0x**
@@ -19,6 +19,8 @@ This folder is the Unity project. Guides: **[Phase 2 — Core Mechanics & Isomet
 - **Loot and gear (Phase 4):** 87 base items on a 10-slot paperdoll (Q), 35 Soul Cards compounded into 1–4 sockets, refining to +20 with safe limits, Rune of Preservation and shattering, Runic Fuller runewords, card extraction, worn gear drawn on the model (headgear, shields, capes, animated wings)
 - **The world (Phase 5):** 14 generated maps in one scene: Vigrid Haven, four fields from Lv 1 to 255, the Catacombs of Helheim (B1–B4), the Sunken Fjord Caverns (1–3), the Hall of Branches and Lyngvi. Warp portals, a minimap (Ctrl+Tab), save points, cross-map revival and paid courier teleports
 - **Monster AI (Phase 5):** 35 card monsters with skills (strikes, bolts, telegraphed areas, leaps, buffs, heals, summons, blinks), cast bars, stagger interrupts, pack assist; 4 mini-bosses and 3 MVPs with phases, MVP rewards, tombstones and respawn timers; weapon break and repair
+- **Multiplayer (Phase 6, Mirror):** Play Offline, **Host** a realm on your PC or **Join** one by address, or run a headless **realm server**. Everyone shares the 14 maps and fights the same realm-run monsters and bosses
+- **Social (Phase 6):** map / party (`%`) / guild (`$`) / shout / whisper chat; **parties** of 12 with **Even Share** EXP within a 30-level gap (Z); **guilds** with ranks and a notice (G); **player trades**; the **Merchant Pushcart** (+8,000 weight) and **street stalls** in Vigrid Haven (V)
 - **Town services:** Ásta's Trading Post, Hrafn's Armory, Brokk's Dwarven Forge (refine, carve, extract, repair), Norn Couriers (storage, save point, teleport), Sigrun's job change, the Branch Warden
 - Combat runestones, job change (with a job weapon gift), loot tables and cards for every monster, Dead/Blood Branches, training dummies with a DPS meter, RO-style `@commands` (`@warp`, `@bosses`...)
 
@@ -30,17 +32,19 @@ This folder is the Unity project. Guides: **[Phase 2 — Core Mechanics & Isomet
 ## Layout
 ```
 Assets/_Runeheir/
-  Scripts/Core/      Pure C# rules (no UnityEngine): stats, ASPD, EXP, jobs, damage, skills, items, equipment, cards, refining, trade, maps and layouts, bestiary, monster skills, boss timers, hotkeys, accounts
+  Scripts/Core/      Pure C# rules (no UnityEngine): stats, ASPD, EXP, jobs, damage, skills, items, equipment, cards, refining, trade, maps and layouts, bestiary, monster skills, boss timers, hotkeys, accounts, parties, guilds, trades, vending, chat, realm settings
+  Scripts/Net/       Mirror networking (Runeheir.Net): realm server and client, host/join/dedicated launcher, networked players and monsters, chat, parties, guilds, trades, stalls
   Scripts/Runtime/   Unity layer: world builder, portals, camera rig, NavMesh movement, combat and monster AI, skills, NPCs, HUD (inventory, equipment, shop, forge, storage, minimap), login/char select
   Scripts/Editor/    "Runeheir" menu: scene generator, animator builder, settings asset, player builds, debug tools
   Resources/         RuneheirToon.shader (URP cel shader + ink outline)
-  Tests/EditMode/    146 Core rule tests
+  Tests/EditMode/    166 Core rule tests
   Tests/Editor/      Scene generator, every map's NavMesh, shader import and animator builder tests
-  Tests/PlayMode/    Smoke tests: walk, fight, cast, hotkeys, death/respawn, gear, cards, NPCs, branches, storage, login screens, generated maps, boss fights
+  Tests/PlayMode/    Smoke tests: walk, fight, cast, hotkeys, death/respawn, gear, cards, NPCs, branches, storage, login screens, generated maps, boss fights, a hosted realm (login, monsters, chat, party, stall)
+Assets/Mirror/      Mirror networking (MIT), vendored
 Assets/Settings/     URP assets (from the Unity 6.3 Universal 3D template)
 Packages/, ProjectSettings/
 Tools/CoreTests/     Run the Core tests without Unity: dotnet test Tools/CoreTests/Tests
-Docs/Phase2_SetupGuide.md, Docs/Phase3_Guide.md, Docs/Phase4_Guide.md, Docs/Phase5_Guide.md
+Docs/Phase2_SetupGuide.md … Docs/Phase6_Guide.md
 ```
 
 ## CI

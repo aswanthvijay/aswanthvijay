@@ -30,9 +30,6 @@ namespace Runeheir.Social
         public float DropRate = 5f;
         public float CardDropRate = 1f;
 
-        /// <summary>Seconds between the server's own saves of guilds and boss timers.</summary>
-        public int SaveSeconds = 120;
-
         public void Sanitize()
         {
             Name = ChatRules.Sanitize(string.IsNullOrWhiteSpace(Name) ? "Runeheir Alpha" : Name, MaxNameLength);
@@ -43,7 +40,6 @@ namespace Runeheir.Social
             JobExpRate = Clamp(JobExpRate, 0f, 1000f);
             DropRate = Clamp(DropRate, 0f, 100f);
             CardDropRate = Clamp(CardDropRate, 0f, 100f);
-            SaveSeconds = Math.Max(10, Math.Min(3600, SaveSeconds));
         }
 
         public ServerRates Rates()
