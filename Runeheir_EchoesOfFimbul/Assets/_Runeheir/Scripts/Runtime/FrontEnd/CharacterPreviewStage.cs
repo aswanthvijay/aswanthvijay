@@ -47,8 +47,18 @@ namespace Runeheir.FrontEnd
             _yaw = 0f;
         }
 
+        /// <summary>No GPU (a realm server, or CI with -nographics): render textures can't be made and drawing into one crashes.</summary>
+        private static bool CanRender => SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
+
         private void Build()
         {
+            _turntable = new GameObject("Turntable").transform;
+            _turntable.SetParent(transform, false);
+            if (!CanRender)
+            {
+                return; // the turntable still takes looks, there is just no picture of it
+            }
+
             _texture = new RenderTexture(512, 640, 24) { name = "RH_CharacterPreview", antiAliasing = 4 };
             _texture.Create();
 
@@ -92,9 +102,6 @@ namespace Runeheir.FrontEnd
             ring.transform.SetParent(transform, true);
             ring.ShowAt(transform.position);
             ring.SetSpin(20f);
-
-            _turntable = new GameObject("Turntable").transform;
-            _turntable.SetParent(transform, false);
         }
 
         private void Clear()

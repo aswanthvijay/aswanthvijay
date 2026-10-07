@@ -105,7 +105,9 @@ namespace Runeheir.Tests
             // --- Level up through the progression engine
             player.Progression.SetBaseLevel(99);
             Assert.AreEqual(99, player.Record.BaseLevel);
-            Assert.AreEqual(StatFormulas.MaxHp(99, player.Stats.Total.Vit), player.MaxHp);
+            Assert.IsTrue(player.Record.Reborn, "Einherjar is a transcendent job: only the reborn reach it");
+            Assert.AreEqual(Mathf.RoundToInt(StatFormulas.MaxHp(99, player.Stats.Total.Vit) * (1f + RebirthRules.HpSpBonusPercent / 100f)), player.MaxHp,
+                "reborn: +25% Max HP");
 
             // --- Death and respawn
             player.ReceiveDamage(DamageResult.Fixed(10000000), dummy, physicalMelee: false);

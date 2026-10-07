@@ -88,6 +88,10 @@ namespace Runeheir.Tests
             }
 
             Write($"end   {result.Test.FullName}: {result.ResultState} in {result.Duration:0.0} s");
+            if (result.ResultState.Status == NUnit.Framework.Interfaces.TestStatus.Failed)
+            {
+                Write($"FAILED {result.Test.Name}: {result.Message}\n{result.StackTrace}");
+            }
         }
 
         private static void Watch()
