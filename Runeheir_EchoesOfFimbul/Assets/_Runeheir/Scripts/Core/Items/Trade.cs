@@ -34,6 +34,7 @@ namespace Runeheir.Items
                         ItemCatalog.WindRuneShard, ItemCatalog.DeadBranch,
                         "cotton_tunic", "leather_jerkin", "buckler", "traveler_cloak", "sandals", "leather_boots", "bandana", "fur_cap",
                         "clip_ring", "hunters_bow", "iron_spear", "oak_wand", ItemCatalog.RustySeax, ItemCatalog.Seax, ItemCatalog.IronMace,
+                        "woodcutters_axe", "spark_rod", "bygul_staff",
                     },
                 }
             },
@@ -61,6 +62,7 @@ namespace Runeheir.Items
                     ItemIds = new[]
                     {
                         "iron_claymore", "steel_claymore", "chainmail", "mystic_robe", "kite_shield", "round_viking_shield", "bear_pelt",
+                        "bearded_axe", "willow_lyre", "leather_lash", "rune_primer", "thunder_carbine", "iron_huuma", "trjegul_staff",
                         "feathered_beret", "iron_helm", "eyepatch", "viking_pipe", "braided_beard",
                         "rune_ring", "wolf_tooth_necklace", "raven_brooch", "ward_amulet",
                     },

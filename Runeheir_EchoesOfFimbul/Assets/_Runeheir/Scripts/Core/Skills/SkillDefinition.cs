@@ -74,6 +74,34 @@ namespace Runeheir.Skills
 
         /// <summary>Consumes Spirit Spheres: one hit per sphere, up to the skill level.</summary>
         SpiritRelease = 8,
+
+        /// <summary>
+        /// Phase 7 songs and dances: an aura that moves with the performer for <c>ZoneDuration</c>. Every <c>ZoneTick</c> it
+        /// gives allies within <c>Radius</c> the skill's <c>BuffId</c> (a song), and gives enemies its <c>DebuffId</c> and its
+        /// damage (a dance or Dissonance). The performer moves at half speed and can't start another performance.
+        /// </summary>
+        Performance = 9,
+
+        /// <summary>Brings a fallen friendly player back with a share of their HP (Return from Hel).</summary>
+        Resurrect = 10,
+
+        /// <summary>Once per monster: a roll (DEX and LUK against its level) for a handful of its zeny (Cut Purse).</summary>
+        StealCoin = 11,
+
+        /// <summary>Opens a crafting window instead of acting in the world (Rune Forging, Brewing). See <see cref="SkillDefinition.Craft"/>.</summary>
+        Craft = 12,
+    }
+
+    /// <summary>What a <see cref="SkillSpecial.Craft"/> skill makes.</summary>
+    public enum CraftKind
+    {
+        None = 0,
+
+        /// <summary>Runesmith weapon forging.</summary>
+        Forge = 1,
+
+        /// <summary>Brewmaster potions and bombs.</summary>
+        Brew = 2,
     }
 
     /// <summary>Which animation the caster plays (the bridge maps it to an Animator state or placeholder motion).</summary>
@@ -194,6 +222,24 @@ namespace Runeheir.Skills
         /// <summary>Spirit Spheres needed (and consumed) to use the skill.</summary>
         public int SphereCost;
 
+        /// <summary>The stacking buff <see cref="SphereCost"/> spends, when it isn't Spirit Spheres (the Thunderer's coins).</summary>
+        public string SphereBuffId;
+
+        /// <summary>The buff <see cref="SphereCost"/> and <see cref="SkillSpecial.SpiritRelease"/> use.</summary>
+        public string SphereResource => SphereBuffId ?? SkillBuffs.SpiritSpheres;
+
+        /// <summary>Zeny paid per use (Gold-Strike, Hurl Gold, Cart Termination). The skill fails without it.</summary>
+        public LevelValue ZenyCost;
+
+        /// <summary>Needs a Pushcart (Cart Charge, Cart Termination).</summary>
+        public bool RequiresPushcart;
+
+        /// <summary>Extra damage percent per 1,000 weight the character carries (the cart's load behind a cart skill).</summary>
+        public float WeightPowerPerThousand;
+
+        /// <summary>What a <see cref="SkillSpecial.Craft"/> skill makes.</summary>
+        public CraftKind Craft;
+
         /// <summary>Base variable cast time in seconds, scaled by DEX (150 DEX = instant).</summary>
         public LevelValue CastTime;
 
@@ -232,6 +278,9 @@ namespace Runeheir.Skills
         public string DebuffId;
 
         public LevelValue DebuffDuration;
+
+        /// <summary>Percent chance the debuff lands (0 = always). Strips roll against the target's DEX in Ragnarok; here, a flat chance.</summary>
+        public LevelValue DebuffChance;
 
         /// <summary>Flat heal (First Aid); Base Level is added.</summary>
         public LevelValue FlatHeal;

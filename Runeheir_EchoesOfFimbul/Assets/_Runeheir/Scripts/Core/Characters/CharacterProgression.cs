@@ -14,7 +14,8 @@ namespace Runeheir.Characters
 
     /// <summary>
     /// The Base 255 / Job 120 progression engine: EXP, level-ups, status points, stat raising,
-    /// job changes. Mutates a <see cref="CharacterRecord"/> in place and raises events for UI.
+    /// job changes and rebirth. Mutates a <see cref="CharacterRecord"/> in place and raises events for UI.
+    /// Base levels stop at 99 until the character is reborn (or on an expanded job), see <see cref="RebirthRules"/>.
     /// </summary>
     public sealed class CharacterProgression
     {
@@ -39,7 +40,13 @@ namespace Runeheir.Characters
 
         public JobInfo Job => JobDatabase.Get(Record.Job);
 
-        public bool IsMaxBaseLevel => Record.BaseLevel >= StatFormulas.MaxBaseLevel;
+        public bool IsMaxBaseLevel => Record.BaseLevel >= BaseLevelCap;
+
+        /// <summary>99 before rebirth, 255 after it (and on expanded jobs).</summary>
+        public int BaseLevelCap => RebirthRules.BaseLevelCap(Record);
+
+        /// <summary>The job's name as shown ("High Warrior" when reborn).</summary>
+        public string JobName => JobDatabase.NameFor(Record);
 
         public bool IsMaxJobLevel => Record.JobLevel >= Job.MaxJobLevel;
 
@@ -185,7 +192,8 @@ namespace Runeheir.Characters
         /// <summary>Points available = points earned by this level - points spent on current stats (never below 0).</summary>
         public void RecalculateStatPoints()
         {
-            int available = StatFormulas.TotalStatPointsAtLevel(Record.BaseLevel) - StatFormulas.SpentStatPoints(Record.Stats);
+            int earned = StatFormulas.TotalStatPointsAtLevel(Record.BaseLevel) + (Record.Reborn ? RebirthRules.BonusStatPoints : 0);
+            int available = earned - StatFormulas.SpentStatPoints(Record.Stats);
             Record.StatPoints = Math.Max(0, available);
         }
 
@@ -231,7 +239,7 @@ namespace Runeheir.Characters
         // ------------------------------------------------------------ jobs
         public bool TryChangeJob(JobId target, out string reason)
         {
-            if (!JobDatabase.CanChangeJob(Record.Job, Record.JobLevel, target, out reason))
+            if (!JobDatabase.CanChangeJob(Record, target, out reason))
             {
                 return false;
             }
@@ -247,15 +255,42 @@ namespace Runeheir.Characters
             return true;
         }
 
-        /// <summary>GM/debug job change (no requirements). Job level resets to 1.</summary>
+        /// <summary>
+        /// GM/debug job change (no requirements). Job level resets to 1. A transcendent job makes the character reborn along
+        /// that job's path; Freyja's Kin makes it Doram.
+        /// </summary>
         public void ForceChangeJob(JobId target)
         {
+            var job = JobDatabase.Get(target);
             Record.Job = target;
+            if (job.IsTranscendent)
+            {
+                Record.Reborn = true;
+                Record.RebirthPath = job.Parent;
+            }
+
+            RebirthRules.Sanitize(Record);
+            Record.Race = target == JobId.FreyjasKin ? CharacterRace.Doram : CharacterRace.Human;
+            RecalculateStatPoints();
             Record.JobLevel = 1;
             Record.JobExp = 0;
             JobChanged?.Invoke();
             StatsChanged?.Invoke();
             ExpChanged?.Invoke();
+        }
+
+        /// <summary>Rebirth at Urðr's Well (see <see cref="RebirthRules.TryRebirth"/>).</summary>
+        public bool TryRebirth(out string reason)
+        {
+            if (!RebirthRules.TryRebirth(Record, out reason))
+            {
+                return false;
+            }
+
+            JobChanged?.Invoke();
+            StatsChanged?.Invoke();
+            ExpChanged?.Invoke();
+            return true;
         }
 
         private static float Percent(long value, long max)

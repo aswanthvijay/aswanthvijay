@@ -14,6 +14,28 @@ namespace Runeheir.Combat
         Bow = 7,
         Knuckle = 8,
         Katar = 9,
+
+        // Phase 7: the full roster's weapons.
+        Axe = 10,
+        TwoHandAxe = 11,
+
+        /// <summary>Skald lyres and harps.</summary>
+        Instrument = 12,
+
+        /// <summary>Seidkona lashes.</summary>
+        Whip = 13,
+
+        /// <summary>Rune tomes (Sage and Gothi lines).</summary>
+        Book = 14,
+
+        /// <summary>Thunderer firearms: rods that throw lightning-driven shot.</summary>
+        ThunderRod = 15,
+
+        /// <summary>Nightraider great shuriken.</summary>
+        Huuma = 16,
+
+        /// <summary>Freyja's Kin staves.</summary>
+        CatStaff = 17,
     }
 
     /// <summary>A set of weapon types (skill requirements, weapon-specific passives). None = any weapon.</summary>
@@ -31,10 +53,21 @@ namespace Runeheir.Combat
         Bow = 1 << (int)WeaponType.Bow,
         Knuckle = 1 << (int)WeaponType.Knuckle,
         Katar = 1 << (int)WeaponType.Katar,
+        Axe = 1 << (int)WeaponType.Axe,
+        TwoHandAxe = 1 << (int)WeaponType.TwoHandAxe,
+        Instrument = 1 << (int)WeaponType.Instrument,
+        Whip = 1 << (int)WeaponType.Whip,
+        Book = 1 << (int)WeaponType.Book,
+        ThunderRod = 1 << (int)WeaponType.ThunderRod,
+        Huuma = 1 << (int)WeaponType.Huuma,
+        CatStaff = 1 << (int)WeaponType.CatStaff,
 
         Swords = OneHandSword | TwoHandSword,
+        Axes = Axe | TwoHandAxe,
         Blades = Dagger | Katar | OneHandSword,
-        AnyMelee = Unarmed | Dagger | OneHandSword | TwoHandSword | Spear | Mace | Staff | Knuckle | Katar,
+        AnyMelee = Unarmed | Dagger | OneHandSword | TwoHandSword | Spear | Mace | Staff | Knuckle | Katar | Axe | TwoHandAxe | Instrument | Whip
+                   | Book | Huuma | CatStaff,
+        Ranged = Bow | ThunderRod,
     }
 
     public static class WeaponMasks
@@ -117,6 +150,16 @@ namespace Runeheir.Combat
                 case WeaponType.Spear: return 150f;
                 case WeaponType.TwoHandSword: return 150f;
                 case WeaponType.Staff: return 150f;
+                case WeaponType.ThunderRod: return 153f;
+                case WeaponType.Instrument:
+                case WeaponType.Whip:
+                case WeaponType.Book:
+                case WeaponType.CatStaff:
+                    return 152f;
+                case WeaponType.Axe: return 151f;
+                case WeaponType.TwoHandAxe:
+                case WeaponType.Huuma:
+                    return 150f;
                 default: return 150f;
             }
         }
@@ -135,6 +178,14 @@ namespace Runeheir.Combat
                 case WeaponType.Bow: return "Bow";
                 case WeaponType.Knuckle: return "Knuckles";
                 case WeaponType.Katar: return "Katar";
+                case WeaponType.Axe: return "Axe";
+                case WeaponType.TwoHandAxe: return "Great Axe";
+                case WeaponType.Instrument: return "Instrument";
+                case WeaponType.Whip: return "Whip";
+                case WeaponType.Book: return "Rune Tome";
+                case WeaponType.ThunderRod: return "Thunder-Rod";
+                case WeaponType.Huuma: return "Huuma Shuriken";
+                case WeaponType.CatStaff: return "Cat Staff";
                 default: return type.ToString();
             }
         }
@@ -144,7 +195,12 @@ namespace Runeheir.Combat
         {
             switch (type)
             {
+                case WeaponType.TwoHandAxe: return 24f;
                 case WeaponType.TwoHandSword: return 22f;
+                case WeaponType.Axe: return 16f;
+                case WeaponType.Huuma: return 14f;
+                case WeaponType.Book: return 10f;
+                case WeaponType.ThunderRod: return 7f;
                 case WeaponType.Mace: return 18f;
                 case WeaponType.Spear: return 16f;
                 case WeaponType.Knuckle: return 14f;
@@ -161,11 +217,21 @@ namespace Runeheir.Combat
             switch (type)
             {
                 case WeaponType.Bow: return 9f;
+                case WeaponType.ThunderRod: return 8f;
                 case WeaponType.Spear: return 2.2f;
-                case WeaponType.TwoHandSword: return 1.3f;
+                case WeaponType.Instrument:
+                case WeaponType.Whip:
+                    return 2f;
+                case WeaponType.Huuma: return 1.6f;
+                case WeaponType.TwoHandSword:
+                case WeaponType.TwoHandAxe:
+                    return 1.3f;
                 case WeaponType.OneHandSword:
                 case WeaponType.Mace:
                 case WeaponType.Staff:
+                case WeaponType.Axe:
+                case WeaponType.Book:
+                case WeaponType.CatStaff:
                     return 1.1f;
                 default:
                     return 0.9f;
@@ -174,13 +240,14 @@ namespace Runeheir.Combat
 
         public static bool IsRanged(WeaponType type)
         {
-            return type == WeaponType.Bow;
+            return type == WeaponType.Bow || type == WeaponType.ThunderRod;
         }
 
         /// <summary>Blunt weapons get the frozen-target bonus (GDD Glacial Tempest).</summary>
         public static bool IsBlunt(WeaponType type)
         {
-            return type == WeaponType.Unarmed || type == WeaponType.Mace || type == WeaponType.Staff || type == WeaponType.Knuckle;
+            return type == WeaponType.Unarmed || type == WeaponType.Mace || type == WeaponType.Staff || type == WeaponType.Knuckle
+                   || type == WeaponType.Book || type == WeaponType.CatStaff;
         }
 
         /// <summary>Classic size modifier table (percent of weapon ATK applied).</summary>
@@ -196,6 +263,13 @@ namespace Runeheir.Combat
                 case WeaponType.Bow: return Pick(size, 100, 100, 75);
                 case WeaponType.Knuckle: return Pick(size, 100, 75, 50);
                 case WeaponType.Katar: return Pick(size, 75, 100, 75);
+                case WeaponType.Axe:
+                case WeaponType.TwoHandAxe:
+                    return Pick(size, 50, 75, 100);
+                case WeaponType.Instrument: return Pick(size, 75, 100, 75);
+                case WeaponType.Whip: return Pick(size, 75, 100, 50);
+                case WeaponType.Book: return Pick(size, 100, 100, 50);
+                case WeaponType.Huuma: return Pick(size, 75, 75, 100);
                 default: return 100;
             }
         }

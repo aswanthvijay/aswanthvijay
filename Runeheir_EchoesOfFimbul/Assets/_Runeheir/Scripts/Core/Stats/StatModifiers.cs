@@ -126,6 +126,12 @@ namespace Runeheir.Stats
         /// <summary>Extra weight capacity (the Merchant Pushcart: +8,000).</summary>
         public int WeightCapacity;
 
+        /// <summary>Percent off NPC shop prices (the Trader's Haggle, Ragnarok's Discount).</summary>
+        public float BuyDiscountPercent;
+
+        /// <summary>Percent more from NPC shops when selling (the Trader's Silver Tongue, Ragnarok's Overcharge).</summary>
+        public float SellBonusPercent;
+
         public static StatModifiers Empty()
         {
             return new StatModifiers();
@@ -202,6 +208,8 @@ namespace Runeheir.Stats
             HpRegenFlat += Scale(other.HpRegenFlat, times);
             SpRegenFlat += Scale(other.SpRegenFlat, times);
             WeightCapacity += Scale(other.WeightCapacity, times);
+            BuyDiscountPercent += other.BuyDiscountPercent * times;
+            SellBonusPercent += other.SellBonusPercent * times;
             AttackRange += other.AttackRange * times;
             DamageTakenPercent += other.DamageTakenPercent * times;
             BlockChance += other.BlockChance * times;
@@ -247,6 +255,8 @@ namespace Runeheir.Stats
             CritPercent = CritDamagePercent = LifeStealPercent = SpStealPercent = CooldownPercent = 0f;
             ReflectMeleePercent = ReflectMagicPercent = DefBypassPercent = MdefBypassPercent = 0f;
             SpDrainOnHit = 0;
+            WeightCapacity = 0;
+            BuyDiscountPercent = SellBonusPercent = 0f;
         }
 
         public StatModifiers Clone()

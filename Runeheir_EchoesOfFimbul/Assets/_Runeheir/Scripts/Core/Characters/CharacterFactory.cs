@@ -1,5 +1,6 @@
 using Runeheir.Hotkeys;
 using Runeheir.Items;
+using Runeheir.Jobs;
 using Runeheir.Stats;
 using Runeheir.World;
 
@@ -11,9 +12,12 @@ namespace Runeheir.Characters
         public Gender Gender;
         public int HairStyle;
         public int HairColor;
+
+        /// <summary>Doram start as Freyja's Kin instead of Initiates (Phase 7).</summary>
+        public CharacterRace Race;
     }
 
-    /// <summary>Builds a brand-new Initiate (Novice) with starter items and default hotkeys.</summary>
+    /// <summary>Builds a brand-new Initiate (Novice), or one of Freyja's Kin, with starter items and default hotkeys.</summary>
     public static class CharacterFactory
     {
         public const int HairStyleCount = 8;
@@ -29,12 +33,18 @@ namespace Runeheir.Characters
                 Gender = request.Gender,
                 HairStyle = Wrap(request.HairStyle, HairStyleCount),
                 HairColor = Wrap(request.HairColor, HairColorCount),
+                Race = request.Race == CharacterRace.Doram ? CharacterRace.Doram : CharacterRace.Human,
                 StatPoints = StatFormulas.StartingStatPoints,
                 Zeny = StartingZeny,
                 MapId = MapCatalog.StartingMapId,
                 SaveMapId = MapCatalog.StartingMapId,
                 CreatedUnixMs = nowUnixMs,
             };
+
+            if (record.Race == CharacterRace.Doram)
+            {
+                record.Job = JobId.FreyjasKin;
+            }
 
             record.Inventory.Add(new ItemStack(ItemCatalog.LingonberryTonic, 30));
             record.Inventory.Add(new ItemStack(ItemCatalog.AetherSap, 10));
@@ -45,7 +55,7 @@ namespace Runeheir.Characters
             record.Inventory.Add(new ItemStack(ItemCatalog.RuneSowilo, 2));
 
             Skills.SkillBook.SanitizeSkills(record); // learns the granted skills (First Aid)
-            EquipmentSet.SanitizeEquipment(record); // equips the Rusty Seax
+            EquipmentSet.SanitizeEquipment(record); // equips the job's first weapon (the Rusty Seax, or Bygul's Staff)
             record.Inventory.Add(ItemStack.NewInstance(ItemCatalog.Get("cotton_tunic")));
             record.Inventory.Add(ItemStack.NewInstance(ItemCatalog.Get("sandals")));
             record.Hotkeys[0] = HotkeySlot.Skill(Skills.SkillCatalog.FirstAid);

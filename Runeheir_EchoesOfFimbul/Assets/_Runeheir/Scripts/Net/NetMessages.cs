@@ -236,6 +236,7 @@ namespace Runeheir.Net
         public int Gender;
         public int HairStyle;
         public int HairColor;
+        public int Race;
     }
 
     /// <summary>One side of a trade as it travels (JsonUtility needs a wrapper class).</summary>

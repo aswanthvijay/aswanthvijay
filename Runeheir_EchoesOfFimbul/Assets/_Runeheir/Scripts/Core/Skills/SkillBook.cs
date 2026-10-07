@@ -14,8 +14,8 @@ namespace Runeheir.Skills
     /// </summary>
     public sealed class SkillBook
     {
-        /// <summary>Save format of <see cref="CharacterRecord.Skills"/>.</summary>
-        public const int CurrentDataVersion = 1;
+        /// <summary>Save format of <see cref="CharacterRecord.Skills"/> (2: Phase 7 roster).</summary>
+        public const int CurrentDataVersion = 2;
 
         /// <summary>Initiates need Basic Training at this level before their first job change (Ragnarok Basic Skill 9).</summary>
         public const string BasicTrainingId = "basic_training";
@@ -224,12 +224,15 @@ namespace Runeheir.Skills
 
         /// <summary>
         /// Repairs the skill list (unknown ids, bad levels, duplicates), adds granted skills, and migrates
-        /// saves from before skill levels existed. Called by <see cref="CharacterRecord.Sanitize"/>.
+        /// saves from before skill levels existed. Skills the character's job can't use (the roster moved them to
+        /// another job, Phase 7) are forgotten and their points refunded. Called by <see cref="CharacterRecord.Sanitize"/>.
         /// </summary>
         public static void SanitizeSkills(CharacterRecord record)
         {
             var skills = record.Skills ?? new List<LearnedSkill>();
             var seen = new HashSet<string>();
+            int refunded = 0;
+            bool knownJob = JobDatabase.Exists(record.Job);
             for (int i = 0; i < skills.Count; i++)
             {
                 var learned = skills[i];
@@ -241,7 +244,15 @@ namespace Runeheir.Skills
                 }
 
                 learned.Level = Math.Min(learned.Level, skill.MaxLevel);
+                if (knownJob && !skill.Granted && !JobDatabase.IsSelfOrAncestor(skill.Job, record.Job))
+                {
+                    refunded += learned.Level;
+                    seen.Remove(learned.Id);
+                    skills.RemoveAt(i--);
+                }
             }
+
+            record.SkillPoints = Math.Max(0, record.SkillPoints) + refunded;
 
             foreach (var skill in SkillCatalog.All)
             {

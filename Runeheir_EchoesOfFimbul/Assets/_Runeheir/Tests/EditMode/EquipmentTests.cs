@@ -34,8 +34,8 @@ namespace Runeheir.Tests
         public void Catalog_Has87BaseItemsAnd35Cards()
         {
             var equipment = ItemCatalog.All.Where(i => i.IsEquipment).ToList();
-            Assert.AreEqual(87, equipment.Count, "GDD §5: 87 base items");
-            Assert.AreEqual(28, equipment.Count(i => i.IsWeapon), "28 base weapons");
+            Assert.AreEqual(87 + 29, equipment.Count, "GDD §5: 87 base items, plus the Phase 7 roster's 29 weapons");
+            Assert.AreEqual(28 + 29, equipment.Count(i => i.IsWeapon), "28 GDD weapons + 29 roster weapons");
             Assert.AreEqual(24, equipment.Count(i => i.EquipKind == EquipKind.Headgear), "24 headgears");
             Assert.AreEqual(4, equipment.Count(i => i.Name.EndsWith("Wings")), "4 animated wings");
             Assert.AreEqual(35, ItemCatalog.All.Count(i => i.IsCard), "GDD §6: 35 Soul Cards");
@@ -73,6 +73,12 @@ namespace Runeheir.Tests
         {
             foreach (var job in JobDatabase.All)
             {
+                if (job.StarterWeaponId == null)
+                {
+                    Assert.AreEqual(WeaponMask.Unarmed, job.AllowedWeapons, $"{job.Name} has no gift weapon, so it fights bare-handed");
+                    continue;
+                }
+
                 var weapon = ItemCatalog.Get(job.StarterWeaponId);
                 Assert.IsNotNull(weapon, job.Name);
                 Assert.IsTrue(weapon.IsWeapon, job.Name);
@@ -153,7 +159,7 @@ namespace Runeheir.Tests
             StringAssert.Contains("Base Level 40", reason);
             Assert.IsFalse(EquipmentSet.CanWear(initiate, ItemCatalog.Get("iron_claymore"), out reason), "Initiates can't wield greatswords");
             Assert.IsFalse(EquipmentSet.CanWear(NewRecord(JobId.Berserker, 120), ItemCatalog.Get("valkyrian_armor"), out reason));
-            StringAssert.Contains("Ascended", reason);
+            StringAssert.Contains("transcendent", reason);
             Assert.IsTrue(EquipmentSet.CanWear(NewRecord(JobId.Einherjar, 120), ItemCatalog.Get("valkyrian_armor"), out _));
             Assert.IsFalse(EquipmentSet.CanWear(NewRecord(JobId.Warrior, 99), ItemCatalog.Get("archmage_wizard_hat"), out _), "Mystic line only");
             Assert.IsTrue(EquipmentSet.CanWear(NewRecord(JobId.Archmage, 99), ItemCatalog.Get("archmage_wizard_hat"), out _));

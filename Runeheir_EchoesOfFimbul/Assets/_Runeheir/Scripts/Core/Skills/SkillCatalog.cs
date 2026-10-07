@@ -6,7 +6,8 @@ using Runeheir.Stats;
 namespace Runeheir.Skills
 {
     /// <summary>
-    /// Every skill of the 21 jobs (GDD §3), split by job line across the SkillCatalog.*.cs files.
+    /// Every skill of every job: the GDD's 21 jobs (§3) and, from Phase 7, Ragnarok's whole roster under Norse names, split
+    /// by job line across the SkillCatalog.*.cs files.
     /// One skill point per job level; most skills go to Lv 10, signature skills to Lv 5 or 10.
     /// The GDD signature skills keep their Phase 2 numbers at max level.
     /// </summary>
@@ -24,6 +25,10 @@ namespace Runeheir.Skills
             RegisterScoutLine();
             RegisterMysticLine();
             RegisterDevoteeLine();
+            RegisterHuntsmanLine();
+            RegisterTraderLine();
+            RegisterRosterAdditions();
+            RegisterExpandedJobs();
         }
 
         public static IReadOnlyList<SkillDefinition> All => Ordered;
@@ -39,7 +44,7 @@ namespace Runeheir.Skills
             var result = new List<SkillDefinition>();
             foreach (var skill in Ordered)
             {
-                if (!skill.Hidden && JobDatabase.IsSelfOrAncestor(skill.Job, job))
+                if (!skill.Hidden && (skill.Granted || JobDatabase.IsSelfOrAncestor(skill.Job, job)))
                 {
                     result.Add(skill);
                 }
@@ -63,11 +68,14 @@ namespace Runeheir.Skills
             return result;
         }
 
-        /// <summary>True when <paramref name="job"/>'s line includes the skill (learning is checked by <see cref="SkillBook"/>).</summary>
+        /// <summary>
+        /// True when <paramref name="job"/>'s line includes the skill (learning is checked by <see cref="SkillBook"/>).
+        /// Granted skills (First Aid) belong to everyone, Freyja's Kin included.
+        /// </summary>
         public static bool CanUse(JobId job, string skillId)
         {
             var skill = Get(skillId);
-            return skill != null && JobDatabase.IsSelfOrAncestor(skill.Job, job);
+            return skill != null && (skill.Granted || JobDatabase.IsSelfOrAncestor(skill.Job, job));
         }
 
         private static void Register(SkillDefinition skill)

@@ -4,7 +4,10 @@ using Runeheir.Stats;
 
 namespace Runeheir.Skills
 {
-    /// <summary>Devotee → Paladin → Templar, Devotee → Monk → Champion.</summary>
+    /// <summary>
+    /// Devotee → Gothi → High Gothi, Devotee → Monk → Champion, and the holy skills of the Guardian and Valkyrie (Ragnarok's
+    /// Crusader and Paladin). More Gothi skills live in SkillCatalog.Roster.
+    /// </summary>
     public static partial class SkillCatalog
     {
         public const string StormFistsCombo = "storm_fists_combo";
@@ -61,17 +64,17 @@ namespace Runeheir.Skills
                 Range = 9f, SpCost = 15,
             });
 
-            // ---------------------------------------------------------------- Paladin
+            // ---------------------------------------------------------------- Guardian and Valkyrie (Ragnarok's Crusader and Paladin: Phase 7 moved these here)
             Register(new SkillDefinition
             {
-                Id = "faith", Name = "Faith", Job = JobId.Paladin, MaxLevel = 10, Passive = true,
+                Id = "faith", Name = "Faith", Job = JobId.Guardian, MaxLevel = 10, Passive = true,
                 Description = "+200 Max HP per level.",
                 IconLabel = "FTH", IconColorHex = "#F7DC6F",
                 PassivePerLevel = new StatModifiers { MaxHp = 200 },
             });
             Register(new SkillDefinition
             {
-                Id = "sacred_cross", Name = "Sacred Cross", Job = JobId.Paladin, MaxLevel = 10, Requires = Req("faith", 5),
+                Id = "sacred_cross", Name = "Sacred Cross", Job = JobId.Guardian, MaxLevel = 10, Requires = Req("faith", 5),
                 Description = "Two holy cross-shaped strikes. Can blind.",
                 IconLabel = "SCR", IconColorHex = "#D4AC0D",
                 Target = SkillTarget.Enemy, Damage = SkillDamage.Physical, Motion = SkillMotion.Swing,
@@ -81,7 +84,7 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "radiant_cross", Name = "Radiant Cross", Job = JobId.Paladin, MaxLevel = 10, Requires = Req("sacred_cross", 6),
+                Id = "radiant_cross", Name = "Radiant Cross", Job = JobId.Guardian, MaxLevel = 10, Requires = Req("sacred_cross", 6),
                 Description = "Sacrifice 20% of your HP: a great holy cross erupts around you, three times. +50% vs Undead and Demons.",
                 IconLabel = "GCR", IconColorHex = "#FDEBD0",
                 Target = SkillTarget.Self, Damage = SkillDamage.Magic, Area = SkillArea.AroundSelf, Motion = SkillMotion.Cast,
@@ -92,7 +95,7 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "valor_aura", Name = "Valor Aura", Job = JobId.Paladin, MaxLevel = 10, Requires = Req("faith", 3),
+                Id = "valor_aura", Name = "Valor Aura", Job = JobId.Valkyrie, MaxLevel = 10, Requires = Req("faith", 3),
                 Description = "+5 ATK and 1% less damage taken per level.",
                 IconLabel = "VAL", IconColorHex = "#E59866",
                 Target = SkillTarget.Self, BuffId = SkillBuffs.ValorAura, Motion = SkillMotion.Buff,
@@ -100,18 +103,18 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "judgment", Name = "Judgment", Job = JobId.Paladin, MaxLevel = 5, Requires = Req("sacred_cross", 3),
-                Description = "Bring the mace down on your target and everyone beside it. Often stuns.",
-                IconLabel = "JDG", IconColorHex = "#B7950B", Weapons = WeaponMask.Mace,
+                Id = "judgment", Name = "Judgment", Job = JobId.Guardian, MaxLevel = 5, Requires = Req("sacred_cross", 3),
+                Description = "Bring your weapon down on your target and everyone beside it. Often stuns.",
+                IconLabel = "JDG", IconColorHex = "#B7950B",
                 Target = SkillTarget.Enemy, Damage = SkillDamage.Physical, Area = SkillArea.AroundTarget, Motion = SkillMotion.Swing,
                 Range = 1.3f, Radius = 1.8f, Power = L(200f, 40f), SpCost = 20, Cooldown = 3f, PoiseMultiplier = 1.8f,
                 Status = StatusEffect.Stun, StatusChance = L(20f, 10f), StatusDuration = 2.5f,
             });
 
-            // ---------------------------------------------------------------- Templar
+            // ---------------------------------------------------------------- Gothi and High Gothi (Priest and High Priest), and Valkyrie
             Register(new SkillDefinition
             {
-                Id = "sanctuary", Name = "Sanctuary", Job = JobId.Templar, MaxLevel = 10, Requires = Req("eirs_blessing", 3),
+                Id = "sanctuary", Name = "Sanctuary", Job = JobId.Gothi, MaxLevel = 10, Requires = Req("eirs_blessing", 3),
                 Description = "Consecrate the ground: allies standing in it heal every second.",
                 IconLabel = "SNC", IconColorHex = "#ABEBC6",
                 Target = SkillTarget.Ground, Special = SkillSpecial.Zone, Motion = SkillMotion.Cast, ZoneAffectsAllies = true,
@@ -120,7 +123,7 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "holy_judgment", Name = "Holy Judgment", Job = JobId.Templar, MaxLevel = 10, Requires = Req("holy_light", 3),
+                Id = "holy_judgment", Name = "Holy Judgment", Job = JobId.Gothi, MaxLevel = 10, Requires = Req("holy_light", 3),
                 Description = "Waves of holy fire purge an area. Double damage to Undead and Demons.",
                 IconLabel = "HJD", IconColorHex = "#FEF9E7",
                 Target = SkillTarget.Ground, Damage = SkillDamage.Magic, Area = SkillArea.AtGround, Motion = SkillMotion.Cast,
@@ -130,7 +133,7 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "divine_bulwark", Name = "Divine Bulwark", Job = JobId.Templar, MaxLevel = 5, Requires = Req("divine_shelter", 5),
+                Id = "divine_bulwark", Name = "Divine Bulwark", Job = JobId.HighGothi, MaxLevel = 5, Requires = Req("divine_shelter", 5),
                 Description = "You or an ally take 10% less damage per level (half at Lv 5).",
                 IconLabel = "ASM", IconColorHex = "#FAD7A0",
                 Target = SkillTarget.Friend, BuffId = SkillBuffs.DivineBulwark, Motion = SkillMotion.Cast,
@@ -138,9 +141,9 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "hammer_of_tyr", Name = "Hammer of Tyr", Job = JobId.Templar, MaxLevel = 5, Requires = Req("judgment", 3),
-                Description = "Smash the ground: damage and a strong chance to stun everything in the area.",
-                IconLabel = "HOT", IconColorHex = "#F5CBA7", Weapons = WeaponMask.Mace,
+                Id = "hammer_of_tyr", Name = "Hammer of Tyr", Job = JobId.Valkyrie, MaxLevel = 5, Requires = Req("judgment", 3),
+                Description = "Smash the ground with Tyr's strength: damage and a strong chance to stun everything in the area.",
+                IconLabel = "HOT", IconColorHex = "#F5CBA7",
                 Target = SkillTarget.Ground, Damage = SkillDamage.Physical, Area = SkillArea.AtGround, Motion = SkillMotion.Swing,
                 Range = 3f, Radius = L(1.5f, 0.25f), Power = 120f, SpCost = 10, PoiseMultiplier = 2f,
                 Status = StatusEffect.Stun, StatusChance = L(30f, 10f), StatusDuration = 3f,

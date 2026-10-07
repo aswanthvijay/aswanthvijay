@@ -12,6 +12,7 @@ namespace Runeheir.Tests
         {
             var record = CharacterFactory.Create(new CharacterCreateRequest { Name = "Test Hero" }, 0, 0);
             record.Job = job;
+            RebirthRules.Sanitize(record); // a transcendent job is reborn, as when a save loads
             return new CharacterProgression(record);
         }
 
@@ -55,14 +56,25 @@ namespace Runeheir.Tests
         }
 
         [Test]
-        public void GainExperience_StopsAtBase255()
+        public void GainExperience_StopsAtBase99_UntilReborn()
         {
             var progression = NewCharacter();
             progression.GainExperience(long.MaxValue / 4, 0);
 
+            Assert.AreEqual(RebirthRules.NormalBaseLevelCap, progression.Record.BaseLevel);
+            Assert.AreEqual(0, progression.Record.BaseExp);
+            Assert.AreEqual(StatFormulas.TotalStatPointsAtLevel(99), progression.Record.StatPoints);
+        }
+
+        [Test]
+        public void GainExperience_StopsAtBase255_WhenReborn()
+        {
+            var progression = NewCharacter(JobId.Einherjar);
+            progression.GainExperience(long.MaxValue / 4, 0);
+
             Assert.AreEqual(StatFormulas.MaxBaseLevel, progression.Record.BaseLevel);
             Assert.AreEqual(0, progression.Record.BaseExp);
-            Assert.AreEqual(StatFormulas.TotalStatPointsAtLevel(255), progression.Record.StatPoints);
+            Assert.AreEqual(StatFormulas.TotalStatPointsAtLevel(255) + RebirthRules.BonusStatPoints, progression.Record.StatPoints);
         }
 
         [Test]

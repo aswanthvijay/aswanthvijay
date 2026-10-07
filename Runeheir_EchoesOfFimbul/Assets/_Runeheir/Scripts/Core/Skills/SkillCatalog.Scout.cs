@@ -4,7 +4,10 @@ using Runeheir.Stats;
 
 namespace Runeheir.Skills
 {
-    /// <summary>Scout → Assassin → Shadow Walker, Scout → Ranger → Deadeye.</summary>
+    /// <summary>
+    /// Scout → Assassin → Shadow Walker; and the bow skills of Huntsman → Ranger → Deadeye (Phase 7 made the Huntsman, Ragnarok's
+    /// Archer, the Ranger's first job). The Outlaw and the rest of the Huntsman line live in SkillCatalog.Roster and .Huntsman.
+    /// </summary>
     public static partial class SkillCatalog
     {
         public const string KeenEdgeStrike = "keen_edge_strike";
@@ -156,10 +159,10 @@ namespace Runeheir.Skills
                 PassivePerLevel = new StatModifiers { Crit = 1f }, PassiveWeapons = WeaponMask.Katar | WeaponMask.Dagger,
             });
 
-            // ---------------------------------------------------------------- Ranger
+            // ---------------------------------------------------------------- Huntsman (bow basics) and Ranger
             Register(new SkillDefinition
             {
-                Id = "double_strafe", Name = "Double Strafe", Job = JobId.Ranger, MaxLevel = 10,
+                Id = "double_strafe", Name = "Double Strafe", Job = JobId.Huntsman, MaxLevel = 10,
                 Description = "Loose two arrows at once.",
                 IconLabel = "DS", IconColorHex = "#4A7A3A", Weapons = WeaponMask.Bow,
                 Target = SkillTarget.Enemy, Damage = SkillDamage.Physical, Motion = SkillMotion.Shoot, Projectile = true,
@@ -167,7 +170,7 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "arrow_shower", Name = "Arrow Shower", Job = JobId.Ranger, MaxLevel = 10, Requires = Req("double_strafe", 5),
+                Id = "arrow_shower", Name = "Arrow Shower", Job = JobId.Huntsman, MaxLevel = 10, Requires = Req("double_strafe", 5),
                 Description = "Rain arrows on an area, pushing enemies back.",
                 IconLabel = "ASH", IconColorHex = "#58D68D", Weapons = WeaponMask.Bow,
                 Target = SkillTarget.Ground, Damage = SkillDamage.Physical, Area = SkillArea.AtGround, Motion = SkillMotion.Shoot,
@@ -192,14 +195,14 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
-                Id = "owls_eye", Name = "Owl's Eye", Job = JobId.Ranger, MaxLevel = 10, Passive = true,
+                Id = "owls_eye", Name = "Owl's Eye", Job = JobId.Huntsman, MaxLevel = 10, Passive = true,
                 Description = "+1 DEX per level.",
                 IconLabel = "OWL", IconColorHex = "#A9CCE3",
                 PassivePerLevel = new StatModifiers().SetStat(StatType.Dex, 1),
             });
             Register(new SkillDefinition
             {
-                Id = "vultures_eye", Name = "Vulture's Eye", Job = JobId.Ranger, MaxLevel = 10, Passive = true,
+                Id = "vultures_eye", Name = "Vulture's Eye", Job = JobId.Huntsman, MaxLevel = 10, Passive = true,
                 Description = "+1 HIT and +0.25 m bow range per level.",
                 IconLabel = "VUL", IconColorHex = "#7FB3D5",
                 PassivePerLevel = new StatModifiers { Hit = 1, AttackRange = 0.25f }, PassiveWeapons = WeaponMask.Bow,

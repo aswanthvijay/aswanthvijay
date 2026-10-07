@@ -9,7 +9,7 @@ namespace Runeheir.Skills
     /// constructor, so <c>BuffCatalog.Get</c> finds them no matter which catalog is touched first.
     /// Durations here are defaults; most skills override them per level (<c>SkillDefinition.BuffDuration</c>).
     /// </summary>
-    public static class SkillBuffs
+    public static partial class SkillBuffs
     {
         public const string Provoked = "provoked";
         public const string Endure = "endure";
@@ -223,6 +223,8 @@ namespace Runeheir.Skills
                 Modifiers = new StatModifiers { SpRegenFlat = 10, MaxSpPercent = 2f },
                 ModifiersPerLevel = new StatModifiers { SpRegenFlat = 10, MaxSpPercent = 2f },
             });
+
+            RegisterRosterBuffs(register);
         }
     }
 }

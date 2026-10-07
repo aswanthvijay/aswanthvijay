@@ -353,6 +353,7 @@ namespace Runeheir.Net
                             Gender = create.Gender == (int)Gender.Female ? Gender.Female : Gender.Male,
                             HairStyle = create.HairStyle,
                             HairColor = create.HairColor,
+                            Race = create.Race == (int)CharacterRace.Doram ? CharacterRace.Doram : CharacterRace.Human,
                         });
                         reply.Ok = result.Success;
                         reply.Error = result.Error;

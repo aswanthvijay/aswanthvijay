@@ -100,9 +100,9 @@ namespace Runeheir.Items
                 return false;
             }
 
-            if (job.Tier < item.MinTier)
+            if (job.GearTier < item.MinTier)
             {
-                reason = item.MinTier >= 3 ? $"{item.Name} is for Ascended jobs only." : $"{item.Name} requires a tier {item.MinTier} job.";
+                reason = item.MinTier >= 3 ? $"{item.Name} is for transcendent and expanded jobs only." : $"{item.Name} requires a second job or higher.";
                 return false;
             }
 

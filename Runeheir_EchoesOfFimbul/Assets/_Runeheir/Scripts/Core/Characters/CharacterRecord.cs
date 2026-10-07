@@ -17,6 +17,13 @@ namespace Runeheir.Characters
 
     /// <summary>One learned skill and its level.</summary>
     [Serializable]
+    /// <summary>Who the character is born as (Phase 7). Doram are Freyja's Kin, the cat-folk.</summary>
+    public enum CharacterRace
+    {
+        Human = 0,
+        Doram = 1,
+    }
+
     public sealed class LearnedSkill
     {
         public string Id;
@@ -46,7 +53,15 @@ namespace Runeheir.Characters
         public int HairStyle;
         public int HairColor;
 
+        public CharacterRace Race = CharacterRace.Human;
+
         public JobId Job = JobId.Initiate;
+
+        /// <summary>Reborn at Urðr's Well (Phase 7): High Initiate / High first job / transcendent, Base 255.</summary>
+        public bool Reborn;
+
+        /// <summary>The second job of the first life: decides the only transcendent job a reborn character can take.</summary>
+        public JobId RebirthPath = JobId.Initiate;
         public int BaseLevel = 1;
         public int JobLevel = 1;
         public long BaseExp;
@@ -186,6 +201,23 @@ namespace Runeheir.Characters
             {
                 Job = JobId.Initiate;
             }
+
+            // Freyja's Kin are Doram and the Doram are Freyja's Kin.
+            if (Race != CharacterRace.Human && Race != CharacterRace.Doram)
+            {
+                Race = CharacterRace.Human;
+            }
+
+            if (Job == JobId.FreyjasKin)
+            {
+                Race = CharacterRace.Doram;
+            }
+            else if (Race == CharacterRace.Doram)
+            {
+                Race = CharacterRace.Human;
+            }
+
+            RebirthRules.Sanitize(this);
 
             if (Gender != Gender.Male && Gender != Gender.Female)
             {

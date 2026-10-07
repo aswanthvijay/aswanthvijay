@@ -101,6 +101,7 @@ namespace Runeheir.Net
                 Json = Json.Write(new CreateRequestJson
                 {
                     Name = request.Name, Gender = (int)request.Gender, HairStyle = request.HairStyle, HairColor = request.HairColor,
+                    Race = (int)request.Race,
                 }),
             });
             var record = reply.Ok ? Json.Read<CharacterRecord>(reply.Json) : null;
