@@ -2,7 +2,7 @@
 #
 #  core-tests   Always runs. Builds Runeheir.Core at Unity's API level (.NET Standard 2.1, C# 9)
 #               and runs the Core rule tests with dotnet. No Unity license needed.
-#  unity-tests  Opens the project in real Unity 6.3 (GameCI) and runs every EditMode + PlayMode test:
+#  unity-tests  Opens the project in real Unity 6.3 (GameCI) and runs every EditMode and PlayMode test (two jobs):
 #               stat engine, scene generator, toon shader import, and play-mode smoke tests that walk,
 #               fight, cast, use hotkeys, die/respawn and drive the login screens.
 #  build        Builds Windows + Linux players through Runeheir.EditorTools.RuneheirBuild.
@@ -73,10 +73,21 @@ jobs:
           fi
 
   unity-tests:
-    name: Unity 6.3 EditMode + PlayMode tests
+    name: Unity 6.3 ${{ matrix.testMode }} tests
     needs: check-license
     if: needs.check-license.outputs.available == 'true'
     runs-on: ubuntu-latest
+    # A healthy run takes well under this; a stuck one must not burn six hours of CI.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - testMode: editmode
+            customParameters: ''
+          # Play mode needs no pictures: -nographics skips software rendering on the GPU-less runner.
+          - testMode: playmode
+            customParameters: '-nographics'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,8 +95,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ env.PROJECT_PATH }}/Library
-          key: Library-tests-${{ hashFiles('Runeheir_EchoesOfFimbul/Assets/**', 'Runeheir_EchoesOfFimbul/Packages/**', 'Runeheir_EchoesOfFimbul/ProjectSettings/**') }}
-          restore-keys: Library-tests-
+          key: Library-${{ matrix.testMode }}-${{ hashFiles('Runeheir_EchoesOfFimbul/Assets/**', 'Runeheir_EchoesOfFimbul/Packages/**', 'Runeheir_EchoesOfFimbul/ProjectSettings/**') }}
+          restore-keys: Library-${{ matrix.testMode }}-
       # Pinned: from v4.4.0 the floating @v4 tag runs game-ci/cli, whose licence-file activation rejects Personal
       # .ulf licences ("TimeStamp validation failed"). v4.3.2 is the maintainers' backport on the old, working path.
       - uses: game-ci/unity-test-runner@v4.3.2
@@ -98,20 +109,25 @@ jobs:
         with:
           projectPath: ${{ env.PROJECT_PATH }}
           unityVersion: ${{ env.UNITY_VERSION }}
-          testMode: all
+          testMode: ${{ matrix.testMode }}
+          customParameters: ${{ matrix.customParameters }}
+          artifactsPath: artifacts
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Unity test results
+          checkName: Unity ${{ matrix.testMode }} test results
+      # Always upload: the Unity log and test-progress-*.log say where a failed or stuck run stopped.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: unity-test-results
-          path: ${{ steps.tests.outputs.artifactsPath }}
+          name: unity-${{ matrix.testMode }}-results
+          path: artifacts
+          if-no-files-found: warn
 
   build:
     name: Build ${{ matrix.targetPlatform }}
     needs: [check-license, unity-tests]
     if: needs.check-license.outputs.available == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
