@@ -14,7 +14,8 @@ namespace Runeheir.Tests
     /// <summary>
     /// CI diagnostics for the EditMode run: logs every test's start and end (to the Unity log and to
     /// <c>artifacts/test-progress-editmode.log</c> next to the project, written as it happens), and in batch mode kills Unity when
-    /// one test blocks the main thread for 15 minutes. Unity's own 3-minute test timeout can't stop a frozen main thread,
+    /// one test hasn't finished after 15 minutes. Unity's own 3-minute test timeout can't stop a frozen main thread or a test
+    /// whose coroutine was destroyed,
     /// and without this a hang only ends when the CI job times out, with no clue where it stopped.
     /// </summary>
     public sealed class EditorTestProgress : ITestRunCallback
@@ -104,7 +105,7 @@ namespace Runeheir.Tests
 
                 if (current != null && minutes >= HangMinutes)
                 {
-                    Write($"HANG: {current} has blocked for {minutes:0} minutes. Stopping Unity so CI can report it.");
+                    Write($"HANG: {current} hasn't finished after {minutes:0} minutes. Stopping Unity so CI can report it.");
                     Thread.Sleep(2000);
                     Process.GetCurrentProcess().Kill();
                 }

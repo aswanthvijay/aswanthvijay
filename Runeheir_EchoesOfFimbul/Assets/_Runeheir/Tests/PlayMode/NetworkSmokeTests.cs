@@ -17,7 +17,6 @@ using Runeheir.Session;
 using Runeheir.Social;
 using Runeheir.World;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace Runeheir.Tests
@@ -46,10 +45,7 @@ namespace Runeheir.Tests
             OnlineSession.Launcher?.Shutdown();
             RealmLauncher.DataDirectoryOverride = null;
             yield return null;
-            foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
-            {
-                UnityEngine.Object.Destroy(root);
-            }
+            TestScene.Clear();
 
             if (GameSession.Exists)
             {

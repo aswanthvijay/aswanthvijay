@@ -172,12 +172,13 @@ namespace Runeheir.Net
 
         private void FailAll(string reason)
         {
-            foreach (var source in _pending.Values)
+            // Completing a request runs its continuation right here, and that removes it from _pending: work on a copy.
+            var sources = new List<TaskCompletionSource<AccountReply>>(_pending.Values);
+            _pending.Clear();
+            foreach (var source in sources)
             {
                 source.TrySetResult(new AccountReply { Error = reason });
             }
-
-            _pending.Clear();
         }
     }
 }

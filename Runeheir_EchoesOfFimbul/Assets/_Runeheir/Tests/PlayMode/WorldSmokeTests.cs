@@ -14,7 +14,6 @@ using Runeheir.World;
 using Runeheir.WorldBuilding;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace Runeheir.Tests
@@ -25,10 +24,7 @@ namespace Runeheir.Tests
         [UnityTearDown]
         public IEnumerator TearDown()
         {
-            foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
-            {
-                Object.Destroy(root);
-            }
+            TestScene.Clear();
 
             if (GameSession.Exists)
             {
