@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Runeheir.Audio;
 using Runeheir.Characters;
 using Runeheir.Field;
 using Runeheir.Items;
@@ -75,6 +76,15 @@ namespace Runeheir.Combat
         /// <summary>The boss that summoned this one (minions vanish when it dies and stay near it).</summary>
         public Monster Leader { get; private set; }
 
+        /// <summary>
+        /// Phase 8 mercenaries: the player this monster fights for (null for a wild monster). It sides with the players,
+        /// follows its master, takes on what its master fights, and its damage counts as its master's.
+        /// </summary>
+        public PlayerEntity Master { get; private set; }
+
+        /// <summary>A mercenary's kills this contract.</summary>
+        public int Kills { get; set; }
+
         /// <summary>Bosses: the top damage dealer of the kill (set when it dies).</summary>
         public string MvpName { get; private set; }
 
@@ -90,7 +100,7 @@ namespace Runeheir.Combat
 
         public float HpPercent => MaxHp > 0 ? Hp * 100f / MaxHp : 0f;
 
-        public override Faction Faction => Faction.Monster;
+        public override Faction Faction => Master != null ? Faction.Player : Faction.Monster;
 
         public override string DisplayName => Definition != null ? Definition.Name : name;
 
@@ -116,6 +126,9 @@ namespace Runeheir.Combat
 
         public IReadOnlyList<Monster> Minions => _minions;
 
+        /// <summary>Raised when a mercenary dies (its master's game ends the contract).</summary>
+        public static event Action<Monster> MercenaryFell;
+
         /// <summary>The realm server watches its monsters through this (casts, announcements) to show them on every client.</summary>
         public IMonsterObserver Observer { get; set; }
 
@@ -132,6 +145,56 @@ namespace Runeheir.Combat
             OnModifiersChanged();
             _nextWanderAt = Time.time + UnityEngine.Random.Range(1f, 4f);
             _globalSkillReadyAt = Time.time + UnityEngine.Random.Range(0.5f, 2f);
+        }
+
+        /// <summary>Phase 8: binds a freshly made monster to <paramref name="master"/> as its mercenary.</summary>
+        public void BindToMaster(PlayerEntity master)
+        {
+            Master = master;
+            _home = master != null ? master.Position : _home;
+        }
+
+        /// <summary>
+        /// Phase 8 sieges: a Jarlstone takes blows only from a rival guild during the war; a Castle Hoard opens only for the
+        /// guild holding the hall (the realm says who's who; offline nobody has a guild, so neither can be struck).
+        /// </summary>
+        protected override bool RefusesHitFrom(CombatEntity attacker)
+        {
+            if (Definition == null || (Definition.Id != Social.SiegeRules.JarlstoneId && Definition.Id != Social.SiegeRules.HoardId))
+            {
+                return false;
+            }
+
+            var player = CreditFor(attacker);
+            string mapId = Runeheir.World.WorldGrid.MapAt(Position.x, Position.z)?.Id ?? FieldContext.MapId;
+            string guild = player != null ? RealmHooks.GuildOf?.Invoke(player) : null;
+            string owner = RealmHooks.CastleOwner?.Invoke(mapId);
+            bool allowed = Definition.Id == Social.SiegeRules.JarlstoneId
+                ? Social.SiegeRules.MayStrikeJarlstone(guild, owner, RealmHooks.SiegeOn?.Invoke() ?? false)
+                : Social.SiegeRules.MayOpenHoard(guild, owner);
+            if (!allowed && player is Player.PlayerCharacter && Time.time >= _nextRefusalNote)
+            {
+                _nextRefusalNote = Time.time + 3f;
+                ChatLog.Error(Definition.Id == Social.SiegeRules.JarlstoneId
+                    ? "The Jarlstone only yields to a rival guild, while the War of the Realms is on."
+                    : "Only the guild holding this hall can open its hoards.");
+            }
+
+            return !allowed;
+        }
+
+        private float _nextRefusalNote;
+
+        /// <summary>A mercenary comes back from a map change with the wounds it left with.</summary>
+        public void RestoreHp(int hp)
+        {
+            SetVitals(Mathf.Clamp(hp, 1, MaxHp), MaxHp, Sp, MaxSp);
+        }
+
+        /// <summary>Who gets the credit for <paramref name="entity"/>'s damage: a player, or a mercenary's master.</summary>
+        public static PlayerEntity CreditFor(CombatEntity entity)
+        {
+            return entity as PlayerEntity ?? (entity as Monster)?.Master;
         }
 
         /// <summary>Marks this monster as <paramref name="leader"/>'s summon.</summary>
@@ -164,6 +227,7 @@ namespace Runeheir.Combat
                 PhysicalDamagePercent = mods.PhysicalDamagePercent,
                 MagicDamagePercent = mods.MagicDamagePercent,
                 Race = Definition.Race, // Horned Grazer / Draugr Footman cards cut damage by attacker race
+                Size = Definition.Size,
             };
         }
 
@@ -181,6 +245,7 @@ namespace Runeheir.Combat
                 Element = Definition.Element,
                 Race = Definition.Race,
                 Size = Definition.Size,
+                IsBoss = Definition.IsBoss,
                 BluntDamageTakenMultiplier = BluntDamageTakenMultiplier,
             };
         }
@@ -298,6 +363,13 @@ namespace Runeheir.Combat
 
             UpdateDpsMeter();
 
+            // A mercenary whose master left (logged out, changed maps) leaves with them.
+            if (!ReferenceEquals(Master, null) && Master == null)
+            {
+                Vanish();
+                return;
+            }
+
             // A summon whose master is gone fades away with it.
             if (!ReferenceEquals(Leader, null) && (Leader == null || Leader.IsDead))
             {
@@ -329,6 +401,12 @@ namespace Runeheir.Combat
 
         private void Think()
         {
+            if (Master != null)
+            {
+                ThinkAsMercenary();
+                return;
+            }
+
             if (!ReferenceEquals(Leader, null) && Leader != null)
             {
                 _home = Leader.Position;
@@ -385,6 +463,120 @@ namespace Runeheir.Combat
             }
         }
 
+        // ------------------------------------------------------------ mercenaries (Phase 8)
+        private const float MercenaryFollowDistance = 3f;
+        private const float MercenaryLeash = 14f;
+        private const float MercenaryGuardRange = 10f;
+
+        /// <summary>
+        /// A mercenary's turn: keep near its master; fight what its master fights, what attacks its master, or what attacks
+        /// it; break off when the fight drifts too far from its master; use its skills (heals and buffs reach its master).
+        /// </summary>
+        private void ThinkAsMercenary()
+        {
+            var master = Master;
+            float fromMaster = HorizontalDistance(Position, master.Position);
+            if (fromMaster > 30f)
+            {
+                // Left behind (a warp, a fall): it catches up at once.
+                var near = master.Position - master.transform.forward * 1.5f;
+                if (NavMesh.SamplePosition(near, out var hit, 4f, NavMesh.AllAreas))
+                {
+                    _motor.Warp(hit.position);
+                }
+
+                _aggroTarget = null;
+                _attacker.Disengage();
+                return;
+            }
+
+            if (_aggroTarget != null && (_aggroTarget.IsDead || !_aggroTarget.isActiveAndEnabled || !IsHostileTo(_aggroTarget)
+                                         || HorizontalDistance(_aggroTarget.Position, master.Position) > MercenaryLeash))
+            {
+                _aggroTarget = null;
+                _attacker.Disengage();
+            }
+
+            var wanted = MercenaryTarget(master);
+            if (wanted != null && wanted != _aggroTarget)
+            {
+                _aggroTarget = wanted;
+            }
+
+            var context = new MonsterSkillContext
+            {
+                HpPercent = HpPercent,
+                Phase = 0,
+                HasTarget = _aggroTarget != null,
+                TargetDistance = _aggroTarget != null ? EdgeDistanceTo(_aggroTarget) : float.MaxValue,
+                AttackRange = AttackRange,
+                SummonsAlive = _summonsAlive,
+                HasBuff = _hasBuff,
+                AllyHpPercent = master.MaxHp > 0 ? Mathf.Max(0.01f, master.Hp * 100f / master.MaxHp) : 0f,
+            };
+            if (Definition.Skills.Count > 0 && CanUseSkills && Time.time >= _globalSkillReadyAt)
+            {
+                var skill = MonsterSkillRules.Choose(Definition.Skills, context, _isReady, SystemRandomSource.Shared);
+                if (skill != null && skill.Kind != MonsterSkillKind.Summon && skill.Kind != MonsterSkillKind.Teleport)
+                {
+                    BeginCast(skill, skill.Kind == MonsterSkillKind.Heal || skill.Kind == MonsterSkillKind.Buff ? master : _aggroTarget);
+                    return;
+                }
+            }
+
+            if (_aggroTarget != null)
+            {
+                _attacker.Engage(_aggroTarget);
+                return;
+            }
+
+            // Nothing to fight: walk at its master's side.
+            _attacker.Disengage();
+            if (fromMaster > MercenaryFollowDistance)
+            {
+                var side = master.Position - master.transform.forward * 1.6f - master.transform.right * 1.2f;
+                _motor.MoveTo(side);
+            }
+            else if (_motor.IsMoving && fromMaster < MercenaryFollowDistance * 0.6f)
+            {
+                _motor.Stop();
+            }
+        }
+
+        /// <summary>What a mercenary should fight: its master's target, else whatever attacks its master or itself nearby.</summary>
+        private CombatEntity MercenaryTarget(PlayerEntity master)
+        {
+            var masterTarget = master.GetComponent<AutoAttacker>()?.Target;
+            if (masterTarget != null && !masterTarget.IsDead && IsHostileTo(masterTarget) && CanSee(masterTarget)
+                && HorizontalDistance(masterTarget.Position, master.Position) <= MercenaryLeash)
+            {
+                return masterTarget;
+            }
+
+            if (_aggroTarget != null)
+            {
+                return _aggroTarget;
+            }
+
+            CombatEntity best = null;
+            float bestDistance = MercenaryGuardRange;
+            foreach (var entity in All)
+            {
+                if (entity is Monster wild && wild.Master == null && !wild.IsDead && (wild.AggroTarget == master || wild.AggroTarget == this)
+                    && CanSee(wild))
+                {
+                    float distance = HorizontalDistance(master.Position, wild.Position);
+                    if (distance <= bestDistance)
+                    {
+                        best = wild;
+                        bestDistance = distance;
+                    }
+                }
+            }
+
+            return best;
+        }
+
         /// <summary>Back home after a leash: full HP, phases and their buffs cleared (the fight starts over).</summary>
         private void ResetFight()
         {
@@ -420,12 +612,13 @@ namespace Runeheir.Combat
             float bestDistance = range;
             foreach (var entity in All)
             {
-                if (entity is PlayerEntity player && !player.IsDead && CanSee(player))
+                bool foe = entity is PlayerEntity || (entity is Monster hired && hired.Master != null);
+                if (foe && !entity.IsDead && CanSee(entity))
                 {
-                    float distance = HorizontalDistance(Position, player.Position);
+                    float distance = HorizontalDistance(Position, entity.Position);
                     if (distance <= bestDistance)
                     {
-                        best = player;
+                        best = entity;
                         bestDistance = distance;
                     }
                 }
@@ -773,7 +966,7 @@ namespace Runeheir.Combat
 
             foreach (var ally in Allies(skill.Radius))
             {
-                ally.Buffs.Apply(buff, Time.timeAsDouble);
+                ally.Buffs.Apply(buff, Time.timeAsDouble, Mathf.Max(1, skill.BuffLevel));
                 GroundRing.SpawnPulse(ally.Position, RuntimeMaterials.Hex(buff.IconColorHex), 0.3f, 1.4f, 0.5f);
             }
         }
@@ -786,10 +979,23 @@ namespace Runeheir.Combat
             }
         }
 
-        /// <summary>This monster, plus every living monster within <paramref name="radius"/> when it's above zero.</summary>
-        private List<Monster> Allies(float radius)
+        /// <summary>
+        /// This monster, plus every living monster on its side within <paramref name="radius"/> when it's above zero. A
+        /// mercenary's allies are itself and its master.
+        /// </summary>
+        private List<CombatEntity> Allies(float radius)
         {
-            var allies = new List<Monster> { this };
+            var allies = new List<CombatEntity> { this };
+            if (Master != null)
+            {
+                if (!Master.IsDead && HorizontalDistance(Master.Position, Position) <= Mathf.Max(radius, 12f))
+                {
+                    allies.Add(Master);
+                }
+
+                return allies;
+            }
+
             if (radius <= 0f)
             {
                 return allies;
@@ -797,8 +1003,8 @@ namespace Runeheir.Combat
 
             foreach (var entity in All)
             {
-                if (entity is Monster other && other != this && !other.IsDead && other.Definition != null && !other.Definition.Immortal
-                    && HorizontalDistance(other.Position, Position) <= radius)
+                if (entity is Monster other && other != this && other.Master == null && !other.IsDead && other.Definition != null
+                    && !other.Definition.Immortal && HorizontalDistance(other.Position, Position) <= radius)
                 {
                     allies.Add(other);
                 }
@@ -833,6 +1039,13 @@ namespace Runeheir.Combat
                     minion.Provoke(target);
                 }
             }
+        }
+
+        /// <summary>Tamed (Phase 8 pets): leaves the field without rewards; its spawner brings a new one in time.</summary>
+        public void Despawn()
+        {
+            Spawner?.NotifyDeath(this);
+            Vanish();
         }
 
         /// <summary>Gone without a trace (a summon whose master fell): no rewards.</summary>
@@ -1002,6 +1215,7 @@ namespace Runeheir.Combat
 
         private void EnterPhase(BossPhase phase)
         {
+            GameAudio.Play(Sfx.BossRoar, Position, 1f);
             var buff = BuffCatalog.Get(phase.BuffId);
             if (buff != null)
             {
@@ -1031,10 +1245,11 @@ namespace Runeheir.Combat
                 _animation.PlayHit();
             }
 
-            if (attacker is PlayerEntity player && result.Amount > 0)
+            var credited = CreditFor(attacker);
+            if (credited != null && result.Amount > 0 && Master == null)
             {
-                _damageByPlayer.TryGetValue(player, out long dealt);
-                _damageByPlayer[player] = dealt + result.Amount;
+                _damageByPlayer.TryGetValue(credited, out long dealt);
+                _damageByPlayer[credited] = dealt + result.Amount;
             }
 
             if (Definition.Immortal)
@@ -1114,6 +1329,7 @@ namespace Runeheir.Combat
 
         protected override void OnDied(CombatEntity killer)
         {
+            GameAudio.Play(Definition != null && Definition.IsBoss ? Sfx.BossRoar : Sfx.MonsterDeath, Position, 0.7f, Definition != null && Definition.IsBoss ? 0.8f : 1f);
             CancelCast(null);
             _attacker.Disengage();
             _motor.Stop();
@@ -1149,7 +1365,25 @@ namespace Runeheir.Combat
                 collider.enabled = false;
             }
 
-            AwardRewards(killer as PlayerEntity);
+            if (Master != null)
+            {
+                // A mercenary falls: no rewards, and its contract ends.
+                MercenaryFell?.Invoke(this);
+                Destroy(gameObject, 2.5f);
+                return;
+            }
+
+            if (killer is Monster hired && hired.Master != null)
+            {
+                hired.Kills++;
+            }
+
+            if (Definition.Id == Social.SiegeRules.JarlstoneId)
+            {
+                RealmHooks.JarlstoneBroken?.Invoke(this, CreditFor(killer));
+            }
+
+            AwardRewards(CreditFor(killer));
             if (Spawner != null)
             {
                 Spawner.NotifyDeath(this);
@@ -1216,6 +1450,11 @@ namespace Runeheir.Combat
 
                 // Server card rate applies to Soul Cards, the item rate to everything else.
                 float rate = item.IsCard ? rates.CardDrop : rates.Drop;
+                if (killer is Player.PlayerCharacter hunter && hunter.Stats != null && hunter.Stats.DropPercent != 0f)
+                {
+                    rate *= 1f + hunter.Stats.DropPercent / 100f; // bubble gum
+                }
+
                 float chance = Mathf.Min(100f, drop.ChancePercent * rate);
                 if (chance < 100f && UnityEngine.Random.value * 100f >= chance) // Random.value includes 1.0
                 {

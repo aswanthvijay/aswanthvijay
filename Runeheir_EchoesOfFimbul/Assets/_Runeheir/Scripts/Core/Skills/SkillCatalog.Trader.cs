@@ -208,6 +208,15 @@ namespace Runeheir.Skills
             });
             Register(new SkillDefinition
             {
+                Id = "weave_life", Name = "Weave Life", Job = JobId.Brewmaster, MaxLevel = 1, Requires = Req("brewing", 3),
+                Description = "Ragnarok's Call Homunculus: weave a living companion from an Embryo (Líf, Bjarki, Valfugl or Gandr, as the Norns choose). "
+                              + "Once woven, use it again to call your homunculus out or send it to rest. It fights at your side and grows with you.",
+                IconLabel = "CHM", IconColorHex = "#82E0AA",
+                Target = SkillTarget.Self, Special = SkillSpecial.Homunculus, Motion = SkillMotion.Cast,
+                CastTime = 1f, SpCost = 10f, Cooldown = 2f,
+            });
+            Register(new SkillDefinition
+            {
                 Id = "potion_toss", Name = "Potion Toss", Job = JobId.Brewmaster, MaxLevel = 5, Requires = Req("potion_research", 3),
                 Description = "Ragnarok's Aid Potion: throw a healing draught to yourself or an ally.",
                 IconLabel = "PPT", IconColorHex = "#E74C3C",
@@ -239,6 +248,14 @@ namespace Runeheir.Skills
                 IconLabel = "FCP", IconColorHex = "#1ABC9C",
                 Target = SkillTarget.Friend, BuffId = SkillBuffs.FullCoating, Motion = SkillMotion.Cast,
                 Range = 9f, BuffDuration = L(120f, 120f), CastTime = 2f, SpCost = 40f,
+            });
+            Register(new SkillDefinition
+            {
+                Id = "breath_of_idunn", Name = "Breath of Iðunn", Job = JobId.Lifeweaver, MaxLevel = 5, Requires = Req("weave_life", 1),
+                Description = "Ragnarok's Resurrect Homunculus: Iðunn's breath wakes your fallen homunculus at once, with 20% of its HP per level.",
+                IconLabel = "RSH", IconColorHex = "#58D68D",
+                Target = SkillTarget.Self, Special = SkillSpecial.HomunculusRevive, Motion = SkillMotion.Cast,
+                Power = L(20f, 20f), CastTime = L(3f, -0.5f), SpCost = L(74f, -6f), Cooldown = 2f,
             });
             Register(new SkillDefinition
             {

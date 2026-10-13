@@ -112,7 +112,7 @@ namespace Runeheir.UI
                 _selected ??= recipe;
                 string amount = recipe.ProductAmount > 1 ? $" ×{recipe.ProductAmount}" : string.Empty;
                 string need = _kind == CraftKind.Forge ? $"Weapon Lv {recipe.SkillLevel}" : $"Brewing Lv {recipe.SkillLevel}";
-                _list.Add(product.IconLabel, RuntimeMaterials.Hex(product.IconColorHex), product.Name + amount,
+                _list.AddItem(product, product.Name + amount,
                     $"{need} · {Chance(recipe):0}%", () => Select(captured), () => ItemTooltips.For(Preview(product), null),
                     selected: ReferenceEquals(recipe, _selected), dimmed: !able);
             }

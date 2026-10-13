@@ -30,8 +30,12 @@ namespace Runeheir.World
                     return Town(map, random);
                 case MapTheme.Arena:
                     return Arena(map, random);
+                case MapTheme.Castle:
+                    return Castle(map);
                 case MapTheme.Crypt:
                 case MapTheme.IceCavern:
+                case MapTheme.Volcano:
+                case MapTheme.SandTomb:
                     return Dungeon(map, random);
                 case MapTheme.Isle:
                     return Isle(map, random);
@@ -103,8 +107,43 @@ namespace Runeheir.World
             }
 
             float t = Math.Min(1f, ArrivalInset / distance);
-            return layout.NearestWalkable(new GroundPoint(from.X + (towards.X - from.X) * t, from.Z + (towards.Z - from.Z) * t));
+            var arrival = layout.NearestWalkable(new GroundPoint(from.X + (towards.X - from.X) * t, from.Z + (towards.Z - from.Z) * t));
+            if (arrival.DistanceTo(from) >= MinArrivalGap)
+            {
+                return arrival;
+            }
+
+            // Water or a wall that way (a portal on a fjord shore): step off the portal in whichever direction is open,
+            // nearest the save point first.
+            var best = arrival;
+            float bestScore = float.MaxValue;
+            for (int i = 0; i < 16; i++)
+            {
+                double angle = i * Math.PI / 8;
+                for (float reach = ArrivalInset; reach <= ArrivalInset * 2.5f; reach += 1f)
+                {
+                    var candidate = new GroundPoint(from.X + (float)Math.Cos(angle) * reach, from.Z + (float)Math.Sin(angle) * reach);
+                    if (!layout.IsWalkable(candidate) || candidate.DistanceTo(from) < MinArrivalGap)
+                    {
+                        continue;
+                    }
+
+                    float score = candidate.DistanceTo(towards);
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        best = candidate;
+                    }
+
+                    break;
+                }
+            }
+
+            return best;
         }
+
+        /// <summary>Arriving through a portal must not put you back on top of it.</summary>
+        private const float MinArrivalGap = 3.5f;
 
         /// <summary>Tags an L-shaped two-cell-wide path between two points, making it walkable (paths bridge water).</summary>
         private static void CarvePath(MapLayout layout, GroundPoint a, GroundPoint b, CellTag tag, int width = 2)
@@ -335,6 +374,13 @@ namespace Runeheir.World
             }
 
             ResolveAbsolute(layout);
+            if (map.Theme == MapTheme.Coast)
+            {
+                // After the key points are placed, so the sea keeps clear of the camp, the roads' ends and the spawns.
+                CarveCoast(layout, random);
+                layout.HasWater = true;
+            }
+
             foreach (var portal in layout.Portals)
             {
                 CarvePath(layout, layout.SavePoint, portal.At, CellTag.Path);
@@ -364,6 +410,25 @@ namespace Runeheir.World
                     Scatter(layout, random, 4, _ => PropKind.Wreck, 20f, 1f, 1.2f);
                     Scatter(layout, random, 8, _ => PropKind.Runestone, 14f);
                     break;
+                case MapTheme.Desert:
+                    Border(layout, random, r => r.Next(3) == 0 ? PropKind.Cactus : PropKind.Rock, 7f);
+                    Oases(layout, random);
+                    Scatter(layout, random, 70, r => r.Next(5) < 2 ? PropKind.Cactus : r.Next(3) == 0 ? PropKind.DeadTree : PropKind.Rock, 8f, 0.7f, 1.8f);
+                    Scatter(layout, random, 10, r => r.Next(2) == 0 ? PropKind.Bones : PropKind.GiantSkull, 18f, 0.8f, 1.3f);
+                    Scatter(layout, random, 6, _ => PropKind.Obelisk, 22f, 0.9f, 1.3f);
+                    break;
+                case MapTheme.Jungle:
+                    Border(layout, random, r => r.Next(3) == 0 ? PropKind.PalmTree : PropKind.JungleTree, 5f);
+                    Scatter(layout, random, 120, r => r.Next(10) < 5 ? PropKind.JungleTree : r.Next(2) == 0 ? PropKind.PalmTree : PropKind.Fern, 5.5f, 0.8f, 1.4f);
+                    Scatter(layout, random, 30, r => r.Next(3) == 0 ? PropKind.Mushroom : PropKind.Fern, 6f, 0.8f, 1.5f);
+                    Scatter(layout, random, 8, r => r.Next(2) == 0 ? PropKind.Pillar : PropKind.Obelisk, 18f, 0.8f, 1.2f);
+                    break;
+                case MapTheme.Coast:
+                    Border(layout, random, r => r.Next(2) == 0 ? PropKind.PalmTree : PropKind.Rock, 6f);
+                    Scatter(layout, random, 40, r => r.Next(5) < 3 ? PropKind.PalmTree : PropKind.Rock, 8f, 0.8f, 1.6f);
+                    Scatter(layout, random, 4, _ => PropKind.Wreck, 20f, 1f, 1.2f);
+                    Scatter(layout, random, 10, _ => PropKind.Fern, 10f);
+                    break;
                 case MapTheme.Tundra:
                     Border(layout, random, r => r.Next(2) == 0 ? PropKind.IceSpike : PropKind.Rock, 7f);
                     Scatter(layout, random, 40, r => r.Next(3) == 0 ? PropKind.DeadTree : r.Next(2) == 0 ? PropKind.IceSpike : PropKind.Rock, 9f, 0.8f, 2f);
@@ -379,6 +444,106 @@ namespace Runeheir.World
             }
 
             return layout;
+        }
+
+        /// <summary>
+        /// Phase 8 coasts: open sea along the west and south edges, its shoreline ragged, a few coves cut inland. Water never
+        /// covers a key point (the save point, portals, NPCs, spawns): those stay on headlands.
+        /// </summary>
+        private static void CarveCoast(MapLayout layout, Random random)
+        {
+            void Sea(int cx, int cz)
+            {
+                if (cx < 0 || cz < 0 || cx >= layout.Width || cz >= layout.Height || NearKeyPoint(layout, layout.CellCenter(cx, cz), 10f))
+                {
+                    return;
+                }
+
+                foreach (var spawn in layout.Spawns)
+                {
+                    if (layout.CellCenter(cx, cz).DistanceTo(spawn.Center) < 8f)
+                    {
+                        return;
+                    }
+                }
+
+                layout.Set(cx, cz, false);
+            }
+
+            int west = Range(random, 2, 4);
+            int south = Range(random, 2, 4);
+            for (int z = 0; z < layout.Height; z++)
+            {
+                west = Clamp(west + random.Next(3) - 1, 1, 5);
+                for (int x = 0; x < west; x++)
+                {
+                    Sea(x, z);
+                }
+            }
+
+            for (int x = 0; x < layout.Width; x++)
+            {
+                south = Clamp(south + random.Next(3) - 1, 1, 5);
+                for (int z = 0; z < south; z++)
+                {
+                    Sea(x, z);
+                }
+            }
+
+            for (int cove = 0; cove < 3; cove++)
+            {
+                bool fromWest = cove % 2 == 0;
+                int x = fromWest ? 3 : Range(random, layout.Width / 4, layout.Width * 3 / 4);
+                int z = fromWest ? Range(random, layout.Height / 4, layout.Height * 3 / 4) : 3;
+                int length = Range(random, layout.Width / 8, layout.Width / 5);
+                for (int step = 0; step < length; step++)
+                {
+                    for (int w = -1; w <= 1; w++)
+                    {
+                        Sea(fromWest ? x : x + w, fromWest ? z + w : z);
+                    }
+
+                    if (fromWest)
+                    {
+                        x++;
+                        z += random.Next(3) - 1;
+                    }
+                    else
+                    {
+                        z++;
+                        x += random.Next(3) - 1;
+                    }
+                }
+            }
+        }
+
+        /// <summary>Phase 8 deserts: a few oases (a pool ringed by palms) away from the roads and the camp.</summary>
+        private static void Oases(MapLayout layout, Random random)
+        {
+            int placed = 0;
+            for (int attempt = 0; attempt < 60 && placed < 3; attempt++)
+            {
+                int x = Range(random, layout.Width / 6, layout.Width * 5 / 6);
+                int z = Range(random, layout.Height / 6, layout.Height * 5 / 6);
+                var center = layout.CellCenter(x, z);
+                if (!layout.IsWalkable(x, z) || layout.TagAt(x, z) == CellTag.Path || NearKeyPoint(layout, center, 16f))
+                {
+                    continue;
+                }
+
+                Prop(layout, PropKind.Pool, center, Range(random, 0f, 360f), Range(random, 1.2f, 1.8f));
+                for (int i = 0; i < 4; i++)
+                {
+                    double angle = i * Math.PI / 2 + random.NextDouble() * 0.6;
+                    var palm = new GroundPoint(center.X + (float)Math.Cos(angle) * 5.5f, center.Z + (float)Math.Sin(angle) * 5.5f);
+                    if (layout.CellOf(palm, out int px, out int pz) && layout.IsWalkable(px, pz) && layout.TagAt(px, pz) != CellTag.Path)
+                    {
+                        Prop(layout, PropKind.PalmTree, palm, Range(random, 0f, 360f), Range(random, 0.9f, 1.2f));
+                    }
+                }
+
+                placed++;
+            }
         }
 
         /// <summary>Fjord inlets: crooked channels of water cut in from the west and north edges.</summary>
@@ -563,6 +728,8 @@ namespace Runeheir.World
             Prop(layout, PropKind.Well, new GroundPoint(10f, -8f));
             Prop(layout, PropKind.Stall, new GroundPoint(-14f, -12f), 30f);
             Prop(layout, PropKind.Stall, new GroundPoint(14f, -13f), -30f);
+            Prop(layout, PropKind.Stall, new GroundPoint(-25f, -9f), 40f);
+            Prop(layout, PropKind.Stall, new GroundPoint(25f, -10f), -40f);
             Prop(layout, PropKind.Anvil, new GroundPoint(27f, 6f), 0f);
 
             // Braziers and banners ring the plaza.
@@ -629,6 +796,53 @@ namespace Runeheir.World
             return layout;
         }
 
+        // ================================================================ War of the Realms halls
+        /// <summary>
+        /// A long Norse hall running north from its gate: a hearth down the middle, two rows of pillars, banners on the long
+        /// walls, braziers either side of the Jarlstone's dais and the jarl's high seat at the far end, where the hoards gather.
+        /// </summary>
+        private static MapLayout Castle(MapDefinition map)
+        {
+            var layout = NewLayout(map, 2f);
+            const float halfWidth = 15f;
+            const float halfLength = 30f;
+            for (int z = 0; z < layout.Height; z++)
+            {
+                for (int x = 0; x < layout.Width; x++)
+                {
+                    var center = layout.CellCenter(x, z);
+                    if (Math.Abs(center.X) <= halfWidth && Math.Abs(center.Z) <= halfLength)
+                    {
+                        layout.Set(x, z, true, CellTag.Paving);
+                    }
+                }
+            }
+
+            ResolveAbsolute(layout);
+            Prop(layout, PropKind.Hearth, new GroundPoint(0f, 0f), 90f, 1f, 8f);
+            for (float z = -18f; z <= 22f; z += 8f)
+            {
+                Prop(layout, PropKind.Pillar, new GroundPoint(-9f, z), 0f, 0.9f);
+                Prop(layout, PropKind.Pillar, new GroundPoint(9f, z), 0f, 0.9f);
+            }
+
+            for (float z = -14f; z <= 18f; z += 8f)
+            {
+                Prop(layout, PropKind.Banner, new GroundPoint(-halfWidth + 0.6f, z), 90f);
+                Prop(layout, PropKind.Banner, new GroundPoint(halfWidth - 0.6f, z), -90f);
+            }
+
+            Prop(layout, PropKind.Brazier, new GroundPoint(-3.5f, 14f));
+            Prop(layout, PropKind.Brazier, new GroundPoint(3.5f, 14f));
+            Prop(layout, PropKind.Throne, new GroundPoint(0f, halfLength - 3f), 180f);
+            Prop(layout, PropKind.Statue, new GroundPoint(-11.5f, halfLength - 3f), 150f, 0.8f);
+            Prop(layout, PropKind.Statue, new GroundPoint(11.5f, halfLength - 3f), 210f, 0.8f);
+            Prop(layout, PropKind.Torch, new GroundPoint(-4f, -halfLength + 4f));
+            Prop(layout, PropKind.Torch, new GroundPoint(4f, -halfLength + 4f));
+            AddWalls(layout);
+            return layout;
+        }
+
         // ================================================================ dungeons
         private static MapLayout Dungeon(MapDefinition map, Random random)
         {
@@ -686,11 +900,29 @@ namespace Runeheir.World
             var deepCenter = layout.CellCenter(deep.CenterX, deep.CenterZ);
             layout.SavePoint = entranceCenter;
 
+            int entranceSlot = 0;
+            int deepSlot = 0;
             foreach (var portal in map.Portals)
             {
-                var room = portal.AtEntrance ? entrance : deep;
-                // Portals sit against the room's far wall so the middle stays free for fights.
-                var at = layout.CellCenter(room.CenterX, portal.AtEntrance ? room.Z : room.Z + room.H - 1);
+                // Portals sit against the room's far wall so the middle stays free for fights. Several ways out of the
+                // entrance line up along its wall; several ways deeper go to the deep room first, then the other rooms.
+                CellRect room;
+                int slot = 0;
+                if (portal.AtEntrance)
+                {
+                    room = entrance;
+                    slot = entranceSlot++;
+                }
+                else
+                {
+                    int middle = layout.Rooms.Count - 2;
+                    room = deepSlot == 0 || middle < 1 ? deep : layout.Rooms[1 + (middle - 1 - (deepSlot - 1) % middle + middle) % middle];
+                    deepSlot++;
+                }
+
+                int offset = (slot % 2 == 0 ? 1 : -1) * ((slot + 1) / 2) * 2;
+                int cx = Math.Max(room.X, Math.Min(room.X + room.W - 1, room.CenterX + offset));
+                var at = layout.CellCenter(cx, portal.AtEntrance ? room.Z : room.Z + room.H - 1);
                 var arrivalTowards = layout.CellCenter(room.CenterX, room.CenterZ);
                 layout.Portals.Add(new ResolvedPortal { Portal = portal, At = at, Arrival = Inset(layout, at, arrivalTowards) });
             }
@@ -867,7 +1099,14 @@ namespace Runeheir.World
 
         private static void DungeonProps(MapLayout layout, Random random)
         {
-            bool crypt = layout.Map.Theme == MapTheme.Crypt;
+            var theme = layout.Map.Theme;
+            if (theme == MapTheme.Volcano || theme == MapTheme.SandTomb)
+            {
+                HotDungeonProps(layout, random, theme == MapTheme.Volcano);
+                return;
+            }
+
+            bool crypt = theme == MapTheme.Crypt;
             float s = layout.CellSize;
             foreach (var room in layout.Rooms)
             {
@@ -900,6 +1139,53 @@ namespace Runeheir.World
             }
 
             Scatter(layout, random, 24, r => crypt ? (r.Next(2) == 0 ? PropKind.Coffin : PropKind.Bones) : (r.Next(2) == 0 ? PropKind.Pool : PropKind.Stalagmite), 6f, 0.8f, 1.2f);
+        }
+
+        /// <summary>
+        /// Phase 8: the volcano's rooms glow with lava pools and fire-lit basalt; the sand tombs have braziers, sandstone
+        /// pillars, sarcophagi, urns and the bones of the robbers who came before.
+        /// </summary>
+        private static void HotDungeonProps(MapLayout layout, Random random, bool volcano)
+        {
+            float s = layout.CellSize;
+            foreach (var room in layout.Rooms)
+            {
+                foreach (var (cx, cz) in new[]
+                         {
+                             (room.X, room.Z), (room.X + room.W - 1, room.Z), (room.X, room.Z + room.H - 1), (room.X + room.W - 1, room.Z + room.H - 1),
+                         })
+                {
+                    var center = layout.CellCenter(cx, cz);
+                    var inward = layout.CellCenter(room.CenterX, room.CenterZ);
+                    var at = new GroundPoint(center.X + Math.Sign(inward.X - center.X) * -s * 0.25f, center.Z + Math.Sign(inward.Z - center.Z) * -s * 0.25f);
+                    if (!NearKeyPoint(layout, at, 4f))
+                    {
+                        Prop(layout, volcano ? PropKind.Stalagmite : PropKind.Brazier, at, Range(random, 0f, 360f), volcano ? Range(random, 0.8f, 1.3f) : 1f);
+                    }
+                }
+
+                if (room.W >= 6 && room.H >= 6)
+                {
+                    foreach (var (px, pz) in new[] { (room.X + 1, room.Z + 1), (room.X + room.W - 2, room.Z + 1), (room.X + 1, room.Z + room.H - 2), (room.X + room.W - 2, room.Z + room.H - 2) })
+                    {
+                        var at = layout.CellCenter(px, pz);
+                        if (!NearKeyPoint(layout, at, 5f))
+                        {
+                            Prop(layout, volcano ? PropKind.Obelisk : PropKind.Pillar, at, 0f, 1f);
+                        }
+                    }
+                }
+            }
+
+            if (volcano)
+            {
+                Scatter(layout, random, 26, r => r.Next(3) < 2 ? PropKind.LavaPool : PropKind.Bones, 6f, 0.8f, 1.4f);
+                Scatter(layout, random, 10, _ => PropKind.Stalagmite, 7f, 0.7f, 1.2f);
+            }
+            else
+            {
+                Scatter(layout, random, 24, r => r.Next(3) == 0 ? PropKind.Coffin : r.Next(2) == 0 ? PropKind.Urn : PropKind.Bones, 6f, 0.8f, 1.2f);
+            }
         }
 
         // ================================================================ helpers

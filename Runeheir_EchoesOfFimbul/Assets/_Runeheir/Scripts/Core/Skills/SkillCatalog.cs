@@ -29,6 +29,7 @@ namespace Runeheir.Skills
             RegisterTraderLine();
             RegisterRosterAdditions();
             RegisterExpandedJobs();
+            RegisterEnsembles();
         }
 
         public static IReadOnlyList<SkillDefinition> All => Ordered;

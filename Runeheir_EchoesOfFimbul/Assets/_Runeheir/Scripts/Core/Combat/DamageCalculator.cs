@@ -19,11 +19,38 @@ namespace Runeheir.Combat
 
         public readonly float[] TakenFromElement = new float[CombatEnumCounts.Elements];
 
+        /// <summary>% damage taken from an attacker's size (Ragnarok's bSubSize).</summary>
+        public readonly float[] TakenFromSize = new float[CombatEnumCounts.Sizes];
+
+        /// <summary>+% physical damage against bosses (mini-bosses and MVPs) / normal monsters (bAddClass).</summary>
+        public float VsBoss;
+
+        public float VsNormal;
+
+        /// <summary>+critical chance against a race (bCriticalAddRace).</summary>
+        public readonly float[] CritVsRace = new float[CombatEnumCounts.Races];
+
+        /// <summary>% of DEF / MDEF ignored against a race (bIgnoreDefRaceRate, bIgnoreMdefRaceRate).</summary>
+        public readonly float[] DefBypassVsRace = new float[CombatEnumCounts.Races];
+
+        public readonly float[] MdefBypassVsRace = new float[CombatEnumCounts.Races];
+
+        /// <summary>+% magic damage against a race / element (bMagicAddRace, bMagicAddEle).</summary>
+        public readonly float[] MagicVsRace = new float[CombatEnumCounts.Races];
+
+        public readonly float[] MagicVsElement = new float[CombatEnumCounts.Elements];
+
         public float Multiplier(in DefenderProfile defender)
         {
             return (1f + VsRace[(int)defender.Race] / 100f)
                    * (1f + VsSize[(int)defender.Size] / 100f)
-                   * (1f + VsElement[(int)defender.Element] / 100f);
+                   * (1f + VsElement[(int)defender.Element] / 100f)
+                   * (1f + (defender.IsBoss ? VsBoss : VsNormal) / 100f);
+        }
+
+        public float MagicMultiplier(in DefenderProfile defender)
+        {
+            return (1f + MagicVsRace[(int)defender.Race] / 100f) * (1f + MagicVsElement[(int)defender.Element] / 100f);
         }
 
         /// <summary>Defensive multiplier against a hit from <paramref name="attackerRace"/> with <paramref name="attackElement"/>.</summary>
@@ -31,6 +58,11 @@ namespace Runeheir.Combat
         {
             return Math.Max(0f, 1f + TakenFromRace[(int)attackerRace] / 100f)
                    * Math.Max(0f, 1f + TakenFromElement[(int)attackElement] / 100f);
+        }
+
+        public float TakenMultiplier(Race attackerRace, Element attackElement, Size attackerSize)
+        {
+            return TakenMultiplier(attackerRace, attackElement) * Math.Max(0f, 1f + TakenFromSize[(int)attackerSize] / 100f);
         }
     }
 
@@ -72,6 +104,9 @@ namespace Runeheir.Combat
         /// <summary>+% on top of the 140% critical damage (Dire Wolf Card).</summary>
         public float CritDamagePercent;
 
+        /// <summary>The attacker's size, for the defender's size cards (players are Medium).</summary>
+        public Size Size;
+
         /// <summary>The attacker's race, for the defender's race cards (players are Demi-Human).</summary>
         public Race Race;
 
@@ -80,6 +115,9 @@ namespace Runeheir.Combat
 
     public struct DefenderProfile
     {
+        /// <summary>Percent chance to dodge a basic attack outright (Ragnarok's Perfect Dodge); see <see cref="DamageCalculator.BasicAttack"/>.</summary>
+        public float PerfectDodge;
+
         public int Def;
         public int SoftDef;
         public int Mdef;
@@ -91,6 +129,9 @@ namespace Runeheir.Combat
 
         /// <summary>Damage multiplier vs blunt weapons (1 normally, 3 while frozen).</summary>
         public float BluntDamageTakenMultiplier;
+
+        /// <summary>Mini-bosses and MVPs (gear that hits bosses harder, Ragnarok's bAddClass).</summary>
+        public bool IsBoss;
 
         /// <summary>The defender's race/element damage reduction (shield, garment and armor cards). Null = none.</summary>
         public DamageBonuses Resist;
@@ -184,7 +225,8 @@ namespace Runeheir.Combat
                 throw new ArgumentNullException(nameof(random));
             }
 
-            bool critical = canCrit && (attacker.ForceCritical || random.Chance(attacker.CritChance));
+            float critChance = attacker.CritChance + (attacker.Bonuses != null ? attacker.Bonuses.CritVsRace[(int)defender.Race] : 0f);
+            bool critical = canCrit && (attacker.ForceCritical || random.Chance(critChance));
 
             // Crits always connect (Ragnarok rule); everything else rolls HIT vs FLEE.
             if (!critical && !attacker.NeverMiss && !random.Chance(HitChance(attacker.Hit, defender.Flee)))
@@ -197,7 +239,7 @@ namespace Runeheir.Combat
             double damage = attacker.StatusAtk + attacker.WeaponAtk * variance * sizeModifier;
             damage *= skillPercent / 100.0;
 
-            float bypass = StatFormulas.Clamp(attacker.DefBypassPercent, 0f, 100f) / 100f;
+            float bypass = StatFormulas.Clamp(attacker.DefBypassPercent + (attacker.Bonuses != null ? attacker.Bonuses.DefBypassVsRace[(int)defender.Race] : 0f), 0f, 100f) / 100f;
             if (critical)
             {
                 // GDD: crits bypass physical DEF and deal 140% (plus crit-damage cards).
@@ -231,7 +273,7 @@ namespace Runeheir.Combat
 
             if (defender.Resist != null)
             {
-                damage *= defender.Resist.TakenMultiplier(attacker.Race, attacker.AttackElement);
+                damage *= defender.Resist.TakenMultiplier(attacker.Race, attacker.AttackElement, attacker.Size);
             }
 
             return new DamageResult
@@ -240,6 +282,25 @@ namespace Runeheir.Combat
                 IsCritical = critical,
                 ElementMultiplier = elementMultiplier,
             };
+        }
+
+        /// <summary>
+        /// A basic (auto-)attack: the defender's Perfect Dodge is rolled first and turns even a critical into a miss
+        /// (Ragnarok rule; skills ignore it), then the normal physical formula at 100% with crits allowed.
+        /// </summary>
+        public static DamageResult BasicAttack(in AttackerProfile attacker, in DefenderProfile defender, IRandomSource random)
+        {
+            if (random == null)
+            {
+                throw new ArgumentNullException(nameof(random));
+            }
+
+            if (defender.PerfectDodge > 0f && !attacker.NeverMiss && random.Chance(defender.PerfectDodge))
+            {
+                return DamageResult.Miss();
+            }
+
+            return Physical(attacker, defender, 100f, true, random);
         }
 
         /// <summary>Magic always hits; reduced by hard and soft MDEF.</summary>
@@ -258,16 +319,20 @@ namespace Runeheir.Combat
             double matk = random.Range(attacker.MatkMin, Math.Max(attacker.MatkMin, attacker.MatkMax));
             double damage = matk * skillPercent / 100.0;
 
-            float bypass = StatFormulas.Clamp(attacker.MdefBypassPercent, 0f, 100f) / 100f;
+            float bypass = StatFormulas.Clamp(attacker.MdefBypassPercent + (attacker.Bonuses != null ? attacker.Bonuses.MdefBypassVsRace[(int)defender.Race] : 0f), 0f, 100f) / 100f;
             damage *= HardMdefReduction(defender.Mdef * (1f - bypass));
             damage -= defender.SoftMdef * (1f - bypass);
 
             float elementMultiplier = ElementTable.Multiplier(element, defender.Element);
             damage *= elementMultiplier;
             damage *= 1.0 + attacker.MagicDamagePercent / 100.0;
+            if (attacker.Bonuses != null)
+            {
+                damage *= attacker.Bonuses.MagicMultiplier(defender);
+            }
             if (defender.Resist != null)
             {
-                damage *= defender.Resist.TakenMultiplier(attacker.Race, element);
+                damage *= defender.Resist.TakenMultiplier(attacker.Race, element, attacker.Size);
             }
 
             return new DamageResult

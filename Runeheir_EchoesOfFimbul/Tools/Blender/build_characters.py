@@ -10,7 +10,7 @@ Writes:
   Tools/Blender/Previews/*.png                                lineup renders (toon preview, not the game shader)
   Tools/Blender/Out/characters.blend                          the built scene, to open and tweak
 
-Everything is generated from code (rh_geo, rh_body, rh_outfits) so the art rebuilds identically and can be reviewed.
+Everything is generated from code (rh_geo, rh_body, rh_outfits, rh_outfits_lines) so the art rebuilds identically and can be reviewed.
 """
 
 import json
@@ -29,6 +29,7 @@ import rh_body  # noqa: E402
 import rh_hair  # noqa: E402
 import rh_geo  # noqa: E402
 import rh_outfits  # noqa: E402
+import rh_outfits_lines  # noqa: E402,F401  (registers the other job lines' outfits)
 import rh_weapons  # noqa: E402
 from rh_body import PARENTS, Proportions, mirror_name  # noqa: E402
 
@@ -248,7 +249,7 @@ def clear_scene():
 
 def palette_for(key):
     pal = dict(rh_outfits.PALETTES[key])
-    job_hex = "#9C8D74"  # the Initiate, for the preview of the common outfit
+    job_hex = rh_outfits.PREVIEW_JOB.get(key, "#9C8D74")  # the Initiate's color for the common outfit
     for slot, value in list(pal.items()):
         if value == "$outfit":
             pal[slot] = job_hex
@@ -501,10 +502,17 @@ def render_previews(built, count):
         print("RH preview", scene.render.filepath)
 
     width = count * spacing
+    # Six outfits fit a front shot: more are shot in pages (lineup_male_front_2.png ...).
+    page = 6
+    pages = (count + page - 1) // page
     for row, tag in ((0, "male"), (1, "female")):
         y = row * 1.6
-        shoot("lineup_%s_front.png" % tag, (0.75, y - 6.6, 1.25), (87, 0, 6.5), lens=47, rows=(row,))
-        shoot("lineup_%s_back.png" % tag, (-0.75, y + 6.6, 1.25), (87, 0, 186.5), lens=47, rows=(row,))
+        for p in range(pages):
+            first, last = p * page, min(count, (p + 1) * page) - 1
+            x = ((first + last) / 2 - (count - 1) / 2) * spacing
+            suffix = "" if pages == 1 else "_%d" % (p + 1)
+            shoot("lineup_%s_front%s.png" % (tag, suffix), (x + 0.75, y - 6.6, 1.25), (87, 0, 6.5), lens=47, rows=(row,))
+            shoot("lineup_%s_back%s.png" % (tag, suffix), (x - 0.75, y + 6.6, 1.25), (87, 0, 186.5), lens=47, rows=(row,))
     # the game's camera: pitch 45, yaw 45, far away
     d = 9.0
     shoot("lineup_game_angle.png", (d * 0.5, -d * 0.5 + 0.8, d * 0.72 + 0.5), (45, 0, 45), ortho=width * 1.15)

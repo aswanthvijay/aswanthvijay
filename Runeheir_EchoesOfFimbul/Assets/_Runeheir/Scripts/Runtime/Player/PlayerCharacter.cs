@@ -1,4 +1,5 @@
 using System;
+using Runeheir.Audio;
 using Runeheir.Characters;
 using Runeheir.Combat;
 using Runeheir.Field;
@@ -131,13 +132,21 @@ namespace Runeheir.Player
             }
 
             Local = this;
+            RefreshPet();
+            Monster.MercenaryFell -= OnMercenaryFell;
+            Monster.MercenaryFell += OnMercenaryFell;
+            RefreshMercenary();
+            RefreshHomunculus();
+            ApplyMount(rebuild: false);
         }
 
         /// <summary>Stat engine input: gear + cards + buffs + statuses + learned passives (for the current job and weapon).</summary>
         public void Recalculate()
         {
+            _raven = RavenCompanion.Sync(_raven, transform, SkillBook != null && SkillBook.UsableLevel("raven_strike") > 0 && !IsDead);
             Gear = EquipmentStats.Compute(Record);
             _weapon = Gear.HasWeapon ? Gear.Weapon : WeaponProfile.BareHands;
+            SkillBook?.SetGranted(Gear.GrantedSkills);
 
             var modifiers = StatModifiers.Empty();
             modifiers.Add(Gear.Modifiers);
@@ -191,12 +200,13 @@ namespace Runeheir.Player
                 ForceCritical = Buffs.HasCharge(BuffTraits.CriticalCharges),
                 MatkMin = Stats.MatkMin,
                 MatkMax = Stats.MatkMax,
-                PhysicalDamagePercent = Stats.PhysicalDamagePercent,
+                PhysicalDamagePercent = Stats.PhysicalDamagePercent + (WeaponRules.IsRanged(Gear.Weapon.Type) ? Stats.LongRangePercent : 0f),
                 MagicDamagePercent = Stats.MagicDamagePercent,
                 DefBypassPercent = Stats.DefBypassPercent,
                 MdefBypassPercent = Stats.MdefBypassPercent,
                 CritDamagePercent = Stats.CritDamagePercent,
                 Race = Race.DemiHuman,
+                Size = Size.Medium,
                 Bonuses = Gear.Bonuses,
             };
         }
@@ -210,6 +220,7 @@ namespace Runeheir.Player
                 Mdef = Stats.Mdef,
                 SoftMdef = Stats.SoftMdef,
                 Flee = Stats.Flee,
+                PerfectDodge = Stats.PerfectDodge,
                 Element = Gear.ArmorElement,
                 Race = Race.DemiHuman,
                 Size = Size.Medium,
@@ -220,6 +231,7 @@ namespace Runeheir.Player
 
         public override DamageResult RollBasicAttack(CombatEntity target)
         {
+            GetDownToFight();
             bool forcedCrit = Buffs.HasCharge(BuffTraits.CriticalCharges);
 
             // Attacking reveals you; out of Shadow Veil that first attack is a guaranteed critical backstab.
@@ -231,7 +243,16 @@ namespace Runeheir.Player
 
             var attacker = BuildAttackerProfile();
             attacker.ForceCritical |= ambush;
-            var result = DamageCalculator.Physical(attacker, target.BuildDefenderProfile(), 100f, true, SystemRandomSource.Shared);
+            var result = DamageCalculator.BasicAttack(attacker, target.BuildDefenderProfile(), SystemRandomSource.Shared);
+            GameAudio.Play(SwingSound(Weapon.Type), Position, 0.65f);
+            if (result.IsMiss)
+            {
+                GameAudio.Play(Sfx.Miss, target.Position, 0.5f);
+            }
+            if (Gear.AmmoInUse)
+            {
+                Equipment.SpendAmmo(); // every shot spends one arrow, round or shuriken
+            }
             if (forcedCrit)
             {
                 Buffs.TryConsumeCharge(BuffTraits.CriticalCharges);
@@ -246,8 +267,29 @@ namespace Runeheir.Player
         }
 
         /// <summary>Card leech and on-hit cards, then passive and buff procs: Storm Fists, Keen Edge, Auto Rune.</summary>
+        /// <summary>The sound of a basic attack leaving the weapon (Phase 8 audio).</summary>
+        private static Sfx SwingSound(WeaponType type)
+        {
+            switch (type)
+            {
+                case WeaponType.Bow: return Sfx.BowShot;
+                case WeaponType.ThunderRod: return Sfx.ShotFired;
+                case WeaponType.TwoHandSword:
+                case WeaponType.TwoHandAxe:
+                case WeaponType.Mace:
+                case WeaponType.Spear: return Sfx.SwingHeavy;
+                default: return Sfx.SwingLight;
+            }
+        }
+
         public override void OnBasicAttackLanded(CombatEntity target, DamageResult result)
         {
+            if (target != null)
+            {
+                bool heavy = Weapon.Type == WeaponType.TwoHandSword || Weapon.Type == WeaponType.TwoHandAxe || Weapon.Type == WeaponType.Mace;
+                GameAudio.Play(result.IsCritical ? Sfx.Critical : IsRangedAttacker ? Sfx.ArrowHit : heavy ? Sfx.HitHeavy : Sfx.Hit, target.Position, 0.8f);
+            }
+
             OnPhysicalHitLanded(target, result);
             if (target == null || target.IsDead || IsDead)
             {
@@ -304,9 +346,68 @@ namespace Runeheir.Player
             RestoreSp(sp, showNumber: false);
         }
 
+        /// <summary>
+        /// Gear and card auto-casts (Phase 8, Ragnarok's auto-spells): a free cast of an offensive skill at the enemy or a
+        /// support skill on yourself, or a timed buff. At most one per trigger.
+        /// </summary>
+        private void TriggerAutoCasts(AutoCastTrigger trigger, CombatEntity enemy, string usedSkillId)
+        {
+            if (IsDead || Gear == null || Gear.AutoCasts.Count == 0 || _caster == null)
+            {
+                return;
+            }
+
+            foreach (var auto in Gear.AutoCasts)
+            {
+                if (auto.Trigger != trigger || (trigger == AutoCastTrigger.OnSkill && auto.TriggerSkillId != usedSkillId)
+                    || !SystemRandomSource.Shared.Chance(auto.ChancePercent))
+                {
+                    continue;
+                }
+
+                if (auto.BuffId != null)
+                {
+                    var buff = BuffCatalog.Get(auto.BuffId);
+                    if (buff == null)
+                    {
+                        continue;
+                    }
+
+                    Buffs.Apply(buff, Time.timeAsDouble);
+                    WorldFeedback.Announce(this, buff.Name + "!", new Color(1f, 0.75f, 0.35f));
+                    return;
+                }
+
+                var skill = SkillCatalog.Get(auto.SkillId);
+                if (skill == null)
+                {
+                    continue;
+                }
+
+                bool support = skill.Target == SkillTarget.Self || skill.Target == SkillTarget.Friend;
+                var target = support ? this : enemy;
+                if (target == null || target.IsDead)
+                {
+                    continue;
+                }
+
+                int level = auto.Level > 0 ? auto.Level : Mathf.Max(1, SkillBook.UsableLevel(skill.Id));
+                _caster.CastProc(skill, level, target);
+                return;
+            }
+        }
+
+        /// <summary>Called by the skill caster after you cast a skill yourself: gear that auto-casts on that skill.</summary>
+        public void TriggerSkillAutoCasts(string skillId, CombatEntity target)
+        {
+            TriggerAutoCasts(AutoCastTrigger.OnSkill, target, skillId);
+        }
+
         /// <summary>Chance-on-hit effects from cards and runewords (Toxic Spore, Fenrir, Hel's Executioner, Jormungandr's Brood...).</summary>
         private void TriggerGearProcs(CombatEntity target, bool melee)
         {
+            TriggerAutoCasts(AutoCastTrigger.OnAttack, target, null);
+            TryHuginnStrike(target);
             foreach (var effect in Gear.OnHit)
             {
                 if (target.IsDead || (effect.MeleeOnly && !melee))
@@ -390,14 +491,22 @@ namespace Runeheir.Player
                 return;
             }
 
+            if (Stats != null && Stats.ExpPercent != 0f)
+            {
+                float scale = 1f + Stats.ExpPercent / 100f; // battle manuals and the like
+                baseExp = (long)(baseExp * scale);
+                jobExp = (long)(jobExp * scale);
+            }
+
             Progression.GainExperience(baseExp, jobExp);
+            ShareWithHomunculus(baseExp);
         }
 
         // ------------------------------------------------------------ items
         public bool UseItem(string itemId)
         {
             var item = ItemCatalog.Get(itemId);
-            if (item != null && item.IsEquipment)
+            if (item != null && item.IsWearable)
             {
                 // Hotkeyed or double-clicked gear: wear the first matching piece in the bag.
                 return Equip(Inventory.FindFirst(item.Id));
@@ -445,9 +554,11 @@ namespace Runeheir.Player
             if (!Equipment.TryEquip(entry, out string reason))
             {
                 ChatLog.Error(reason);
+                GameAudio.Play(Sfx.UiError, null, 0.5f);
                 return false;
             }
 
+            GameAudio.Play(Sfx.Equip, null, 0.6f);
             return true;
         }
 
@@ -559,6 +670,11 @@ namespace Runeheir.Player
         /// <summary>Autoloot: a drop from a kill goes straight to the bag (if it fits); MVP rewards and cards get a cheer.</summary>
         public override void ReceiveLoot(ItemDefinition item, float baseChance, bool mvpReward)
         {
+            if (item != null)
+            {
+                GameAudio.Play(item.IsCard ? Sfx.Critical : Sfx.Pickup, null, 0.6f);
+            }
+
             if (item == null)
             {
                 return;
@@ -607,6 +723,7 @@ namespace Runeheir.Player
 
         public override void ReceiveMvp(string monsterName, long bonusExp)
         {
+            GameAudio.Play(Sfx.MvpFanfare);
             WorldFeedback.Announce(this, "MVP!", new Color(1f, 0.82f, 0.25f));
             GroundRing.SpawnPulse(Position, new Color(1f, 0.82f, 0.25f, 1f), 0.4f, 4f, 1.2f, 0.16f);
             if (bonusExp > 0)
@@ -652,6 +769,22 @@ namespace Runeheir.Player
 
         private bool ApplyItemEffect(ItemDefinition item)
         {
+            if (!item.NotUsableYet)
+            {
+                GameAudio.Play(item.HealHpMax > 0 || item.HealHpPercent > 0f || item.HealSpMax > 0 ? Sfx.Heal : !string.IsNullOrEmpty(item.BuffId) ? Sfx.Buff : Sfx.Pickup, null, 0.6f);
+            }
+
+            if (item.NotUsableYet)
+            {
+                ChatLog.Error($"{item.Name} can't be used in Runeheir yet.");
+                return false;
+            }
+
+            if (!OpenBox(item) || !CastScroll(item))
+            {
+                return false;
+            }
+
             switch (item.Special)
             {
                 case ItemSpecialEffect.SummonMonster:
@@ -679,6 +812,48 @@ namespace Runeheir.Player
                 case ItemSpecialEffect.Cleanse:
                     Cleanse();
                     break;
+                case ItemSpecialEffect.HatchPet:
+                    if (!Pets.PetCatalog.Hatch(Record, Inventory, item.Id, out string hatched, consumeEgg: false))
+                    {
+                        ChatLog.Error(hatched);
+                        return false;
+                    }
+
+                    ChatLog.Notice(hatched);
+                    RefreshPet();
+                    return true;
+                case ItemSpecialEffect.TamePet:
+                    return TryTame(item);
+                case ItemSpecialEffect.HireMercenary:
+                    if (!Mercenaries.MercenaryCatalog.Hire(Record, item.MercenaryId, out string hired))
+                    {
+                        ChatLog.Error(hired);
+                        return false;
+                    }
+
+                    ChatLog.Notice(hired);
+                    if (_mercenary != null)
+                    {
+                        Destroy(_mercenary.gameObject);
+                        _mercenary = null;
+                    }
+
+                    RefreshMercenary();
+                    GameAudio.Play(Sfx.Buff);
+                    return true;
+                case ItemSpecialEffect.Mount:
+                    ToggleMount(Characters.MountRules.Horse);
+                    return false; // the reins are never used up
+                case ItemSpecialEffect.PetArmor:
+                    if (!Pets.PetCatalog.WearArmor(Record, item.Id, out string worn))
+                    {
+                        ChatLog.Error(worn);
+                        return false;
+                    }
+
+                    ChatLog.Notice(worn);
+                    RefreshPet();
+                    return true;
             }
 
             int hp = 0;
@@ -693,9 +868,23 @@ namespace Runeheir.Player
             }
 
             Heal(hp);
-            if (item.HealSpMax > 0)
+            int sp = item.HealSpMax > 0 ? UnityEngine.Random.Range(item.HealSpMin, item.HealSpMax + 1) : 0;
+            if (item.HealSpPercent > 0f)
             {
-                RestoreSp(UnityEngine.Random.Range(item.HealSpMin, item.HealSpMax + 1));
+                sp += Mathf.RoundToInt(MaxSp * item.HealSpPercent / 100f);
+            }
+
+            if (sp > 0)
+            {
+                RestoreSp(sp);
+            }
+
+            if (item.Cures != null)
+            {
+                foreach (var status in item.Cures)
+                {
+                    Statuses.Remove(status);
+                }
             }
 
             var buff = BuffCatalog.Get(item.BuffId);
@@ -705,6 +894,594 @@ namespace Runeheir.Player
             }
 
             return true;
+        }
+
+        /// <summary>Boxes, random boxes and zeny pouches (Phase 8). False (nothing used) when the bag can't take the contents.</summary>
+        private bool OpenBox(ItemDefinition item)
+        {
+            int entries = (item.GivesItems?.Length ?? 0) + (item.RandomGives != null && item.RandomGives.Length > 0 ? 1 : 0);
+            if (entries > 0 && Inventory.Stacks.Count + entries > Inventory.MaxEntries)
+            {
+                ChatLog.Error($"Your bag is too full to open the {item.Name}.");
+                return false;
+            }
+
+            if (item.GivesItems != null)
+            {
+                foreach (var grant in item.GivesItems)
+                {
+                    GiveFromBox(grant);
+                }
+            }
+
+            if (item.RandomGives != null && item.RandomGives.Length > 0)
+            {
+                int total = 0;
+                foreach (var grant in item.RandomGives)
+                {
+                    total += Mathf.Max(1, grant.Weight);
+                }
+
+                int roll = UnityEngine.Random.Range(0, total);
+                foreach (var grant in item.RandomGives)
+                {
+                    roll -= Mathf.Max(1, grant.Weight);
+                    if (roll < 0)
+                    {
+                        GiveFromBox(grant);
+                        break;
+                    }
+                }
+            }
+
+            if (item.GivesZenyMax > 0)
+            {
+                int zeny = UnityEngine.Random.Range(item.GivesZenyMin, item.GivesZenyMax + 1);
+                Record.Zeny += zeny;
+                ChatLog.Loot($"You found {zeny:N0} zeny.");
+            }
+
+            return true;
+        }
+
+        private void GiveFromBox(ItemGrant grant)
+        {
+            var definition = ItemCatalog.Get(grant.ItemId);
+            if (definition == null)
+            {
+                return;
+            }
+
+            int added = Inventory.Add(definition.Id, Mathf.Max(1, grant.Amount));
+            if (added > 0)
+            {
+                ChatLog.Loot($"You got {definition.Name}{(added > 1 ? $" x{added}" : string.Empty)}.");
+            }
+        }
+
+        /// <summary>Scrolls: a free cast of their skill, support skills on you and attacks at your current target.</summary>
+        private bool CastScroll(ItemDefinition item)
+        {
+            if (string.IsNullOrEmpty(item.CastSkillId))
+            {
+                return true;
+            }
+
+            var skill = SkillCatalog.Get(item.CastSkillId);
+            if (skill == null || _caster == null)
+            {
+                return false;
+            }
+
+            bool support = skill.Target == SkillTarget.Self || skill.Target == SkillTarget.Friend;
+            CombatEntity target = support ? this : _attacker != null ? _attacker.Target : null;
+            if (target == null || target.IsDead)
+            {
+                ChatLog.Error($"Attack something first, then read the {item.Name}.");
+                return false;
+            }
+
+            _caster.CastProc(skill, item.CastSkillLevel, target);
+            return true;
+        }
+
+        // ------------------------------------------------------------ pets (Phase 8)
+        private PetCompanion _pet;
+        private float _petHungerTimer;
+
+        /// <summary>Taming: use the item while fighting the monster it tames. Weaker monsters are easier; the item is used either way.</summary>
+        private bool TryTame(ItemDefinition item)
+        {
+            var target = _attacker != null ? _attacker.Target as Monster : null;
+            var pet = target != null ? Pets.PetCatalog.ForTaming(item.Id, target.Definition.Id) : null;
+            if (pet == null)
+            {
+                ChatLog.Error($"Use the {item.Name} while you fight the creature it tames.");
+                return false;
+            }
+
+            float chance = Pets.PetCatalog.TameChance(pet, target.Hp / (float)Mathf.Max(1, target.MaxHp), Stats.Total[StatType.Luk]);
+            if (!SystemRandomSource.Shared.Chance(chance))
+            {
+                ChatLog.Notice($"The {target.Definition.Name} shrugs off the {item.Name}. ({chance:0.#}% chance)");
+                return true;
+            }
+
+            target.Despawn();
+            Inventory.Add(pet.EggItemId, 1);
+            GameAudio.Play(Sfx.Heal);
+            ChatLog.Loot($"You tamed the {target.Definition.Name}! Its egg is in your bag.");
+            return true;
+        }
+
+        public void FeedPet()
+        {
+            if (Pets.PetCatalog.Feed(Record, Inventory, out string message))
+            {
+                ChatLog.Notice(message);
+                Recalculate(); // Loyal brings the pet's bonus
+                GameAudio.Play(Sfx.Pickup);
+            }
+            else
+            {
+                ChatLog.Error(message);
+            }
+        }
+
+        public void ReturnPet()
+        {
+            if (Pets.PetCatalog.ReturnToEgg(Record, Inventory, out string message))
+            {
+                ChatLog.Notice(message);
+                RefreshPet();
+            }
+            else
+            {
+                ChatLog.Error(message);
+            }
+        }
+
+        // ------------------------------------------------------------ mercenaries (Phase 8)
+        private Monster _mercenary;
+
+        /// <summary>The mercenary fighting at this character's side, or null.</summary>
+        public Monster Mercenary => _mercenary;
+
+        /// <summary>Brings the hired mercenary in (after a hire, a map change or a respawn), wounds and kills as they were.</summary>
+        public void RefreshMercenary()
+        {
+            var contract = Mercenaries.MercenaryCatalog.Active(Record);
+            var definition = contract != null ? Mercenaries.MercenaryCatalog.Get(contract.MercenaryId)?.Monster : null;
+            if (_mercenary != null && (definition == null || _mercenary.Definition != definition || _mercenary.IsDead))
+            {
+                Destroy(_mercenary.gameObject);
+                _mercenary = null;
+            }
+
+            if (_mercenary != null || definition == null || IsDead)
+            {
+                return;
+            }
+
+            var spot = Position - transform.forward * 1.6f - transform.right * 1.2f;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(spot, out var hit, 4f, UnityEngine.AI.NavMesh.AllAreas)
+                && !UnityEngine.AI.NavMesh.SamplePosition(Position, out hit, 4f, UnityEngine.AI.NavMesh.AllAreas))
+            {
+                return;
+            }
+
+            _mercenary = EntityFactory.CreateMercenary(definition, hit.position, this);
+            _mercenary.Kills = contract.Kills;
+            if (contract.Hp > 0)
+            {
+                _mercenary.RestoreHp(contract.Hp);
+            }
+        }
+
+        /// <summary>Ends the contract early (the mercenary bows out).</summary>
+        public void DismissMercenary()
+        {
+            var contract = Mercenaries.MercenaryCatalog.Active(Record);
+            if (contract == null)
+            {
+                ChatLog.Error("You have no mercenary.");
+                return;
+            }
+
+            ChatLog.Notice($"{Mercenaries.MercenaryCatalog.Get(contract.MercenaryId).Name} bows and leaves your service.");
+            Mercenaries.MercenaryCatalog.End(Record);
+            RefreshMercenary();
+        }
+
+        /// <summary>
+        /// The contract's clock runs while you play. While you're down, your mercenary waits out of sight (it comes back when
+        /// you do); its wounds and kills are written to the contract so a map change keeps them.
+        /// </summary>
+        private void TickMercenary()
+        {
+            var contract = Mercenaries.MercenaryCatalog.Active(Record);
+            if (contract == null)
+            {
+                if (_mercenary != null)
+                {
+                    RefreshMercenary();
+                }
+
+                return;
+            }
+
+            string name = Mercenaries.MercenaryCatalog.Get(contract.MercenaryId).Name;
+            if (Mercenaries.MercenaryCatalog.Tick(Record, Time.deltaTime))
+            {
+                ChatLog.Notice($"{name}'s contract has run out. They salute you and go.");
+                RefreshMercenary();
+                return;
+            }
+
+            if (_mercenary != null && !_mercenary.IsDead)
+            {
+                contract.Hp = _mercenary.Hp;
+                contract.Kills = _mercenary.Kills;
+            }
+
+            if (IsDead && _mercenary != null)
+            {
+                Destroy(_mercenary.gameObject);
+                _mercenary = null;
+            }
+            else if (!IsDead && _mercenary == null && Time.frameCount % 30 == 0)
+            {
+                RefreshMercenary();
+            }
+        }
+
+        private void OnMercenaryFell(Monster mercenary)
+        {
+            if (mercenary != null && mercenary == _homunculus)
+            {
+                OnHomunculusFell();
+                return;
+            }
+
+            if (mercenary == null || mercenary != _mercenary)
+            {
+                return;
+            }
+
+            ChatLog.Error($"{mercenary.DisplayName} has fallen. The contract ends.");
+            Mercenaries.MercenaryCatalog.End(Record);
+            _mercenary = null;
+        }
+
+        // ------------------------------------------------------------ Odin's ravens (Phase 8)
+        private RavenCompanion _raven;
+
+        /// <summary>Huginn on a Ranger's shoulder: he swoops for Raven Strike and Raven Assault.</summary>
+        public RavenCompanion Raven => _raven;
+
+        /// <summary>Ragnarok's auto Blitz Beat: on each auto-attack, a LUK ÷ 3 % chance that Huginn strikes on his own.</summary>
+        private void TryHuginnStrike(CombatEntity target)
+        {
+            if (_raven == null || target == null || target.IsDead || _caster == null)
+            {
+                return;
+            }
+
+            int level = SkillBook.UsableLevel("raven_strike");
+            float chance = Stats.Total[StatType.Luk] / 3f;
+            if (level <= 0 || UnityEngine.Random.value * 100f >= chance)
+            {
+                return;
+            }
+
+            _raven.Swoop(target.Position);
+            _caster.CastProc(SkillCatalog.Get("raven_strike"), level, target);
+        }
+
+        // ------------------------------------------------------------ mounts (Phase 8)
+        /// <summary>What this character is riding, or null.</summary>
+        public string Mount => Record?.Mount;
+
+        /// <summary>Horsemanship / Boar Riding: calls the line's mount, or gets down.</summary>
+        public void ToggleClassMount()
+        {
+            var (mount, ride, _) = Characters.MountRules.ClassMount(Record.Job);
+            if (mount == null || SkillBook.UsableLevel(ride) <= 0)
+            {
+                ChatLog.Error("Your guild doesn't teach riding.");
+                return;
+            }
+
+            ToggleMount(mount);
+        }
+
+        /// <summary>Mounts <paramref name="mount"/>, or gets down when already riding it (or anything).</summary>
+        public void ToggleMount(string mount)
+        {
+            if (IsDead)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(Record.Mount))
+            {
+                string old = Record.Mount;
+                Record.Mount = null;
+                ApplyMount(rebuild: true);
+                ChatLog.Notice($"You get down from your {Characters.MountRules.NameOf(old)}.");
+                if (old == mount)
+                {
+                    return;
+                }
+            }
+
+            Record.Mount = mount;
+            ApplyMount(rebuild: true);
+            GameAudio.Play(Sfx.Buff, Position, 0.5f);
+            ChatLog.Notice($"You ride {(mount == Characters.MountRules.Horse ? "your fjord horse" : Characters.MountRules.NameOf(mount))}.");
+        }
+
+        /// <summary>Off the fjord horse before a fight (it isn't trained for battle).</summary>
+        public void GetDownToFight()
+        {
+            if (Characters.MountRules.BlocksCombat(Record?.Mount))
+            {
+                Record.Mount = null;
+                ApplyMount(rebuild: true);
+                ChatLog.Notice("You get down from your fjord horse to fight.");
+            }
+        }
+
+        /// <summary>The riding buff (its level is the cavalry mastery + 1) and the mount drawn under the rider.</summary>
+        private void ApplyMount(bool rebuild)
+        {
+            foreach (string id in new[] { SkillBuffs.MountHorse, SkillBuffs.MountWarhorse, SkillBuffs.MountBoar })
+            {
+                if (id != Characters.MountRules.BuffFor(Record.Mount))
+                {
+                    Buffs.Remove(id);
+                }
+            }
+
+            var buff = BuffCatalog.Get(Characters.MountRules.BuffFor(Record.Mount));
+            if (buff != null && Buffs.StacksOf(buff.Id) == 0)
+            {
+                var (_, _, mastery) = Characters.MountRules.ClassMount(Record.Job);
+                int level = 1 + (mastery != null ? Mathf.Min(5, SkillBook.UsableLevel(mastery)) : 0);
+                ApplyBuff(buff, level, 1e7f, 0, 0);
+            }
+
+            if (rebuild)
+            {
+                RebuildAvatar();
+            }
+        }
+
+        private void TickMount()
+        {
+            // Death clears buffs; a rider who comes back is still mounted.
+            if (!IsDead && !string.IsNullOrEmpty(Record.Mount) && Buffs.StacksOf(Characters.MountRules.BuffFor(Record.Mount)) == 0
+                && Time.frameCount % 20 == 5)
+            {
+                ApplyMount(rebuild: false);
+            }
+        }
+
+        // ------------------------------------------------------------ homunculi (Phase 8)
+        private Monster _homunculus;
+
+        /// <summary>The homunculus at this character's side, or null.</summary>
+        public Monster HomunculusBody => _homunculus;
+
+        public bool CanWeaveOrCallHomunculus(out string reason)
+        {
+            var state = Homunculi.HomunculusRules.Of(Record);
+            if (state == null && !Inventory.Has(Homunculi.HomunculusRules.EmbryoItemId))
+            {
+                reason = "Weave Life needs an Embryo: brew one from a Seed of Life, Morning Dew of Yggdrasil, a Glass Tube and a Medicine Bowl.";
+                return false;
+            }
+
+            if (state != null && state.RestSeconds > 0f)
+            {
+                reason = $"{state.Name} is still recovering ({Mathf.CeilToInt(state.RestSeconds)} s). A Lifeweaver's Breath of Iðunn wakes it at once.";
+                return false;
+            }
+
+            reason = null;
+            return true;
+        }
+
+        /// <summary>Weave Life: weaves a homunculus from an Embryo the first time, then calls it out or sends it to rest.</summary>
+        public void WeaveOrCallHomunculus()
+        {
+            if (!CanWeaveOrCallHomunculus(out string reason))
+            {
+                ChatLog.Error(reason);
+                return;
+            }
+
+            var state = Homunculi.HomunculusRules.Of(Record);
+            if (state == null)
+            {
+                Inventory.TryRemove(Homunculi.HomunculusRules.EmbryoItemId);
+                state = Homunculi.HomunculusRules.Weave(Record, UnityEngine.Random.Range(0, 4000));
+                var kind = Homunculi.HomunculusRules.Get(state.Kind);
+                ChatLog.Loot($"The Embryo quickens: {kind.Name} {kind.Title} is born! {kind.Description}");
+                GameAudio.Play(Sfx.LevelUp);
+            }
+            else
+            {
+                state.Out = !state.Out;
+                ChatLog.Notice(state.Out ? $"{state.Name} comes to your side." : $"{state.Name} goes to rest.");
+            }
+
+            RefreshHomunculus();
+        }
+
+        /// <summary>Breath of Iðunn: the fallen homunculus wakes now with <paramref name="hpPercent"/>% of its HP.</summary>
+        public void ReviveHomunculus(float hpPercent)
+        {
+            var state = Homunculi.HomunculusRules.Of(Record);
+            if (state == null || state.RestSeconds <= 0f)
+            {
+                return;
+            }
+
+            state.RestSeconds = 0f;
+            state.Out = true;
+            var definition = Homunculi.HomunculusRules.Build(state);
+            state.Hp = Mathf.Max(1, Mathf.RoundToInt(definition.MaxHp * Mathf.Clamp(hpPercent, 1f, 100f) / 100f));
+            ChatLog.Notice($"{state.Name} stirs and rises.");
+            RefreshHomunculus();
+        }
+
+        /// <summary>Shows the homunculus when it's out and able (after a map change, a respawn, a level up).</summary>
+        public void RefreshHomunculus()
+        {
+            var state = Homunculi.HomunculusRules.Of(Record);
+            bool wanted = state != null && state.Out && state.RestSeconds <= 0f && !IsDead;
+            if (_homunculus != null && (!wanted || _homunculus.IsDead || _homunculus.Level != state.Level))
+            {
+                Destroy(_homunculus.gameObject);
+                _homunculus = null;
+            }
+
+            if (!wanted || _homunculus != null)
+            {
+                return;
+            }
+
+            var spot = Position - transform.forward * 1.4f + transform.right * 1.3f;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(spot, out var hit, 4f, UnityEngine.AI.NavMesh.AllAreas)
+                && !UnityEngine.AI.NavMesh.SamplePosition(Position, out hit, 4f, UnityEngine.AI.NavMesh.AllAreas))
+            {
+                return;
+            }
+
+            _homunculus = EntityFactory.CreateMercenary(Homunculi.HomunculusRules.Build(state), hit.position, this);
+            _homunculus.name = $"Homunculus [{state.Name}]";
+            if (state.Hp > 0)
+            {
+                _homunculus.RestoreHp(state.Hp);
+            }
+        }
+
+        private void TickHomunculus()
+        {
+            var state = Homunculi.HomunculusRules.Of(Record);
+            if (state == null)
+            {
+                return;
+            }
+
+            if (state.RestSeconds > 0f)
+            {
+                state.RestSeconds = Mathf.Max(0f, state.RestSeconds - Time.deltaTime);
+                if (state.RestSeconds <= 0f)
+                {
+                    ChatLog.Notice($"{state.Name} has recovered. Use Weave Life to call it.");
+                    state.Out = false;
+                }
+
+                return;
+            }
+
+            if (_homunculus != null && !_homunculus.IsDead)
+            {
+                state.Hp = _homunculus.Hp;
+            }
+
+            if (IsDead && _homunculus != null)
+            {
+                Destroy(_homunculus.gameObject);
+                _homunculus = null;
+            }
+            else if (!IsDead && state.Out && _homunculus == null && Time.frameCount % 30 == 15)
+            {
+                RefreshHomunculus();
+            }
+        }
+
+        private void OnHomunculusFell()
+        {
+            var state = Homunculi.HomunculusRules.Of(Record);
+            _homunculus = null;
+            if (state == null)
+            {
+                return;
+            }
+
+            state.Hp = 0;
+            state.RestSeconds = Homunculi.HomunculusRules.RestAfterFalling;
+            ChatLog.Error($"{state.Name} has fallen. It will recover in {Homunculi.HomunculusRules.RestAfterFalling / 60f:0} minutes.");
+        }
+
+        /// <summary>The homunculus out at your side takes a share of the base EXP you earn, and grows.</summary>
+        private void ShareWithHomunculus(long baseExp)
+        {
+            var state = Homunculi.HomunculusRules.Of(Record);
+            if (state == null || _homunculus == null || _homunculus.IsDead || baseExp <= 0)
+            {
+                return;
+            }
+
+            int gained = Homunculi.HomunculusRules.GainExp(state, Math.Max(1L, (long)(baseExp * Homunculi.HomunculusRules.ExpShare)));
+            if (gained <= 0)
+            {
+                return;
+            }
+
+            ChatLog.Loot($"{state.Name} grows to level {state.Level}!");
+            state.Hp = 0; // a level up heals it fully
+            RefreshHomunculus();
+        }
+
+        public void TakeOffPetArmor()
+        {
+            if (Pets.PetCatalog.TakeOffArmor(Record, Inventory, out string message))
+            {
+                ChatLog.Notice(message);
+                RefreshPet();
+            }
+            else
+            {
+                ChatLog.Error(message);
+            }
+        }
+
+        /// <summary>Shows the active pet (or removes the companion when none is out) and refreshes the Loyal bonus.</summary>
+        public void RefreshPet()
+        {
+            var state = Pets.PetCatalog.Active(Record);
+            _pet = PetCompanion.Sync(_pet, transform, state?.EggItemId, state?.ArmorItemId, state?.Name);
+            Recalculate();
+        }
+
+        private void TickPet()
+        {
+            if (Pets.PetCatalog.Active(Record) == null)
+            {
+                return;
+            }
+
+            _petHungerTimer += Time.deltaTime;
+            if (_petHungerTimer < Pets.PetCatalog.HungerTickSeconds)
+            {
+                return;
+            }
+
+            _petHungerTimer = 0f;
+            bool ranAway = Pets.PetCatalog.Starve(Record, out string message);
+            if (!string.IsNullOrEmpty(message))
+            {
+                ChatLog.Error(message);
+            }
+
+            if (ranAway)
+            {
+                RefreshPet();
+            }
         }
 
         public void TeleportTo(Vector3 point, string message)
@@ -730,6 +1507,7 @@ namespace Runeheir.Player
             }
 
             Revive(Mathf.Max(1, MaxHp / 2), Sp);
+            GameAudio.Play(Sfx.Revive);
             if (_animation != null)
             {
                 _animation.SetDead(false);
@@ -760,6 +1538,8 @@ namespace Runeheir.Player
                 return;
             }
 
+            GameAudio.Play(Sfx.Hit, Position, 0.45f, 0.85f);
+
             // Rage of Thor hyper-armor: no flinch (casting is already uninterruptible through the same buff).
             if (_animation != null && !Stats.HyperArmor)
             {
@@ -767,6 +1547,10 @@ namespace Runeheir.Player
             }
 
             _caster.InterruptByDamage();
+            if (attacker != null && !attacker.IsDead && attacker != this)
+            {
+                TriggerAutoCasts(AutoCastTrigger.WhenHit, attacker, null);
+            }
         }
 
         /// <summary>Stuns, freezes, sleep, stone, stagger and silence cancel a cast even through hyper-armor's no-flinch.</summary>
@@ -785,6 +1569,7 @@ namespace Runeheir.Player
 
             if (effect == StatusEffect.Stagger)
             {
+                GameAudio.Play(Sfx.Stagger, Position, 0.8f);
                 WorldFeedback.Announce(this, "Staggered!", new Color(1f, 0.6f, 0.4f));
                 if (_animation != null)
                 {
@@ -795,6 +1580,8 @@ namespace Runeheir.Player
 
         protected override void OnDied(CombatEntity killer)
         {
+            GameAudio.Play(Sfx.Death);
+
             // Die() cleared the stealth buff; Update stops running while dead, so drop the silhouette here.
             if (_animation != null)
             {
@@ -848,6 +1635,7 @@ namespace Runeheir.Player
         // ------------------------------------------------------------ level-ups
         private void OnBaseLevelUp(int level)
         {
+            GameAudio.Play(Sfx.LevelUp);
             Recalculate();
             if (!IsDead)
             {
@@ -875,6 +1663,7 @@ namespace Runeheir.Player
 
         private void OnJobLevelUp(int level)
         {
+            GameAudio.Play(Sfx.JobLevelUp);
             WorldFeedback.Announce(this, "Job Level Up!", new Color(0.45f, 0.9f, 1f));
             ChatLog.Notice($"{DisplayName} reached Job Level {level}.");
         }
@@ -973,11 +1762,19 @@ namespace Runeheir.Player
         protected override void Update()
         {
             base.Update();
+            if (Record != null)
+            {
+                TickMercenary();
+                TickHomunculus();
+                TickMount();
+            }
+
             if (Record == null || IsDead)
             {
                 return;
             }
 
+            TickPet();
             bool casting = _caster != null && _caster.IsCasting;
             _motor.SetLocked(IsIncapacitated || !CanMove || (casting && !_caster.CanMoveWhileCasting));
             if (_castSpeedApplied != (casting && Stats.CastMoveSpeedPercent > 0f))
@@ -1015,6 +1812,7 @@ namespace Runeheir.Player
         {
             base.OnDestroy();
             SkillCaster.AnySkillUsed -= OnAnySkillUsed;
+            Monster.MercenaryFell -= OnMercenaryFell;
             if (Local == this)
             {
                 Local = null;

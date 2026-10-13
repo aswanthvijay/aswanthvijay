@@ -112,7 +112,7 @@ namespace Runeheir.UI
                 }
 
                 var captured = entry;
-                _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.DisplayName,
+                _list.AddItem(item, entry.DisplayName,
                     item.IsStackable ? $"x{entry.Amount:N0}" : EquipKinds.Label(item.EquipKind),
                     null, () => ItemTooltips.For(captured, "double-click: take out"), onDoubleClick: () => Withdraw(captured));
             }

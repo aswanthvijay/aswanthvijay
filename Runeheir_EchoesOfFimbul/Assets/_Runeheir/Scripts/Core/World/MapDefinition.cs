@@ -12,6 +12,9 @@ namespace Runeheir.World
 
         /// <summary>An MVP's own map (Lyngvi).</summary>
         Lair = 4,
+
+        /// <summary>Phase 8: a hall fought over in the War of the Realms (see <see cref="Social.SiegeRules"/>).</summary>
+        Castle = 5,
     }
 
     /// <summary>How a map looks and which layout generator builds it.</summary>
@@ -26,6 +29,24 @@ namespace Runeheir.World
         Crypt = 6,
         IceCavern = 7,
         Isle = 8,
+
+        /// <summary>Phase 8: sand and sandstone under a hard sun (Sandmark's dunes, Eldgjá's canyon), with oases.</summary>
+        Desert = 9,
+
+        /// <summary>Phase 8: a basalt cavern lit by lava (Muspelheim's vents, Thor's Volcano).</summary>
+        Volcano = 10,
+
+        /// <summary>Phase 8: steaming southern jungle (Suðrey, Vínland, Járnviðr).</summary>
+        Jungle = 11,
+
+        /// <summary>Phase 8: a warm sandy shore on open sea (Sólvík's coast, the Shell-Jarl's isle).</summary>
+        Coast = 12,
+
+        /// <summary>Phase 8: sandstone tombs (Sandmark's pyramid, the Riddle-Lion's tomb, Suðrey's ruins).</summary>
+        SandTomb = 13,
+
+        /// <summary>Phase 8: a Norse great hall fought over in the War of the Realms (long hearth, pillar rows, a high seat).</summary>
+        Castle = 14,
     }
 
     /// <summary>Town services. Each NPC's menu comes from its kind (shops from <see cref="MapNpc.ShopId"/>).</summary>

@@ -79,6 +79,15 @@ namespace Runeheir.UI
 
                 view.Icon.color = HudIcons.Tint(slot);
                 view.IconText.text = HudIcons.Glyph(slot);
+                if (slot.Kind == HotkeyKind.Item)
+                {
+                    ItemIcons.Apply(view.Icon, Items.ItemCatalog.Get(slot.Id), view.IconText);
+                }
+                else
+                {
+                    ItemIcons.Clear(view.Icon);
+                }
+
                 bool usable = true;
                 if (slot.Kind == HotkeyKind.Item)
                 {
@@ -215,6 +224,7 @@ namespace Runeheir.UI
             {
                 Slot = slot,
                 SourceHotkeyIndex = FlatIndex(slotInPage),
+                ItemId = slot.Kind == HotkeyKind.Item ? slot.Id : null,
                 Glyph = HudIcons.Glyph(slot),
                 Color = HudIcons.Tint(slot),
             };

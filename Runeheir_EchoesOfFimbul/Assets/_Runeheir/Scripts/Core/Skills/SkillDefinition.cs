@@ -90,6 +90,23 @@ namespace Runeheir.Skills
 
         /// <summary>Opens a crafting window instead of acting in the world (Rune Forging, Brewing). See <see cref="SkillDefinition.Craft"/>.</summary>
         Craft = 12,
+
+        /// <summary>
+        /// A duet (Ragnarok's ensembles): a Skald (or Thul) and a Seidkona (or Völva) of one party, side by side and both
+        /// knowing the duet (<see cref="SkillDefinition.EnsembleKey"/>), play it together. A circle between them gives allies
+        /// its <c>BuffId</c> and foes its <c>DebuffId</c> or <c>Status</c> every <c>ZoneTick</c> for <c>ZoneDuration</c>.
+        /// Neither can move while it lasts; it ends if either falls or they part.
+        /// </summary>
+        Ensemble = 13,
+
+        /// <summary>Weave Life (Ragnarok's Call Homunculus): weaves a homunculus from an Embryo, or calls it out, or sends it to rest.</summary>
+        Homunculus = 14,
+
+        /// <summary>Breath of Iðunn (Ragnarok's Resurrect Homunculus): a fallen homunculus wakes at once with part of its HP.</summary>
+        HomunculusRevive = 15,
+
+        /// <summary>Calls the job's mount or gets down from it (Horsemanship, Boar Riding). See <see cref="Characters.MountRules"/>.</summary>
+        Mount = 16,
     }
 
     /// <summary>What a <see cref="SkillSpecial.Craft"/> skill makes.</summary>
@@ -267,6 +284,9 @@ namespace Runeheir.Skills
 
         /// <summary>Buff applied to the caster (Self) or the clicked friend (Friend).</summary>
         public string BuffId;
+
+        /// <summary>Duets (<see cref="SkillSpecial.Ensemble"/>): the shared key of the Skald's and the Seidkona's halves.</summary>
+        public string EnsembleKey;
 
         /// <summary>Overrides the buff's duration when non-zero.</summary>
         public LevelValue BuffDuration;

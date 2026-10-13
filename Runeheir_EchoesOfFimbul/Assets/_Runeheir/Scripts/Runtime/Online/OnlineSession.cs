@@ -277,5 +277,18 @@ namespace Runeheir.Online
         public static Action<GameObject> MonsterBuilding;
 
         public static Action<Monster> MonsterCreated;
+
+        // Phase 8, the War of the Realms (set by the realm server; offline there are no guilds, so no sieges).
+        /// <summary>The guild of a player, by the realm's own records.</summary>
+        public static Func<PlayerEntity, string> GuildOf;
+
+        /// <summary>The guild holding a castle map, or null.</summary>
+        public static Func<string, string> CastleOwner;
+
+        /// <summary>Is the war on right now?</summary>
+        public static Func<bool> SiegeOn;
+
+        /// <summary>A Jarlstone broke: the realm hands the hall to the breaker's guild.</summary>
+        public static Action<Monster, PlayerEntity> JarlstoneBroken;
     }
 }

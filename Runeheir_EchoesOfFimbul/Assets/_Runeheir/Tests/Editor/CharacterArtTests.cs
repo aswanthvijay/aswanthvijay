@@ -35,7 +35,7 @@ namespace Runeheir.Tests
         }
 
         [Test]
-        public void Catalog_GivesTheWarriorLineTheirOwnOutfits_AndEveryoneElseTheCommonOne()
+        public void Catalog_GivesEveryLineItsOutfit_AndTheNovicesTheTravellingClothes()
         {
             foreach (var job in WarriorLine)
             {
@@ -44,7 +44,16 @@ namespace Runeheir.Tests
                 Assert.AreEqual(job.ToString().ToLowerInvariant(), outfit.Key, job.ToString());
             }
 
-            Assert.AreEqual(OutfitCatalog.CommonKey, OutfitCatalog.ForJob(JobId.Mystic).Key, "no Mystic outfit yet");
+            // Art Pass 2: every other job has its line's outfit; only the Initiate and the Wanderer (Ragnarok's Novice and
+            // Super Novice) keep the travelling clothes.
+            foreach (JobId job in Enum.GetValues(typeof(JobId)))
+            {
+                bool travelling = job == JobId.Initiate || job == JobId.Wanderer;
+                Assert.AreEqual(travelling, OutfitCatalog.ForJob(job).Key == OutfitCatalog.CommonKey, job.ToString());
+            }
+
+            Assert.AreEqual("sorcerer", OutfitCatalog.ForJob(JobId.Archmage).Key, "a transcendent job wears its second job's outfit");
+            Assert.AreEqual("assassin", OutfitCatalog.ForJob(JobId.Nightraider).Key);
             Assert.AreEqual(OutfitCatalog.CommonKey, OutfitCatalog.ForJob(null).Key, "NPCs and humanoid monsters");
             Assert.AreEqual(AvatarLook.HairStyleNames.Length, OutfitCatalog.HairStyleCount, "a hair model for every style on the creation screen");
         }

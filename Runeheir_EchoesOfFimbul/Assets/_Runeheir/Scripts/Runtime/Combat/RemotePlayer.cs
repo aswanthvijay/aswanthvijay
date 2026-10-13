@@ -99,7 +99,16 @@ namespace Runeheir.Combat
                 _avatar.RebuildHumanoid(look);
                 _animation?.RefreshHidden();
             }
+
+            _pet = Player.PetCompanion.Sync(_pet, transform, look.PetEgg, look.PetArmor, null);
+            _raven = Player.RavenCompanion.Sync(_raven, transform, Job == JobId.Ranger || Job == JobId.Deadeye);
         }
+
+        // Rangers' and Deadeyes' raven (it leaves on its own when they do).
+        private Player.RavenCompanion _raven;
+
+        // Their pet (it leaves on its own when they do).
+        private Player.PetCompanion _pet;
 
         /// <summary>Their defences, as their game computed them (monsters on the realm use these).</summary>
         public void MirrorDefences(CombatSnapshot snapshot)
@@ -157,7 +166,7 @@ namespace Runeheir.Combat
         public override AttackerProfile BuildAttackerProfile()
         {
             // Never attacks from here: their own game swings for them.
-            return new AttackerProfile { Weapon = WeaponType.Unarmed, Race = Race.DemiHuman };
+            return new AttackerProfile { Weapon = WeaponType.Unarmed, Race = Race.DemiHuman, Size = Size.Medium };
         }
 
         public override DefenderProfile BuildDefenderProfile()

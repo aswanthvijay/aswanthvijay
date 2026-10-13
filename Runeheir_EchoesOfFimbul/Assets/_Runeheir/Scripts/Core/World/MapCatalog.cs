@@ -16,7 +16,7 @@ namespace Runeheir.World
     /// Fjord Caverns (3 floors) end in MVP chambers; the Hall of Branches is the arena for Dead and Blood Branches; and
     /// Lyngvi, past the Jotun Steppe, is where Fenrir lies bound.
     /// </summary>
-    public static class MapCatalog
+    public static partial class MapCatalog
     {
         /// <summary>The one scene every generated map loads (the map is built at load time).</summary>
         public const string WorldScene = "RH_World";
@@ -35,7 +35,10 @@ namespace Runeheir.World
         private static readonly Dictionary<string, MapDefinition> ById = new Dictionary<string, MapDefinition>(StringComparer.OrdinalIgnoreCase);
         private static readonly List<MapDefinition> Ordered = new List<MapDefinition>();
 
-        public static readonly IReadOnlyList<TeleportDestination> TeleportDestinations = new[]
+        /// <summary>Norn Courier teleports: Runeheir's own stops, then (Phase 8) every town of the XileRetro world.</summary>
+        public static IReadOnlyList<TeleportDestination> TeleportDestinations => Destinations;
+
+        private static readonly List<TeleportDestination> Destinations = new List<TeleportDestination>
         {
             new TeleportDestination { MapId = VigridHaven, Zeny = 600 },
             new TeleportDestination { MapId = WhisperwoodPlains, Zeny = 500 },
@@ -52,6 +55,8 @@ namespace Runeheir.World
             Fields();
             Catacombs();
             Caverns();
+            Sieges();
+            RegisterXileWorld(); // Phase 8: XileRetro's fields, dungeons and towns (Generated/MapCatalog.Xile.g.cs)
         }
 
         public static IReadOnlyList<MapDefinition> All => Ordered;
@@ -82,6 +87,7 @@ namespace Runeheir.World
             });
             vigrid.Portals.Add(new MapPortal { Id = "south_gate", Label = "Whisperwood Plains", X = 0f, Z = -57f, TargetMap = WhisperwoodPlains, TargetPortal = "north_road" });
             vigrid.Portals.Add(new MapPortal { Id = "hall_door", Label = "Hall of Branches", X = -57f, Z = 0f, TargetMap = HallOfBranches, TargetPortal = "exit" });
+            vigrid.Portals.Add(new MapPortal { Id = "siege_road", Label = "Iðavöllr · War of the Realms", X = -20f, Z = 57f, TargetMap = Social.SiegeRules.FieldsMapId, TargetPortal = "vigrid_road" });
             vigrid.Npcs.Add(new MapNpc
             {
                 Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.GeneralStore, Name = "Ásta", Title = "Trading Post", X = -14f, Z = -17f,
@@ -93,6 +99,42 @@ namespace Runeheir.World
                 Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.Armory, Name = "Hrafn", Title = "Vigrid Armory", X = 14f, Z = -18f,
                 Greeting = "Steel for the road ahead. Greatswords, mail, shields and trinkets, all honestly forged.",
                 OutfitHex = "#4D5656", Head = "iron_helm", Lower = "braided_beard", Shield = "round_viking_shield",
+            });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.WeaponSmith, Name = "Eyvind", Title = "Weapon Smithy", X = -25f, Z = -14f,
+                Greeting = "Seax, spear, bow or thunder-rod: whatever your guild trains you in, I've forged one.",
+                OutfitHex = "#5D6D7E", Head = "fur_cap", Lower = "braided_beard", Garment = "bear_pelt",
+            });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.Armourer, Name = "Ragna", Title = "Armoury", X = 25f, Z = -15f,
+                Greeting = "A good helm and dry boots keep more heroes alive than any sword. Have a look.",
+                OutfitHex = "#7E5109", Gender = 1, Head = "iron_helm", Shield = "kite_shield", Garment = "wolfskin_mantle",
+            });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.HirdHall, Name = "Thrand", Title = "Hirð Hall · Mercenaries", X = -27f, Z = 3f,
+                Greeting = "Need a blade at your back? My hirð sells its oath by the half hour. Pick a grade you can lead.",
+                OutfitHex = "#6E2C00", Head = "iron_helm", Lower = "braided_beard", Shield = "round_viking_shield", Garment = "bear_pelt",
+            });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.Stable, Name = "Hestr", Title = "Stable · Fjord Horses", X = -21f, Z = -32f,
+                Greeting = "Sleipnir had eight legs; mine make do with four. Reins for any rider, and the road's half as long.",
+                OutfitHex = "#6E4B2A", Head = "fur_cap", Lower = "braided_beard",
+            });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.TailorHead, Name = "Gerðr", Title = "Costumes · Hats & Ears", X = -14f, Z = 27f,
+                Greeting = "A crown for the feast, cat's ears for the fair. Costumes sit over your helm and change only how you look.",
+                OutfitHex = "#A93B6B", Gender = 1, Head = "feathered_beret", Garment = "traveler_cloak",
+            });
+            vigrid.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.TailorBack, Name = "Ylfa", Title = "Costumes · Wings & Auras", X = 14f, Z = 27f,
+                Greeting = "Valkyrie wings, cloaks and auras that glow at your feet. Pure vanity, and the finest in Midgard.",
+                OutfitHex = "#5B4BA0", Gender = 1, Garment = "valkyrian_manteau",
             });
             vigrid.Npcs.Add(new MapNpc
             {
@@ -327,6 +369,46 @@ namespace Runeheir.World
             ById[map.Id] = map;
             Ordered.Add(map);
             return map;
+        }
+
+        // ================================================================ the War of the Realms (Phase 8)
+        /// <summary>Iðavöllr, where the gods built their halls, and the five halls guilds fight over (Ragnarok's castles).</summary>
+        private static void Sieges()
+        {
+            var fields = Add(new MapDefinition
+            {
+                Id = Social.SiegeRules.FieldsMapId, Name = "Iðavöllr", Kind = MapKind.Field, Theme = MapTheme.Meadow, Size = 150f, Seed = 2077,
+                MinLevel = 1, MaxLevel = 60, SaveX = 0f, SaveZ = -50f, AllowBranches = false, AllowRandomTeleport = false,
+                Description = "The plain where the gods raised their halls. At the realm's siege hours, guilds storm them for the right to hold them.",
+            });
+            fields.Portals.Add(new MapPortal { Id = "vigrid_road", Label = "Vigrid Haven", X = 0f, Z = -72f, TargetMap = VigridHaven, TargetPortal = "siege_road" });
+            fields.Npcs.Add(Courier(-8f, -46f));
+            Spawn(fields, "rune_spore", 6, -30f, -20f, 10f);
+            Spawn(fields, "field_beetle", 6, 30f, -20f, 10f);
+            float[][] gates = { new[] { -60f, 10f }, new[] { -36f, 60f }, new[] { 0f, 72f }, new[] { 36f, 60f }, new[] { 60f, 10f } };
+            for (int i = 0; i < Social.SiegeRules.Castles.Count; i++)
+            {
+                var castle = Social.SiegeRules.Castles[i];
+                fields.Portals.Add(new MapPortal { Id = "to_" + castle.MapId, Label = castle.Name, X = gates[i][0], Z = gates[i][1], TargetMap = castle.MapId, TargetPortal = "gate" });
+
+                var hall = Add(new MapDefinition
+                {
+                    Id = castle.MapId, Name = castle.Name, Kind = MapKind.Castle, Theme = MapTheme.Castle, Size = 70f, Seed = 3100 + i,
+                    SaveX = 0f, SaveZ = -10f, AllowBranches = false, AllowRandomTeleport = false,
+                    Description = castle.Lore + " Held by the guild that last broke its Jarlstone.",
+                });
+                hall.Portals.Add(new MapPortal { Id = "gate", Label = "Iðavöllr", X = 0f, Z = -26f, TargetMap = Social.SiegeRules.FieldsMapId, TargetPortal = "to_" + castle.MapId });
+                Spawn(hall, Social.SiegeRules.JarlstoneId, 1, 0f, 14f, 0.5f);
+                Spawn(hall, Social.SiegeRules.HoardId, 3, 0f, 21f, 3f);
+            }
+
+            fields.Npcs.Add(new MapNpc
+            {
+                Kind = NpcKind.Merchant, ShopId = Items.ShopCatalog.GeneralStore, Name = "Forseti", Title = "Herald of the War", X = 8f, Z = -46f,
+                Greeting = "Five halls, five Jarlstones. At the realm's siege hours, break a Jarlstone your guild doesn't hold and the hall is yours "
+                           + "until someone breaks it again. Those who hold a hall open its hoards. Supplies, if you're going in.",
+                OutfitHex = "#1F618D", Head = "iron_helm", Garment = "valkyrian_manteau",
+            });
         }
 
         private static void Spawn(MapDefinition map, string monsterId, int count, float x, float z, float radius)

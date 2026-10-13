@@ -1,9 +1,9 @@
-# Art Pass 1: Characters, the Warrior Line, Weapons and Actions
+# Art Passes 1 and 2: Characters, Every Job's Outfit, Weapons and Actions
 
 The concept art ("Option B") sets the target: an anime hero about six heads tall in Norse kit, cel-shaded with ink lines, in a snowy isometric world. This art pass:
 
 - replaces the capsule doll with a rigged body built in Blender
-- dresses the Warrior line (Ragnarok's Swordman tree) in their own outfits
+- dresses the Warrior line (Ragnarok's Swordman tree) in their own outfits, and (Art Pass 2) every other line
 - models every weapon type
 - gives each weapon class its own fighting actions, modelled on Ragnarok's (as played on XileRO)
 
@@ -38,7 +38,38 @@ The concept art ("Option B") sets the target: an anime hero about six heads tall
 | Einherjar | Lord Knight | Valhalla plate trimmed in gold, a white fur collar, a long crimson cape, glowing blue runes (the concept's hero) |
 | Valkyrie | Paladin | Silver plate, feather-winged pauldrons, a white skirt under tassets, a sky-blue cape |
 
-- **Every other job** wears the common traveller's clothes, tinted with its job color, until its own outfit is made. High Warrior wears the Warrior's outfit.
+- **Every other line's outfits (Art Pass 2).** Fifteen more outfits, male and female. A second job and its transcendent job
+  share one model; the cloth in the job's own color tells them apart (the Sorcerer's robe is midnight blue, the Archmage's
+  deeper still). Only the Initiate and the Wanderer (Ragnarok's Novice and Super Novice) keep the traveller's clothes,
+  tinted with their job color. High Warrior wears the Warrior's outfit.
+
+| Outfit | Jobs | Look |
+|---|---|---|
+| Mystic | Mystic, Freyja's Kin | An apprentice's knee robe, the hood down, a satchel strap and a rune book at the hip |
+| Sorcerer | Sorcerer, Archmage | An ankle robe open over dark breeches, a mantle and high collar, glowing runes, a long cape |
+| Sage | Sage, Chronomancer, Fylgja Caller | A scholar's coat under a tabard with the valknut, one leather pauldron, a book and pouch |
+| Devotee | Devotee | A novice's white robe, a stole in the job color, a rope belt, the sun-cross |
+| Gothi | Gothi, High Gothi | White vestments, a tabard in the job color with the valknut, a mantle, gold bands, a cape |
+| Monk | Monk, Champion, Glíma Fighter, Sól Guardian | A sleeveless gi, bare arms with wrist wraps, a wide sash, prayer beads, wrapped trousers |
+| Huntsman | Huntsman, Ranger, Deadeye | A leather jerkin, the hood down, a quiver across the back, bracers, fur-cuffed boots |
+| Skald | Skald, Thul | A minstrel's tunic with gold trim, puffed sleeves, the harp strap, a short cape |
+| Seiðkona | Seidkona, Völva | A bodice and a slit skirt to the ankle, bare arms with gold bangles, a fur mantle, sash ends |
+| Trader | Trader | A vest, rolled sleeves, a leather apron and coin pouches |
+| Smith | Runesmith, Forgelord | A heavy leather apron with a glowing Tiwaz rune, bare forearms, steel bracers, great gloves |
+| Brewer | Brewmaster, Lifeweaver | A long coat open at the front, a high collar, a belt of glowing vials, a bandolier |
+| Scout | Scout | A light leather vest, a scarf, arm wraps, a dagger harness and pouches |
+| Assassin | Assassin, Shadow Walker, Nightraider | Close dark wraps, a collar up to the nose, spiked arm guards, long sash tails |
+| Outlaw | Outlaw, Vargr, Thunderer | A long coat open at the front, a wolf-pelt collar, a bandolier, tall boots |
+
+![The first jobs in their outfits](Images/art_lines_first.png)
+
+*Art Pass 2, the first jobs: Scout, Mystic, Devotee, Huntsman and Trader, and the Assassin. Men in front, women behind.*
+
+![The second jobs in their outfits](Images/art_lines_second.png)
+
+*Ranger, Sorcerer, Sage, Gothi, Monk and Shadow Walker. Runeheir ▸ Art ▸ Render Character Lineup writes every job, six to
+a page (`unity_lines_front_<n>.png`).*
+
 - **Hair:** the eight styles on the creation screen (Short, Spiky, Long, Ponytail, Twin Tails, Bun, Mohawk, Viking Braids), modelled as layered anime locks.
 - **Weapons:** a model for each of the 17 weapon types, held in the fist. Archers hold the bow in the left hand, tomes and lyres are held in the left hand too, and knuckles and katars go on both hands.
 - **Cloaks:** a worn cloak (Traveler's Cloak, Wolfskin Mantle, Bear Pelt, Valkyrian Manteau...) is a cape fitted to each outfit and skinned to the body, in the item's color. It clears pauldrons, collars and belts, and replaces the outfit's own cape. Wings and mufflers still hang from the back socket.
@@ -89,7 +120,9 @@ Tools/Blender/build_characters.py   entry point: builds, exports, renders previe
 Tools/Blender/rh_geo.py             mesh helpers (lofts, tubes, panels, domes, straps)
 Tools/Blender/rh_body.py            skeleton, body proportions, the head and face
 Tools/Blender/rh_hair.py            the eight hair styles
-Tools/Blender/rh_outfits.py         outfit pieces, the job outfits, their palettes and fitted cloaks
+Tools/Blender/rh_outfits.py         outfit pieces, the Warrior line's outfits, their palettes and fitted cloaks
+Tools/Blender/rh_outfits_lines.py   the other lines' outfits (Art Pass 2) and their pieces: robes, cowls, mantles, sashes,
+                                    quivers, books, vials, beads, aprons, stoles; registers them with rh_outfits
 Tools/Blender/rh_weapons.py         the 17 weapon models and their palette
 ```
 
@@ -107,7 +140,7 @@ Options after `--`: `--only warrior,einherjar` builds some outfits, `--no-render
 | `Assets/_Runeheir/Resources/Characters/hair_<0-7>.fbx` | Hair, modelled around the Head joint |
 | `Assets/_Runeheir/Resources/Characters/Weapons/<WeaponType>.fbx` | One model per weapon type, gripped at the origin; the bow has a separate `String` and `Arrow` |
 | `Assets/_Runeheir/Resources/Characters/outfits.json` | Each outfit's palette, the jobs that wear it, the weapon palette |
-| `Tools/Blender/Previews/lineup_*.png` | Quick Blender renders (not the game shader) |
+| `Tools/Blender/Previews/lineup_*.png` | Quick Blender renders (not the game shader), six outfits to a page (`lineup_male_front_2.png`...) |
 | `Tools/Blender/Out/characters.blend` | The built scene, to open and inspect |
 
 Then see them in the game's shader: **Runeheir ▸ Art ▸ Render Character Lineup**, or from the command line with a GPU:
@@ -118,7 +151,8 @@ Then see them in the game's shader: **Runeheir ▸ Art ▸ Render Character Line
 
 It writes these to `Tools/Blender/Previews/`:
 
-- `unity_lineup_*`: the outfits
+- `unity_lineup_*`: the common and Warrior-line outfits
+- `unity_lines_front_<n>`: every other job in its outfit and job color, six to a page
 - `unity_cloaks_back`: the worn cloaks, from behind
 - `unity_weapons`: every weapon in hand
 - `unity_strip_*`: attack filmstrips for the sword, backhand, greatsword, spear, staff and bow
@@ -141,13 +175,15 @@ It writes these to `Tools/Blender/Previews/`:
 | `Garment`, `GarmentDark` | the worn cloak item's color |
 | Weapons: `Steel`, `SteelDark`, `Wood`, `WoodDark`, `Leather`, `Gold`, `Gem` (self-lit), `String`, `Paper`, `Cover` | the weapon palette |
 
-### Adding the next outfit (Mystic line, and so on)
+### Adding or changing an outfit
 
-1. In `rh_outfits.py`, write `outfit_<key>(B, C, P)` from the pieces. Start with `base_head(B, P)` and `hands(...)`, then pick from:
+1. In `rh_outfits.py` (or `rh_outfits_lines.py`), write `outfit_<key>(B, C, P)` from the pieces. Start with `base_head(B, P)` and `hands(...)`, then pick from:
    - clothes: `shirt`, `sleeves`, `trousers`, `boots`, `belt`, `skirt` (panels that follow the legs), `tabard`
    - armour: `cuirass`, `pauldron` (lames, trims, spikes, feathers, runes), `bracers`, `greaves`, `cuisses`, `gorget`
    - extras: `fur_collar`, `cape` (into `C`), `harness`, `emblem`, `rune_line`
-2. Add its palette to `PALETTES`, its jobs to `OUTFIT_JOBS`, the function to `OUTFITS` and a cloak fit to `GARMENT_FIT`.
+2. Add its palette to `PALETTES`, its jobs to `OUTFIT_JOBS`, the function to `OUTFITS` and a cloak fit to `GARMENT_FIT`
+   (in `rh_outfits_lines.py`: the `LINE_` tables, and a preview color in `PREVIEW_JOB`). A palette slot set to `"$outfit"`
+   or `"$outfitDark"` takes each job's own color, so one model can serve several jobs.
 3. Run the build, then Render Character Lineup.
 4. `CharacterArtTests` checks every outfit in `outfits.json`: both genders load, the full skeleton, skinning, the fitted cloak and only known material slots.
 
@@ -182,13 +218,15 @@ Change a key, run Render Character Lineup and look at the filmstrips.
 - **Hands** are mitten fists.
 - **Capes and skirts** are skinned to the body with no cloth simulation, so legs can clip tassets at a full run.
 - **Actions are procedural keyframes, not hand-animated clips.** They read clearly at the game camera but are stiffer close up.
-- **34 jobs** still wear the common clothes.
+- **One model per line.** A second job and its transcendent job differ only in color; the transcendent jobs could get
+  richer trims of their own later.
+- **Hats and hoods up** are left to headgear items, so outfits keep their hoods down.
 - The lineup renders use Vigrid Haven's warm sun with no tonemapping (the game has none either), so whites and steel run bright.
 
 ## 6. Tests
 
 - `Tests/Editor/CharacterArtTests` (EditMode):
-  - the catalog maps each job to its outfit
+  - the catalog maps each job to its outfit: every job but the Initiate and the Wanderer has its line's
   - every outfit is skinned, with the full skeleton, a fitted cloak and only known slots
   - every weapon type has a model in the weapon palette
   - the models face +Z at human height

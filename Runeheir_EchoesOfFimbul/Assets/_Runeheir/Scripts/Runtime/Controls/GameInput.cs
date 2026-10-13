@@ -25,6 +25,12 @@ namespace Runeheir.Controls
         Z,
         G,
         V,
+
+        /// <summary>The pet window (Ragnarok's Alt+J).</summary>
+        J,
+
+        /// <summary>The mercenary window (Ragnarok's Ctrl+R).</summary>
+        R,
         Insert,
         Delete,
         Space,
@@ -168,6 +174,8 @@ namespace Runeheir.Controls
                 case GameKey.Z: return Key.Z;
                 case GameKey.G: return Key.G;
                 case GameKey.V: return Key.V;
+                case GameKey.J: return Key.J;
+                case GameKey.R: return Key.R;
                 case GameKey.Insert: return Key.Insert;
                 case GameKey.Delete: return Key.Delete;
                 case GameKey.Space: return Key.Space;
@@ -253,6 +261,8 @@ namespace Runeheir.Controls
                 case GameKey.Z: return KeyCode.Z;
                 case GameKey.G: return KeyCode.G;
                 case GameKey.V: return KeyCode.V;
+                case GameKey.J: return KeyCode.J;
+                case GameKey.R: return KeyCode.R;
                 case GameKey.Insert: return KeyCode.Insert;
                 case GameKey.Delete: return KeyCode.Delete;
                 case GameKey.Space: return KeyCode.Space;

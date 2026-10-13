@@ -118,6 +118,7 @@ namespace Runeheir.Net
             RealmHooks.MapNotice = MapNotice;
             RealmHooks.MonsterBuilding = NetSpawning.AddMonsterComponents;
             RealmHooks.MonsterCreated = SpawnMonster;
+            StartSieges();
             if (_accounts.StorageError != null)
             {
                 Debug.LogError("[Runeheir realm] " + _accounts.StorageError);
@@ -139,6 +140,7 @@ namespace Runeheir.Net
             RealmHooks.MapNotice = null;
             RealmHooks.MonsterBuilding = null;
             RealmHooks.MonsterCreated = null;
+            StopSieges();
 
             foreach (var world in _maps.Values)
             {
@@ -180,6 +182,7 @@ namespace Runeheir.Net
 
             _nextRefresh = Time.unscaledTime + 1f;
             RefreshSocial();
+            TickSieges();
         }
 
         // ================================================================ maps
@@ -560,6 +563,7 @@ namespace Runeheir.Net
             {
                 session.Greeted = true;
                 Notify(session, ChatRules.Sanitize($"[{Config.Name}] {Config.Motd}", 220));
+                Notify(session, SiegeStatus());
             }
         }
 
@@ -725,6 +729,12 @@ namespace Runeheir.Net
             if (!session.Flood.Allow(channel, Time.unscaledTimeAsDouble, out string flood))
             {
                 Error(session, flood);
+                return;
+            }
+
+            if (text.StartsWith("@siege", StringComparison.OrdinalIgnoreCase))
+            {
+                SiegeCommand(session, text.Substring(6));
                 return;
             }
 

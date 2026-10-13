@@ -73,6 +73,19 @@ namespace Runeheir.World
         Pool = 29,
         ForgeHut = 30,
         GuildHall = 31,
+
+        // Phase 8 themes.
+        Cactus = 32,
+        PalmTree = 33,
+        JungleTree = 34,
+        Fern = 35,
+        LavaPool = 36,
+        Obelisk = 37,
+        Urn = 38,
+
+        // Phase 8 castles.
+        Throne = 39,
+        Hearth = 40,
     }
 
     /// <summary>Which props block movement and how much ground they cover (the runtime builder draws them to match).</summary>
@@ -89,6 +102,8 @@ namespace Runeheir.World
                 case PropKind.Mushroom:
                 case PropKind.Chains:
                 case PropKind.Pool:
+                case PropKind.Fern:
+                case PropKind.LavaPool:
                     return false;
                 default:
                     return true;
@@ -126,6 +141,13 @@ namespace Runeheir.World
                 case PropKind.Tent: return 2f;
                 case PropKind.ForgeHut: return 4f;
                 case PropKind.GuildHall: return 6f;
+                case PropKind.Cactus: return 0.5f;
+                case PropKind.PalmTree: return 0.5f;
+                case PropKind.JungleTree: return 0.8f;
+                case PropKind.Obelisk: return 0.9f;
+                case PropKind.Urn: return 0.5f;
+                case PropKind.Throne: return 1.6f;
+                case PropKind.Hearth: return 0.8f;
                 default: return 0.5f;
             }
         }

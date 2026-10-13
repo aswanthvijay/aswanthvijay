@@ -103,6 +103,18 @@ namespace Runeheir.Field
             return player;
         }
 
+        /// <summary>
+        /// Phase 8: a mercenary fighting for <paramref name="master"/>. It lives only in its master's game (the realm never
+        /// hears of it); online, its blows reach the realm's monsters as its master's.
+        /// </summary>
+        public static Monster CreateMercenary(MonsterDefinition definition, Vector3 position, PlayerEntity master)
+        {
+            var monster = CreateMonster(definition, position, master.transform.eulerAngles.y, mirror: true);
+            monster.name = $"Mercenary [{definition.Name}]";
+            monster.BindToMaster(master);
+            return monster;
+        }
+
         /// <param name="mirror">
         /// Online client: a copy of a monster the realm runs (<paramref name="beforeActivate"/> adds its network parts).
         /// Otherwise a realm server hands the new monster to the network through <see cref="RealmHooks"/>.

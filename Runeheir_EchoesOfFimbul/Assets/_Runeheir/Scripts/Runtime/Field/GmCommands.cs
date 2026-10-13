@@ -281,6 +281,18 @@ namespace Runeheir.Field
                     Warp(player, parts);
                     break;
 
+                case "siege":
+                    if (Online.OnlineSession.IsOnline)
+                    {
+                        Online.OnlineSession.Current.SendChat(new Social.ChatInput(Social.ChatChannel.Local, null, "@siege " + rest, false));
+                    }
+                    else
+                    {
+                        ChatLog.Gm("The War of the Realms is fought between guilds on a realm (Host or Join). Offline, the Jarlstones won't yield.");
+                    }
+
+                    break;
+
                 case "bosses":
                     ListBosses();
                     break;
@@ -362,7 +374,8 @@ namespace Runeheir.Field
                 return;
             }
 
-            var item = ItemCatalog.Get(parts[1]);
+            // A bare number is a XileRetro / Ragnarok item id (@item 1201 = xr1201, the Knife).
+            var item = int.TryParse(parts[1], out int roId) ? ItemCatalog.GetXile(roId) : ItemCatalog.Get(parts[1]);
             if (item == null)
             {
                 ChatLog.Error($"Unknown item '{parts[1]}'. Try @items.");
@@ -411,8 +424,12 @@ namespace Runeheir.Field
                 default: match = i => i.Id.Contains(filter) || i.Name.ToLowerInvariant().Contains(filter); break;
             }
 
+            // The XileRetro import (Phase 8) has thousands of items: show the first 40 and narrow with text.
+            const int shown = 40;
             var found = ItemCatalog.All.Where(match).Select(i => i.Id).ToList();
-            ChatLog.Gm(found.Count == 0 ? "No items match." : $"{found.Count}: " + string.Join(", ", found));
+            ChatLog.Gm(found.Count == 0
+                ? "No items match."
+                : $"{found.Count}: " + string.Join(", ", found.Take(shown)) + (found.Count > shown ? $" … and {found.Count - shown} more (add text to narrow it)" : string.Empty));
         }
 
         private static void SpawnMonsters(PlayerCharacter player, string[] parts)

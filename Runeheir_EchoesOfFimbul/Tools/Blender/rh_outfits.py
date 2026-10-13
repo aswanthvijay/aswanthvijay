@@ -46,6 +46,10 @@ OUTFIT_JOBS = {
     "valkyrie": ["Valkyrie"],
 }
 
+# The job color an outfit shows in the Blender previews where its palette says "$outfit" (rh_outfits_lines fills it in;
+# the common outfit previews in the Initiate's color).
+PREVIEW_JOB = {}
+
 # Slots shared by every model (colored per character in Unity, here only for the previews).
 CHARACTER_SLOTS = {"Skin": "#F7D8BF", "Hair": "#E9D9A6", "Brow": "#B79A62", "Eye": "#2E5E8C", "EyeWhite": "#FBFAF6",
                    "Lash": "#231A1C", "Highlight": "#FFFFFF", "Mouth": "#A0524A"}

@@ -11,7 +11,8 @@ namespace Runeheir.World
         /// <summary>Far wider than any map (the largest is 190 m), so maps never see or touch each other.</summary>
         public const float Spacing = 1000f;
 
-        public const int Columns = 4;
+        /// <summary>Twenty maps a row keeps even the 300-odd maps of the imported world within ~20 km of the origin.</summary>
+        public const int Columns = 20;
 
         /// <summary>The map's world offset (X, Z). Unknown maps sit at the origin.</summary>
         public static GroundPoint Origin(string mapId)

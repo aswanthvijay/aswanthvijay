@@ -34,6 +34,10 @@ namespace Runeheir.WorldBuilding
         private static readonly Color Flame = new Color(1f, 0.55f, 0.15f);
         private static readonly Color SpiritFlame = new Color(0.5f, 0.75f, 1f);
         private static readonly Color Ice = new Color(0.68f, 0.85f, 0.97f);
+        private static readonly Color Sandstone = new Color(0.80f, 0.66f, 0.45f);
+        private static readonly Color Basalt = new Color(0.20f, 0.17f, 0.17f);
+        private static readonly Color Lava = new Color(1f, 0.42f, 0.08f);
+        private static readonly Color Gold = new Color(0.92f, 0.72f, 0.25f);
 
         /// <summary>Builds the prop under <paramref name="parent"/> at its placement.</summary>
         public static GameObject Build(PropPlacement prop, MapTheme theme, Transform parent)
@@ -58,11 +62,11 @@ namespace Runeheir.WorldBuilding
                 case PropKind.MeadHall: MeadHall(t); break;
                 case PropKind.Stall: Stall(t, seed); break;
                 case PropKind.Well: Well(t); break;
-                case PropKind.Banner: Banner(t, theme); break;
+                case PropKind.Banner: Banner(t, theme, seed); break;
                 case PropKind.Torch: Torch(t); break;
                 case PropKind.Brazier: Brazier(t, theme); break;
                 case PropKind.Pillar: Pillar(t, theme); break;
-                case PropKind.Coffin: Coffin(t); break;
+                case PropKind.Coffin: Coffin(t, theme); break;
                 case PropKind.Bones: Bones(t); break;
                 case PropKind.Crystal: Crystal(t, seed); break;
                 case PropKind.IceSpike: IceSpike(t, seed); break;
@@ -79,6 +83,15 @@ namespace Runeheir.WorldBuilding
                 case PropKind.Pool: Pool(t, theme); break;
                 case PropKind.ForgeHut: ForgeHut(t); break;
                 case PropKind.GuildHall: GuildHall(t); break;
+                case PropKind.Cactus: Cactus(t, seed); break;
+                case PropKind.PalmTree: PalmTree(t, seed); break;
+                case PropKind.JungleTree: JungleTree(t, seed); break;
+                case PropKind.Fern: Fern(t, seed); break;
+                case PropKind.LavaPool: LavaPool(t, seed); break;
+                case PropKind.Obelisk: Obelisk(t, theme); break;
+                case PropKind.Urn: Urn(t, seed); break;
+                case PropKind.Throne: Throne(t); break;
+                case PropKind.Hearth: Hearth(t, prop.Length > 0f ? prop.Length : 6f); break;
             }
 
             if (PropKinds.Blocks(prop.Kind))
@@ -164,7 +177,7 @@ namespace Runeheir.WorldBuilding
 
         private static void DeadTree(Transform t, MapTheme theme)
         {
-            Color bark = Snowy(theme) ? new Color(0.42f, 0.40f, 0.40f) : DarkWood;
+            Color bark = Snowy(theme) ? new Color(0.42f, 0.40f, 0.40f) : theme == MapTheme.Desert ? new Color(0.70f, 0.64f, 0.56f) : DarkWood;
             Part(PrimitiveType.Cylinder, t, "Trunk", new Vector3(0f, 1.4f, 0f), new Vector3(0.34f, 1.4f, 0.34f), bark);
             Part(PrimitiveType.Cylinder, t, "BranchL", new Vector3(-0.45f, 2.4f, 0f), new Vector3(0.12f, 0.6f, 0.12f), bark, new Vector3(0f, 0f, 40f));
             Part(PrimitiveType.Cylinder, t, "BranchR", new Vector3(0.4f, 2.1f, 0.1f), new Vector3(0.1f, 0.5f, 0.1f), bark, new Vector3(10f, 0f, -45f));
@@ -176,7 +189,9 @@ namespace Runeheir.WorldBuilding
 
         private static void Rock(Transform t, MapTheme theme, int seed)
         {
-            Color color = theme == MapTheme.Fjord ? new Color(0.42f, 0.46f, 0.50f) : Snowy(theme) ? new Color(0.66f, 0.71f, 0.76f) : Stone;
+            Color color = theme == MapTheme.Fjord ? new Color(0.42f, 0.46f, 0.50f) : Snowy(theme) ? new Color(0.66f, 0.71f, 0.76f)
+                : theme == MapTheme.Desert || theme == MapTheme.Coast || theme == MapTheme.SandTomb ? Sandstone * 0.9f
+                : theme == MapTheme.Volcano ? Basalt * 1.3f : Stone;
             float tint = 0.88f + (seed % 5) * 0.04f;
             Part(PrimitiveType.Sphere, t, "Rock", new Vector3(0f, 0.45f, 0f), new Vector3(2.3f, 1.2f, 1.9f), color * tint, new Vector3(0f, seed % 90, 0f));
             Part(PrimitiveType.Sphere, t, "Chip", new Vector3(0.7f, 0.3f, 0.5f), new Vector3(0.9f, 0.6f, 0.8f), color * (tint * 0.92f));
@@ -216,9 +231,14 @@ namespace Runeheir.WorldBuilding
 
         private static void Stalagmite(Transform t, MapTheme theme)
         {
-            Color color = theme == MapTheme.IceCavern ? new Color(0.72f, 0.80f, 0.88f) : DarkStone * 1.2f;
+            Color color = theme == MapTheme.IceCavern ? new Color(0.72f, 0.80f, 0.88f) : theme == MapTheme.Volcano ? Basalt * 1.4f : DarkStone * 1.2f;
             Part(PrimitiveType.Capsule, t, "Base", new Vector3(0f, 0.9f, 0f), new Vector3(1.2f, 1.1f, 1.2f), color);
             Part(PrimitiveType.Capsule, t, "Tip", new Vector3(0f, 2.1f, 0f), new Vector3(0.55f, 0.9f, 0.55f), color * 1.08f);
+            if (theme == MapTheme.Volcano)
+            {
+                // Cracks of glowing rock down the side.
+                GlowPart(PrimitiveType.Cube, t, "Seam", new Vector3(0f, 1.1f, 0.58f), new Vector3(0.1f, 1.2f, 0.05f), Lava, Lava * 1.4f, new Vector3(0f, 0f, 8f));
+            }
         }
 
         private static void Crystal(Transform t, int seed)
@@ -358,9 +378,12 @@ namespace Runeheir.WorldBuilding
             Roof(t, new Vector3(0f, 2f, 0f), 2.2f, 1.6f, 0.7f, RoofRed);
         }
 
-        private static void Banner(Transform t, MapTheme theme)
+        private static void Banner(Transform t, MapTheme theme, int seed)
         {
-            Color cloth = theme == MapTheme.Arena ? new Color(0.2f, 0.2f, 0.25f) : new Color(0.72f, 0.18f, 0.14f);
+            // A hall's banners mix the red of war with deep blue.
+            Color cloth = theme == MapTheme.Arena ? new Color(0.2f, 0.2f, 0.25f)
+                : theme == MapTheme.Castle && seed % 2 == 0 ? new Color(0.16f, 0.24f, 0.48f)
+                : new Color(0.72f, 0.18f, 0.14f);
             Part(PrimitiveType.Cylinder, t, "Pole", new Vector3(0f, 1.8f, 0f), new Vector3(0.1f, 1.8f, 0.1f), DarkWood, outline: 0.8f);
             Part(PrimitiveType.Cube, t, "Cloth", new Vector3(0f, 2.6f, 0.06f), new Vector3(0.9f, 1.6f, 0.04f), cloth, outline: 0.8f);
             Part(PrimitiveType.Cube, t, "Trim", new Vector3(0f, 2f, 0.09f), new Vector3(0.5f, 0.5f, 0.02f), new Color(0.9f, 0.75f, 0.3f), new Vector3(0f, 0f, 45f), 0f);
@@ -407,17 +430,23 @@ namespace Runeheir.WorldBuilding
         // ---------------------------------------------------------------- crypt, cave, ruin
         private static void Pillar(Transform t, MapTheme theme)
         {
-            Color stone = theme == MapTheme.Crypt || theme == MapTheme.Arena ? DarkStone * 1.25f : Stone;
+            Color stone = theme == MapTheme.Castle ? new Color(0.40f, 0.28f, 0.19f)
+                : theme == MapTheme.Crypt || theme == MapTheme.Arena ? DarkStone * 1.25f
+                : theme == MapTheme.SandTomb || theme == MapTheme.Desert ? Sandstone
+                : theme == MapTheme.Jungle ? new Color(0.48f, 0.52f, 0.44f) : Stone;
             Part(PrimitiveType.Cube, t, "Foot", new Vector3(0f, 0.2f, 0f), new Vector3(1.5f, 0.4f, 1.5f), stone * 0.9f);
             Part(PrimitiveType.Cylinder, t, "Shaft", new Vector3(0f, 2f, 0f), new Vector3(1.1f, 1.8f, 1.1f), stone);
             Part(PrimitiveType.Cube, t, "Capital", new Vector3(0f, 3.9f, 0f), new Vector3(1.5f, 0.35f, 1.5f), stone * 0.9f);
         }
 
-        private static void Coffin(Transform t)
+        private static void Coffin(Transform t, MapTheme theme)
         {
-            Part(PrimitiveType.Cube, t, "Box", new Vector3(0f, 0.4f, 0f), new Vector3(1.1f, 0.8f, 2.1f), DarkStone * 1.3f);
-            Part(PrimitiveType.Cube, t, "Lid", new Vector3(0.1f, 0.86f, 0.05f), new Vector3(1.15f, 0.14f, 2.15f), DarkStone * 1.5f, new Vector3(0f, 6f, 2f));
-            GlowPart(PrimitiveType.Cube, t, "Rune", new Vector3(0.1f, 0.94f, 0.05f), new Vector3(0.12f, 0.02f, 1.2f), SpiritFlame, SpiritFlame * 0.8f);
+            bool tomb = theme == MapTheme.SandTomb;
+            Color stone = tomb ? Sandstone * 0.9f : DarkStone * 1.3f;
+            Color rune = tomb ? Gold : SpiritFlame;
+            Part(PrimitiveType.Cube, t, "Box", new Vector3(0f, 0.4f, 0f), new Vector3(1.1f, 0.8f, 2.1f), stone);
+            Part(PrimitiveType.Cube, t, "Lid", new Vector3(0.1f, 0.86f, 0.05f), new Vector3(1.15f, 0.14f, 2.15f), stone * 1.15f, new Vector3(0f, 6f, 2f));
+            GlowPart(PrimitiveType.Cube, t, "Rune", new Vector3(0.1f, 0.94f, 0.05f), new Vector3(0.12f, 0.02f, 1.2f), rune, rune * 0.8f);
         }
 
         private static void Bones(Transform t)
@@ -458,8 +487,155 @@ namespace Runeheir.WorldBuilding
 
         private static void Pool(Transform t, MapTheme theme)
         {
-            Color water = theme == MapTheme.IceCavern ? new Color(0.25f, 0.55f, 0.75f) : new Color(0.12f, 0.2f, 0.32f);
+            Color water = theme == MapTheme.IceCavern ? new Color(0.25f, 0.55f, 0.75f) : theme == MapTheme.Desert ? new Color(0.20f, 0.58f, 0.62f)
+                : new Color(0.12f, 0.2f, 0.32f);
             Part(PrimitiveType.Cylinder, t, "Water", new Vector3(0f, 0.02f, 0f), new Vector3(3f, 0.01f, 2.4f), water, outline: 0f);
+        }
+
+        // ---------------------------------------------------------------- Phase 8 themes
+        private static void Cactus(Transform t, int seed)
+        {
+            Color green = new Color(0.36f, 0.55f, 0.30f) * (0.9f + (seed % 3) * 0.06f);
+            Part(PrimitiveType.Capsule, t, "Stem", new Vector3(0f, 1.3f, 0f), new Vector3(0.6f, 1.3f, 0.6f), green);
+            Part(PrimitiveType.Capsule, t, "ArmL", new Vector3(-0.55f, 1.5f, 0f), new Vector3(0.32f, 0.5f, 0.32f), green * 0.95f);
+            Part(PrimitiveType.Capsule, t, "ArmLUp", new Vector3(-0.7f, 2f, 0f), new Vector3(0.3f, 0.45f, 0.3f), green * 0.95f);
+            if (seed % 2 == 0)
+            {
+                Part(PrimitiveType.Capsule, t, "ArmR", new Vector3(0.5f, 1.1f, 0f), new Vector3(0.3f, 0.45f, 0.3f), green * 0.92f);
+                Part(PrimitiveType.Capsule, t, "ArmRUp", new Vector3(0.65f, 1.5f, 0f), new Vector3(0.28f, 0.4f, 0.28f), green * 0.92f);
+            }
+
+            if (seed % 3 == 0)
+            {
+                Part(PrimitiveType.Sphere, t, "Flower", new Vector3(0f, 2.65f, 0f), new Vector3(0.3f, 0.18f, 0.3f), new Color(0.95f, 0.45f, 0.55f), outline: 0.8f);
+            }
+        }
+
+        private static void PalmTree(Transform t, int seed)
+        {
+            Color trunk = new Color(0.55f, 0.43f, 0.30f);
+            float lean = (seed % 5 - 2) * 4f;
+            var stem = new GameObject("Stem").transform;
+            stem.SetParent(t, false);
+            stem.localRotation = Quaternion.Euler(lean, 0f, lean * 0.6f);
+            for (int i = 0; i < 5; i++)
+            {
+                Part(PrimitiveType.Cylinder, stem, "Ring", new Vector3(0f, 0.45f + i * 0.85f, 0f), new Vector3(0.32f - i * 0.02f, 0.45f, 0.32f - i * 0.02f), trunk * (i % 2 == 0 ? 1f : 0.9f));
+            }
+
+            // Fronds arch up from the crown and droop at the tips.
+            Color frond = new Color(0.30f, 0.56f, 0.24f);
+            for (int i = 0; i < 7; i++)
+            {
+                var arm = new GameObject("Frond").transform;
+                arm.SetParent(stem, false);
+                arm.localPosition = new Vector3(0f, 4.3f, 0f);
+                arm.localRotation = Quaternion.Euler(0f, i * (360f / 7f) + seed % 30, 0f);
+                Color shade = frond * (i % 2 == 0 ? 1f : 0.88f);
+                Part(PrimitiveType.Capsule, arm, "Rise", new Vector3(0f, 0.25f, 0.55f), new Vector3(0.28f, 0.6f, 0.07f), shade, new Vector3(65f, 0f, 0f), 1f);
+                Part(PrimitiveType.Capsule, arm, "Droop", new Vector3(0f, 0.2f, 1.6f), new Vector3(0.24f, 0.6f, 0.06f), shade * 0.92f, new Vector3(120f, 0f, 0f), 1f);
+            }
+
+            Part(PrimitiveType.Sphere, stem, "Coconuts", new Vector3(0f, 4.15f, 0f), new Vector3(0.5f, 0.4f, 0.5f), new Color(0.38f, 0.28f, 0.16f), outline: 0.8f);
+        }
+
+        private static void JungleTree(Transform t, int seed)
+        {
+            Color bark = new Color(0.40f, 0.30f, 0.20f);
+            Part(PrimitiveType.Cylinder, t, "Trunk", new Vector3(0f, 2.2f, 0f), new Vector3(0.6f, 2.2f, 0.6f), bark);
+            Part(PrimitiveType.Cylinder, t, "Root1", new Vector3(0.45f, 0.35f, 0f), new Vector3(0.22f, 0.5f, 0.22f), bark * 0.9f, new Vector3(0f, 0f, -35f));
+            Part(PrimitiveType.Cylinder, t, "Root2", new Vector3(-0.35f, 0.35f, 0.3f), new Vector3(0.2f, 0.45f, 0.2f), bark * 0.9f, new Vector3(30f, 0f, 30f));
+            Color leaves = new Color(0.16f, 0.42f, 0.18f) * (0.9f + (seed % 3) * 0.08f);
+            Part(PrimitiveType.Sphere, t, "Canopy", new Vector3(0f, 4.8f, 0f), new Vector3(4.2f, 2f, 4.2f), leaves);
+            Part(PrimitiveType.Sphere, t, "Canopy2", new Vector3(1f, 4.2f, 0.6f), new Vector3(2.6f, 1.5f, 2.6f), leaves * 1.1f);
+            Part(PrimitiveType.Sphere, t, "Canopy3", new Vector3(-0.9f, 4.4f, -0.7f), new Vector3(2.4f, 1.4f, 2.4f), leaves * 0.92f);
+            if (seed % 3 == 0)
+            {
+                Part(PrimitiveType.Cylinder, t, "Vine", new Vector3(0.9f, 2.6f, 0.9f), new Vector3(0.06f, 1.6f, 0.06f), leaves * 1.2f, outline: 0f);
+            }
+        }
+
+        private static void Fern(Transform t, int seed)
+        {
+            Color green = new Color(0.26f, 0.52f, 0.22f) * (0.9f + (seed % 4) * 0.05f);
+            for (int i = 0; i < 5; i++)
+            {
+                float yaw = i * 72f + seed % 40;
+                var leaf = Part(PrimitiveType.Capsule, t, "Leaf", Vector3.zero, new Vector3(0.22f, 0.55f, 0.06f), green, default, 0f);
+                leaf.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(55f, 0f, 0f);
+                leaf.localPosition = Quaternion.Euler(0f, yaw, 0f) * new Vector3(0f, 0.3f, 0.35f);
+            }
+        }
+
+        private static void LavaPool(Transform t, int seed)
+        {
+            Part(PrimitiveType.Cylinder, t, "Crust", new Vector3(0f, 0.02f, 0f), new Vector3(3.4f, 0.02f, 2.8f), Basalt * 0.8f, outline: 0f);
+            GlowPart(PrimitiveType.Cylinder, t, "Lava", new Vector3(0f, 0.04f, 0f), new Vector3(2.8f, 0.02f, 2.2f), Lava, Lava * 1.8f);
+            if (seed % 2 == 0)
+            {
+                PointLight(t, new Vector3(0f, 1f, 0f), new Color(1f, 0.45f, 0.15f), 7f, 1.8f);
+            }
+        }
+
+        private static void Obelisk(Transform t, MapTheme theme)
+        {
+            bool volcano = theme == MapTheme.Volcano;
+            Color stone = volcano ? Basalt * 1.5f : theme == MapTheme.Jungle ? new Color(0.48f, 0.52f, 0.44f) : Sandstone;
+            Part(PrimitiveType.Cube, t, "Base", new Vector3(0f, 0.25f, 0f), new Vector3(1.6f, 0.5f, 1.6f), stone * 0.85f);
+            Part(PrimitiveType.Cube, t, "Shaft", new Vector3(0f, 2.3f, 0f), new Vector3(0.9f, 3.6f, 0.9f), stone);
+            Part(PrimitiveType.Cube, t, "Tip", new Vector3(0f, 4.3f, 0f), new Vector3(0.55f, 0.55f, 0.55f), volcano ? Basalt : Gold, new Vector3(45f, 0f, 45f));
+            Color glow = volcano ? Lava : RuneGlow;
+            GlowPart(PrimitiveType.Cube, t, "Glyphs", new Vector3(0f, 2.4f, 0.46f), new Vector3(0.3f, 1.8f, 0.04f), glow, glow * 1.3f);
+        }
+
+        private static void Urn(Transform t, int seed)
+        {
+            Color clay = seed % 2 == 0 ? new Color(0.68f, 0.40f, 0.24f) : Sandstone * 0.95f;
+            Part(PrimitiveType.Sphere, t, "Body", new Vector3(0f, 0.55f, 0f), new Vector3(0.8f, 0.95f, 0.8f), clay);
+            Part(PrimitiveType.Cylinder, t, "Neck", new Vector3(0f, 1.1f, 0f), new Vector3(0.38f, 0.14f, 0.38f), clay * 0.9f);
+            Part(PrimitiveType.Cylinder, t, "Band", new Vector3(0f, 0.65f, 0f), new Vector3(0.82f, 0.05f, 0.82f), Gold, outline: 0f);
+        }
+
+        // ---------------------------------------------------------------- Phase 8 castles
+        /// <summary>The jarl's high seat on a two-step dais: carved posts topped with gold, a fur over the seat.</summary>
+        private static void Throne(Transform t)
+        {
+            Part(PrimitiveType.Cube, t, "Dais", new Vector3(0f, 0.15f, 0f), new Vector3(4.2f, 0.3f, 3f), Stone * 0.85f);
+            Part(PrimitiveType.Cube, t, "Step", new Vector3(0f, 0.42f, -0.2f), new Vector3(3f, 0.25f, 2.2f), Stone * 0.95f);
+            Part(PrimitiveType.Cube, t, "Seat", new Vector3(0f, 0.95f, -0.2f), new Vector3(1.5f, 0.8f, 1.1f), DarkWood);
+            Part(PrimitiveType.Cube, t, "Back", new Vector3(0f, 2f, -0.7f), new Vector3(1.5f, 2.2f, 0.25f), DarkWood);
+            Part(PrimitiveType.Cube, t, "Fur", new Vector3(0f, 1.4f, -0.15f), new Vector3(1.3f, 0.12f, 1.15f), new Color(0.82f, 0.80f, 0.76f));
+            foreach (float x in new[] { -0.85f, 0.85f })
+            {
+                Part(PrimitiveType.Cylinder, t, "Post", new Vector3(x, 1.7f, -0.7f), new Vector3(0.28f, 1.3f, 0.28f), DarkWood * 1.2f);
+                Part(PrimitiveType.Sphere, t, "Knob", new Vector3(x, 3.1f, -0.7f), Vector3.one * 0.38f, Gold);
+                Part(PrimitiveType.Cube, t, "Arm", new Vector3(x, 1.5f, -0.2f), new Vector3(0.22f, 0.18f, 1.1f), DarkWood * 1.2f);
+            }
+
+            GlowPart(PrimitiveType.Cube, t, "Rune", new Vector3(0f, 2.4f, -0.56f), new Vector3(0.12f, 0.9f, 0.02f), Gold, Gold * 1.2f);
+        }
+
+        /// <summary>The long fire down the middle of a hall: a stone-lined trough of embers along local X.</summary>
+        private static void Hearth(Transform t, float length)
+        {
+            foreach (float z in new[] { -0.6f, 0.6f })
+            {
+                Part(PrimitiveType.Cube, t, "Curb", new Vector3(0f, 0.18f, z), new Vector3(length, 0.36f, 0.35f), Stone * 0.8f);
+            }
+
+            Part(PrimitiveType.Cube, t, "CurbEnd", new Vector3(-length * 0.5f, 0.18f, 0f), new Vector3(0.35f, 0.36f, 1.55f), Stone * 0.8f);
+            Part(PrimitiveType.Cube, t, "CurbEnd", new Vector3(length * 0.5f, 0.18f, 0f), new Vector3(0.35f, 0.36f, 1.55f), Stone * 0.8f);
+            GlowPart(PrimitiveType.Cube, t, "Embers", new Vector3(0f, 0.12f, 0f), new Vector3(length - 0.4f, 0.1f, 0.85f), new Color(0.9f, 0.32f, 0.08f), new Color(1.2f, 0.35f, 0.05f));
+            int flames = Mathf.Max(2, Mathf.RoundToInt(length / 2f));
+            for (int i = 0; i < flames; i++)
+            {
+                float x = (i + 0.5f) / flames * (length - 1f) - (length - 1f) * 0.5f;
+                Part(PrimitiveType.Cube, t, "Log", new Vector3(x, 0.3f, 0f), new Vector3(1.1f, 0.18f, 0.18f), DarkWood, new Vector3(0f, i % 2 == 0 ? 25f : -25f, 0f));
+                GlowPart(PrimitiveType.Sphere, t, "Flame", new Vector3(x, 0.65f, 0f), new Vector3(0.55f, 0.8f, 0.55f), Flame, Flame * 1.6f);
+            }
+
+            PointLight(t, new Vector3(-length * 0.25f, 1.6f, 0f), new Color(1f, 0.6f, 0.25f), 9f, 2.2f);
+            PointLight(t, new Vector3(length * 0.25f, 1.6f, 0f), new Color(1f, 0.6f, 0.25f), 9f, 2.2f);
         }
 
         // ---------------------------------------------------------------- helpers

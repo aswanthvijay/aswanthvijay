@@ -36,6 +36,18 @@ namespace Runeheir.Player
                 case SkillSpecial.Performance:
                     PerformanceAura.Begin(cast);
                     yield break;
+                case SkillSpecial.Ensemble:
+                    EnsembleAura.Begin(cast);
+                    yield break;
+                case SkillSpecial.Mount:
+                    (cast.Caster as PlayerCharacter)?.ToggleClassMount();
+                    yield break;
+                case SkillSpecial.Homunculus:
+                    (cast.Caster as PlayerCharacter)?.WeaveOrCallHomunculus();
+                    yield break;
+                case SkillSpecial.HomunculusRevive:
+                    (cast.Caster as PlayerCharacter)?.ReviveHomunculus(cast.Skill.Power.At(cast.Level));
+                    yield break;
                 case SkillSpecial.Resurrect:
                     DoResurrect(cast);
                     yield break;
@@ -240,6 +252,13 @@ namespace Runeheir.Player
                 result.Amount += Mathf.RoundToInt(flat * powerScale);
             }
 
+            // Gear that boosts one skill (Phase 8, Ragnarok's bSkillAtk).
+            if (caster is PlayerCharacter wearer && wearer.Gear != null && result.Amount > 0
+                && wearer.Gear.SkillDamagePercent.TryGetValue(skill.Id, out float skillBonus))
+            {
+                result.Amount = Mathf.Max(1, Mathf.RoundToInt(result.Amount * (1f + skillBonus / 100f)));
+            }
+
             float poiseBase = skill.IsMagic
                 ? PoiseRules.MagicPoiseDamage * (1f + caster.Stats.PoiseDamagePercent / 100f)
                 : caster.BasicPoiseDamage;
@@ -317,6 +336,7 @@ namespace Runeheir.Player
             int amount = !cast.Skill.FlatHeal.IsZero
                 ? Mathf.RoundToInt(cast.Skill.FlatHeal.At(cast.Level)) + cast.Caster.Level
                 : StatFormulas.HealAmount(cast.Caster.Level, cast.Caster.Stats.Total.Int, cast.Skill.HealLevel.AtInt(cast.Level));
+            amount = Mathf.RoundToInt(amount * Mathf.Max(0f, 1f + cast.Caster.Stats.HealPowerPercent / 100f));
             receiver.Heal(amount);
             GroundRing.SpawnPulse(receiver.Position, new Color(0.45f, 1f, 0.55f, 1f), 0.2f, 1.2f, 0.5f);
         }
@@ -541,7 +561,7 @@ namespace Runeheir.Player
                 receiver.Heal(receiver.MaxHp, showNumber: false);
             }
 
-            if (cast.Skill.Special != SkillSpecial.Zone && cast.Skill.Special != SkillSpecial.Performance)
+            if (cast.Skill.Special != SkillSpecial.Zone && cast.Skill.Special != SkillSpecial.Performance && cast.Skill.Special != SkillSpecial.Ensemble)
             {
                 GroundRing.SpawnPulse(receiver.Position, RuntimeMaterials.Hex(buff.IconColorHex), 0.3f, 1.4f, 0.6f, 0.12f);
             }
@@ -559,7 +579,7 @@ namespace Runeheir.Player
             float chance = cast.Skill.DebuffChance.At(cast.Level);
             if (chance > 0f && Random.value * 100f >= chance)
             {
-                if (cast.Skill.Special != SkillSpecial.Performance)
+                if (cast.Skill.Special != SkillSpecial.Performance && cast.Skill.Special != SkillSpecial.Ensemble)
                 {
                     WorldFeedback.Announce(enemy, "Failed", new Color(0.75f, 0.75f, 0.75f));
                 }

@@ -14,6 +14,9 @@ namespace Runeheir.UI
 
         public string Glyph;
         public Color Color;
+
+        /// <summary>An item being dragged shows its pictogram (null for skills).</summary>
+        public string ItemId;
     }
 
     /// <summary>Single active drag (mouse only) with a ghost icon following the cursor.</summary>
@@ -33,6 +36,11 @@ namespace Runeheir.UI
             Accepted = false;
 
             var icon = UIFactory.CreateIcon(canvas.transform, payload.Glyph, payload.Color);
+            if (payload.ItemId != null)
+            {
+                ItemIcons.Apply(icon, Items.ItemCatalog.Get(payload.ItemId));
+            }
+
             s_ghost = icon.rectTransform;
             s_ghost.sizeDelta = new Vector2(44f, 44f);
             var group = icon.gameObject.AddComponent<CanvasGroup>();

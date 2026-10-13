@@ -117,6 +117,20 @@ namespace Runeheir.Characters
 
         public int MimicSkillLevel;
 
+        /// <summary>Phase 8: every pet this character has hatched (remembered while back in its egg), and the egg of the one that's out.</summary>
+        public List<Pets.PetState> Pets = new List<Pets.PetState>();
+
+        public string ActivePetEgg;
+
+        /// <summary>Phase 8: the mercenary under contract (none when its id is empty).</summary>
+        public Mercenaries.MercenaryContract Mercenary;
+
+        /// <summary>Phase 8: the homunculus a Brewmaster wove (none when it has no name).</summary>
+        public Homunculi.HomunculusState Homunculus;
+
+        /// <summary>Phase 8: what the character is riding (<see cref="MountRules"/>); null on foot.</summary>
+        public string Mount;
+
         public long CreatedUnixMs;
         public long LastPlayedUnixMs;
 
@@ -153,6 +167,26 @@ namespace Runeheir.Characters
             }
 
             copy.Hotkeys = (HotkeySlot[])HotkeyLayout.Normalize(Hotkeys).Clone();
+            copy.Pets = new List<Pets.PetState>();
+            if (Pets != null)
+            {
+                foreach (var pet in Pets)
+                {
+                    if (pet != null)
+                    {
+                        copy.Pets.Add(new Pets.PetState { EggItemId = pet.EggItemId, Name = pet.Name, Intimacy = pet.Intimacy, Hunger = pet.Hunger, ArmorItemId = pet.ArmorItemId });
+                    }
+                }
+            }
+            copy.Mercenary = Mercenary == null ? null : new Mercenaries.MercenaryContract
+            {
+                MercenaryId = Mercenary.MercenaryId, SecondsLeft = Mercenary.SecondsLeft, Hp = Mercenary.Hp, Kills = Mercenary.Kills,
+            };
+            copy.Homunculus = Homunculus == null ? null : new Homunculi.HomunculusState
+            {
+                Kind = Homunculus.Kind, Name = Homunculus.Name, Level = Homunculus.Level, Exp = Homunculus.Exp, Hp = Homunculus.Hp,
+                Out = Homunculus.Out, RestSeconds = Homunculus.RestSeconds,
+            };
             copy.Skills = new List<LearnedSkill>();
             if (Skills != null)
             {
@@ -198,6 +232,45 @@ namespace Runeheir.Characters
 
             Inventory = repaired;
             Cart = Social.ItemTransfer.Clean(Cart);
+            Pets = Pets ?? new List<Pets.PetState>();
+            Pets.RemoveAll(p => p == null || Runeheir.Pets.PetCatalog.ForEgg(p.EggItemId) == null);
+            foreach (var pet in Pets)
+            {
+                pet.Intimacy = Math.Max(0, Math.Min(Runeheir.Pets.PetCatalog.MaxIntimacy, pet.Intimacy));
+                pet.Hunger = Math.Max(0, Math.Min(100, pet.Hunger));
+            }
+
+            if (Runeheir.Pets.PetCatalog.Active(this) == null)
+            {
+                ActivePetEgg = null;
+            }
+
+            if (Runeheir.Mercenaries.MercenaryCatalog.Active(this) == null)
+            {
+                Mercenary = null;
+            }
+            else
+            {
+                Mercenary.SecondsLeft = Math.Min(Runeheir.Mercenaries.MercenaryCatalog.ContractSeconds, Mercenary.SecondsLeft);
+                Mercenary.Hp = Math.Max(0, Mercenary.Hp);
+            }
+
+            if (!MountRules.StillValid(this, Mount))
+            {
+                Mount = null;
+            }
+
+            if (Homunculus == null || !Homunculus.Exists || !Enum.IsDefined(typeof(Homunculi.HomunculusKind), Homunculus.Kind))
+            {
+                Homunculus = null;
+            }
+            else
+            {
+                Homunculus.Level = Math.Max(1, Math.Min(Homunculi.HomunculusRules.MaxLevel, Homunculus.Level));
+                Homunculus.Exp = Math.Max(0L, Homunculus.Exp);
+                Homunculus.Hp = Math.Max(0, Homunculus.Hp);
+                Homunculus.RestSeconds = Math.Max(0f, Math.Min(Homunculi.HomunculusRules.RestAfterFalling, Homunculus.RestSeconds));
+            }
 
             Hotkeys = HotkeyLayout.Normalize(Hotkeys);
             // Unknown enum values (hand-edited save, or written by a newer build) are repaired, never thrown on,

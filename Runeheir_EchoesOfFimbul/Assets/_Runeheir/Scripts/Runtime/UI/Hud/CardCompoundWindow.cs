@@ -71,7 +71,7 @@ namespace Runeheir.UI
                 var item = entry.Definition;
                 var captured = entry;
                 string worn = _player.IsWorn(entry) ? "<color=#7DCEA0>[worn]</color> " : string.Empty;
-                _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.DisplayName, $"{worn}{entry.FreeSockets} free socket(s)",
+                _list.AddItem(item, entry.DisplayName, $"{worn}{entry.FreeSockets} free socket(s)",
                     () => Compound(captured), () => ItemTooltips.For(captured));
             }
         }

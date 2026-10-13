@@ -34,6 +34,7 @@ namespace Runeheir.Skills
             switch (skill.Special)
             {
                 case SkillSpecial.Performance:
+                case SkillSpecial.Ensemble:
                 case SkillSpecial.Craft:
                 case SkillSpecial.Resurrect:
                     return false;

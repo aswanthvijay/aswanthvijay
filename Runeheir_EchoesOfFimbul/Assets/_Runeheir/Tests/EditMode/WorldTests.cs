@@ -26,14 +26,17 @@ namespace Runeheir.Tests
         [Test]
         public void Catalog_Has14MapsInOneScene()
         {
-            Assert.AreEqual(14, MapCatalog.All.Count, "GDD §2: 14 maps");
-            Assert.AreEqual(1, MapCatalog.All.Count(m => m.Kind == MapKind.Town));
-            Assert.AreEqual(4, MapCatalog.All.Count(m => m.Kind == MapKind.Field), "four leveling fields");
-            Assert.AreEqual(7, MapCatalog.All.Count(m => m.Kind == MapKind.Dungeon), "Catacombs B1–B4 and Caverns 1–3");
-            Assert.AreEqual(1, MapCatalog.All.Count(m => m.Kind == MapKind.Arena), "the Hall of Branches");
-            Assert.AreEqual(1, MapCatalog.All.Count(m => m.Kind == MapKind.Lair), "Lyngvi");
+            // Runeheir's own maps; the imported XileRetro world (ids "xr_...") is covered by XileDatabaseTests.
+            var own = MapCatalog.All.Where(m => !m.Id.StartsWith("xr_")).ToList();
+            Assert.AreEqual(20, own.Count, "GDD §2: 14 maps, plus Iðavöllr and its five castles (Phase 8)");
+            Assert.AreEqual(1, own.Count(m => m.Kind == MapKind.Town));
+            Assert.AreEqual(5, own.Count(m => m.Kind == MapKind.Field), "four leveling fields and Iðavöllr");
+            Assert.AreEqual(5, own.Count(m => m.Kind == MapKind.Castle), "the War of the Realms' five halls");
+            Assert.AreEqual(7, own.Count(m => m.Kind == MapKind.Dungeon), "Catacombs B1–B4 and Caverns 1–3");
+            Assert.AreEqual(1, own.Count(m => m.Kind == MapKind.Arena), "the Hall of Branches");
+            Assert.AreEqual(1, own.Count(m => m.Kind == MapKind.Lair), "Lyngvi");
             Assert.IsTrue(MapCatalog.All.All(m => m.SceneName == MapCatalog.WorldScene));
-            Assert.AreEqual(14, MapCatalog.All.Select(m => m.Seed).Distinct().Count(), "every map has its own seed");
+            Assert.AreEqual(MapCatalog.All.Count, MapCatalog.All.Select(m => m.Id).Distinct().Count(), "every map id is unique");
             Assert.IsTrue(MapCatalog.Get(MapCatalog.StartingMapId).IsTown);
         }
 
@@ -116,7 +119,7 @@ namespace Runeheir.Tests
                 Assert.IsTrue(placed.Contains(monster.Id), $"{monster.Name} isn't on any map");
             }
 
-            Assert.AreEqual(7, MapCatalog.All.Sum(m => m.Bosses.Count), "4 mini-bosses + 3 MVPs");
+            Assert.AreEqual(7, MapCatalog.All.Where(m => !m.Id.StartsWith("xr_")).Sum(m => m.Bosses.Count), "4 mini-bosses + 3 MVPs");
         }
 
         [Test]

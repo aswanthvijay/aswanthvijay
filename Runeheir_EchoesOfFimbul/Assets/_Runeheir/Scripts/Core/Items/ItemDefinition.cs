@@ -1,4 +1,5 @@
 using System;
+using Runeheir.Characters;
 using Runeheir.Combat;
 using Runeheir.Jobs;
 
@@ -15,6 +16,26 @@ namespace Runeheir.Items
 
         /// <summary>Crafting material: refine ores, catalytic runes, etching glyphs (GDD §7).</summary>
         Material = 4,
+
+        /// <summary>Arrows, thunder-rod shot, shuriken (Phase 8): worn in the ammunition slot as a stack, spent one per shot.</summary>
+        Ammo = 5,
+    }
+
+    /// <summary>One item (and how many) a box gives, or one weighted entry of a random box.</summary>
+    public sealed class ItemGrant
+    {
+        public string ItemId;
+        public int Amount = 1;
+
+        /// <summary>Random boxes: relative weight of this entry.</summary>
+        public int Weight = 1;
+
+        public ItemGrant(string itemId, int amount = 1, int weight = 1)
+        {
+            ItemId = itemId;
+            Amount = amount;
+            Weight = weight;
+        }
     }
 
     public enum ItemSpecialEffect
@@ -35,6 +56,40 @@ namespace Runeheir.Items
 
         /// <summary>Blood Branch: summons a random high-level boss.</summary>
         SummonBoss = 5,
+
+        /// <summary>Phase 8 pets: a taming item, used on the monster it tames (see Pets.PetCatalog).</summary>
+        TamePet = 6,
+
+        /// <summary>Phase 8 pets: a pet's egg; using it hatches the pet.</summary>
+        HatchPet = 7,
+
+        /// <summary>Phase 8 pets: an accessory, worn by the pet it's made for.</summary>
+        PetArmor = 8,
+
+        /// <summary>Phase 8 mercenaries: a contract scroll; using it hires <see cref="ItemDefinition.MercenaryId"/>.</summary>
+        HireMercenary = 9,
+
+        /// <summary>Phase 8 mounts: the fjord horse's reins. Using them mounts or dismounts; they're never used up.</summary>
+        Mount = 10,
+    }
+
+    /// <summary>What an item is for, beyond its kind (Phase 8: the XileRetro database has ammunition, pet eggs, costumes...).</summary>
+    public enum ItemCategory
+    {
+        Standard = 0,
+        Ammo = 1,
+        PetEgg = 2,
+        PetArmor = 3,
+        Costume = 4,
+        CashShop = 5,
+        Quest = 6,
+    }
+
+    /// <summary>A bonus a piece of gear gains from refine level <see cref="MinRefine"/> on.</summary>
+    public sealed class RefineBonus
+    {
+        public int MinRefine;
+        public EquipEffect Bonus;
     }
 
     /// <summary>Where an item can be worn (GDD §5 10-slot paperdoll). Two-handed weapons are Weapon | Shield.</summary>
@@ -52,7 +107,18 @@ namespace Runeheir.Items
         Footgear = 1 << 7,
         Accessory = 1 << 8,
 
+        /// <summary>The ammunition slot (Phase 8).</summary>
+        Ammo = 1 << 9,
+
+        /// <summary>Phase 8.4 costume slots: worn over the gear, they change how you look and nothing else.</summary>
+        CostumeUpper = 1 << 10,
+        CostumeMid = 1 << 11,
+        CostumeLower = 1 << 12,
+        CostumeGarment = 1 << 13,
+
         Head = HeadUpper | HeadMid | HeadLower,
+        CostumeHead = CostumeUpper | CostumeMid | CostumeLower,
+        Costume = CostumeHead | CostumeGarment,
         TwoHanded = Weapon | Shield,
     }
 
@@ -69,6 +135,15 @@ namespace Runeheir.Items
         Footgear = 7,
         Accessory1 = 8,
         Accessory2 = 9,
+
+        /// <summary>Phase 8: arrows, shot and shuriken.</summary>
+        Ammo = 10,
+
+        /// <summary>Phase 8.4: the costume positions (looks only).</summary>
+        CostumeUpper = 11,
+        CostumeMid = 12,
+        CostumeLower = 13,
+        CostumeGarment = 14,
     }
 
     /// <summary>Equipment family: which cards fit, how refining works.</summary>
@@ -82,6 +157,10 @@ namespace Runeheir.Items
         Footgear = 5,
         Headgear = 6,
         Accessory = 7,
+        Ammo = 8,
+
+        /// <summary>Phase 8.4: worn in the costume slots, for looks only.</summary>
+        Costume = 9,
     }
 
     public sealed class ItemDefinition
@@ -105,6 +184,37 @@ namespace Runeheir.Items
         public int HealSpMax;
         public string BuffId;
         public ItemSpecialEffect Special;
+
+        /// <summary>Percent of Max SP restored (Ragnarok's percentheal).</summary>
+        public float HealSpPercent;
+
+        /// <summary>Statuses it cures (Green Potion: Poison, Silence, Blind).</summary>
+        public StatusEffect[] Cures;
+
+        /// <summary>Boxes: every one of these goes into the bag.</summary>
+        public ItemGrant[] GivesItems;
+
+        /// <summary>Random boxes: one of these, by weight.</summary>
+        public ItemGrant[] RandomGives;
+
+        /// <summary>Zeny pouches: a random amount in this range.</summary>
+        public int GivesZenyMin;
+
+        public int GivesZenyMax;
+
+        /// <summary>Scrolls: casts this skill for free at <see cref="CastSkillLevel"/> (support skills on you, attacks at your target).</summary>
+        public string CastSkillId;
+
+        public int CastSkillLevel = 1;
+
+        /// <summary>An imported usable whose effect Runeheir can't do yet: using it does nothing and it isn't consumed.</summary>
+        public bool NotUsableYet;
+
+        /// <summary>Phase 8: the mercenary a <see cref="ItemSpecialEffect.HireMercenary"/> scroll hires.</summary>
+        public string MercenaryId;
+
+        /// <summary>Ammunition: the weapon type it's shot from (Bow, ThunderRod, Huuma).</summary>
+        public WeaponType AmmoFor;
 
         // ------------------------------------------------------------ equipment
         public EquipSlot Slots;
@@ -146,9 +256,50 @@ namespace Runeheir.Items
         /// <summary>Which equipment a card compounds into.</summary>
         public EquipKind CardTarget;
 
+        // ------------------------------------------------------------ the XileRetro database (Phase 8)
+        /// <summary>The item's id in the XileRetro / rAthena database it was adapted from (0 for Runeheir's own items).</summary>
+        public int RoId;
+
+        public ItemCategory Category;
+
+        /// <summary>When set, only these jobs can use it (Ragnarok's per-item job lists); null = the usual tier/line rules.</summary>
+        public JobId[] AllowedJobs;
+
+        /// <summary>Only reborn characters (and expanded jobs) can wear it (Ragnarok's "Upper" class items).</summary>
+        public bool RebornOnly;
+
+        /// <summary>Bonuses added once per refine level (+2 ATK per refine...).</summary>
+        public EquipEffect PerRefine;
+
+        /// <summary>
+        /// The highest refine level <see cref="PerRefine"/> counts (0 = no limit). Ragnarok's scripts stop at +10, so imported
+        /// items keep their +10 bonus from +11 to +20 while Runeheir's own refine ATK/DEF keeps growing.
+        /// </summary>
+        public int PerRefineLimit;
+
+        /// <summary>Only this gender can wear it (Ragnarok's gendered costumes and dresses); null = anyone.</summary>
+        public Gender? RequiredGender;
+
+        /// <summary>Bonuses from a refine level on (at +9: +10% ASPD...).</summary>
+        public RefineBonus[] RefineBonuses;
+
+        /// <summary>
+        /// Phase 8.4: the look template this piece is drawn with ("cat_ears", "wings", "aura", "wig:3"...); null = picked from
+        /// its id. Costumes use it, so a thousand costumes share a few dozen models in their own colors.
+        /// </summary>
+        public string LookAs;
+
+        /// <summary>Phase 8.4: goes in the costume slots (looks only; no stats, refines or cards).</summary>
+        public bool IsCostume => (Slots & EquipSlot.Costume) != 0;
+
         public bool IsUsable => Kind == ItemKind.Consumable;
 
         public bool IsEquipment => Kind == ItemKind.Equipment;
+
+        public bool IsAmmo => Kind == ItemKind.Ammo;
+
+        /// <summary>Goes on the paperdoll: equipment, or a stack of ammunition.</summary>
+        public bool IsWearable => IsEquipment || IsAmmo;
 
         public bool IsCard => Kind == ItemKind.Card;
 
@@ -165,7 +316,9 @@ namespace Runeheir.Items
         {
             get
             {
+                if (IsAmmo) return EquipKind.Ammo;
                 if (!IsEquipment) return EquipKind.None;
+                if (IsCostume) return EquipKind.Costume;
                 if ((Slots & EquipSlot.Weapon) != 0) return EquipKind.Weapon;
                 if ((Slots & EquipSlot.Shield) != 0) return EquipKind.Shield;
                 if ((Slots & EquipSlot.Armor) != 0) return EquipKind.Armor;
@@ -195,6 +348,8 @@ namespace Runeheir.Items
                 case EquipKind.Footgear: return "Footgear";
                 case EquipKind.Headgear: return "Headgear";
                 case EquipKind.Accessory: return "Accessory";
+                case EquipKind.Ammo: return "Ammunition";
+                case EquipKind.Costume: return "Costume";
                 default: return "—";
             }
         }
@@ -212,6 +367,11 @@ namespace Runeheir.Items
                 case EquipPosition.Garment: return "Garment";
                 case EquipPosition.Footgear: return "Footgear";
                 case EquipPosition.Accessory1: return "Accessory 1";
+                case EquipPosition.Ammo: return "Ammunition";
+                case EquipPosition.CostumeUpper: return "Costume Upper";
+                case EquipPosition.CostumeMid: return "Costume Mid";
+                case EquipPosition.CostumeLower: return "Costume Lower";
+                case EquipPosition.CostumeGarment: return "Costume Garment";
                 default: return "Accessory 2";
             }
         }
@@ -228,6 +388,11 @@ namespace Runeheir.Items
                 case EquipPosition.Shield: return EquipSlot.Shield;
                 case EquipPosition.Garment: return EquipSlot.Garment;
                 case EquipPosition.Footgear: return EquipSlot.Footgear;
+                case EquipPosition.Ammo: return EquipSlot.Ammo;
+                case EquipPosition.CostumeUpper: return EquipSlot.CostumeUpper;
+                case EquipPosition.CostumeMid: return EquipSlot.CostumeMid;
+                case EquipPosition.CostumeLower: return EquipSlot.CostumeLower;
+                case EquipPosition.CostumeGarment: return EquipSlot.CostumeGarment;
                 default: return EquipSlot.Accessory;
             }
         }

@@ -33,12 +33,13 @@ namespace Runeheir.Tests
         [Test]
         public void Catalog_Has87BaseItemsAnd35Cards()
         {
-            var equipment = ItemCatalog.All.Where(i => i.IsEquipment).ToList();
+            // Runeheir's own items (RoId 0); the imported XileRetro database is covered by XileDatabaseTests.
+            var equipment = ItemCatalog.All.Where(i => i.IsEquipment && i.RoId == 0).ToList();
             Assert.AreEqual(87 + 29, equipment.Count, "GDD §5: 87 base items, plus the Phase 7 roster's 29 weapons");
             Assert.AreEqual(28 + 29, equipment.Count(i => i.IsWeapon), "28 GDD weapons + 29 roster weapons");
             Assert.AreEqual(24, equipment.Count(i => i.EquipKind == EquipKind.Headgear), "24 headgears");
             Assert.AreEqual(4, equipment.Count(i => i.Name.EndsWith("Wings")), "4 animated wings");
-            Assert.AreEqual(35, ItemCatalog.All.Count(i => i.IsCard), "GDD §6: 35 Soul Cards");
+            Assert.AreEqual(35, ItemCatalog.All.Count(i => i.IsCard && i.RoId == 0), "GDD §6: 35 Soul Cards");
 
             foreach (var item in equipment)
             {
@@ -486,7 +487,7 @@ namespace Runeheir.Tests
                     }
                 }
 
-                if (!monster.Immortal && !monster.SummonOnly)
+                if (!monster.Immortal && !monster.SummonOnly && !monster.SiegeObject && monster.RoId == 0)
                 {
                     Assert.IsTrue(monster.Drops.Any(d => d.ItemId == monster.Id + "_card"), $"{monster.Id} doesn't drop its own card");
                 }

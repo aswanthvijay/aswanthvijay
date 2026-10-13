@@ -37,6 +37,7 @@ namespace Runeheir.Visuals
         private const float CombatStanceSeconds = 5f;
         private bool _lungeAttack;
         private bool _flyer;
+        private bool _squash;
         private float _speed;
         private float _bobPhase;
         private float _attackStart = -10f;
@@ -162,6 +163,7 @@ namespace Runeheir.Visuals
 
             _wings.Clear();
             _gearWings.Clear();
+            _squash = false;
             _weaponPivot = null;
             _rig = null;
             _model = new GameObject("Model").transform;
@@ -176,6 +178,7 @@ namespace Runeheir.Visuals
             _flyer = false;
 
             _rig = RiggedBody.Create(_model, look);
+            BuildMount(look.Mount);
             if (_rig != null)
             {
                 // The Blender-built weapon in the fist; the primitive one only when a type has no model.
@@ -237,6 +240,136 @@ namespace Runeheir.Visuals
             BuildLowerHeadgear(ItemCatalog.Get(look.HeadLower), lower);
             BuildShield(ItemCatalog.Get(look.Shield), shield);
             BuildGarment(ItemCatalog.Get(look.Garment), back, neck);
+            BuildAura(ItemCatalog.Get(look.Aura));
+        }
+
+        // ------------------------------------------------------------------ mounts (Phase 8)
+        private Transform _mount;
+        private float _mountHeight;
+        private readonly List<Transform> _mountLegs = new List<Transform>();
+
+        /// <summary>The steed under a rider: the rider sits higher, the mount walks with the rider's speed.</summary>
+        private void BuildMount(string mount)
+        {
+            _mountLegs.Clear();
+            _mountHeight = 0f;
+            if (_mount != null)
+            {
+                Destroy(_mount.gameObject);
+                _mount = null;
+            }
+
+            if (string.IsNullOrEmpty(mount))
+            {
+                return;
+            }
+
+            bool boar = mount == MountRules.Boar;
+            bool foal = mount == MountRules.Warhorse;
+            Color hide = boar ? new Color(0.86f, 0.66f, 0.22f) : foal ? new Color(0.78f, 0.80f, 0.84f) : new Color(0.62f, 0.46f, 0.30f);
+            Color dark = hide * 0.6f;
+            dark.a = 1f;
+            _mount = new GameObject("Mount").transform;
+            _mount.SetParent(transform, false);
+            float height = boar ? 0.52f : 0.6f;
+            Part(PrimitiveType.Capsule, _mount, "Body", new Vector3(0f, boar ? 0.72f : 0.95f, 0f), new Vector3(boar ? 0.75f : 0.6f, boar ? 0.75f : 0.85f, boar ? 0.75f : 0.6f), hide,
+                new Vector3(90f, 0f, 0f));
+            Part(PrimitiveType.Capsule, _mount, "Neck", new Vector3(0f, boar ? 0.85f : 1.3f, boar ? 0.6f : 0.62f), new Vector3(0.28f, 0.34f, 0.28f), hide,
+                new Vector3(boar ? 70f : 35f, 0f, 0f));
+            Part(PrimitiveType.Capsule, _mount, "Head", new Vector3(0f, boar ? 0.72f : 1.55f, boar ? 0.95f : 0.92f), new Vector3(0.24f, 0.3f, 0.24f), hide,
+                new Vector3(boar ? 100f : 75f, 0f, 0f));
+            if (boar)
+            {
+                Part(PrimitiveType.Capsule, _mount, "TuskL", new Vector3(-0.1f, 0.62f, 1.18f), new Vector3(0.04f, 0.1f, 0.04f), new Color(0.96f, 0.92f, 0.8f), new Vector3(-40f, 0f, 20f));
+                Part(PrimitiveType.Capsule, _mount, "TuskR", new Vector3(0.1f, 0.62f, 1.18f), new Vector3(0.04f, 0.1f, 0.04f), new Color(0.96f, 0.92f, 0.8f), new Vector3(-40f, 0f, -20f));
+                Part(PrimitiveType.Cube, _mount, "Bristles", new Vector3(0f, 1.1f, 0f), new Vector3(0.08f, 0.12f, 0.9f), new Color(1f, 0.85f, 0.35f));
+            }
+            else
+            {
+                Part(PrimitiveType.Cube, _mount, "Mane", new Vector3(0f, 1.48f, 0.5f), new Vector3(0.06f, 0.35f, 0.3f), dark, new Vector3(35f, 0f, 0f));
+                Part(PrimitiveType.Capsule, _mount, "Tail", new Vector3(0f, 0.95f, -0.85f), new Vector3(0.1f, 0.3f, 0.1f), dark, new Vector3(-30f, 0f, 0f));
+                Part(PrimitiveType.Cube, _mount, "Saddle", new Vector3(0f, 1.27f, -0.05f), new Vector3(0.48f, 0.08f, 0.55f), new Color(0.45f, 0.18f, 0.12f));
+            }
+
+            // Sleipnir's foal has eight legs, like its sire.
+            int pairs = foal ? 4 : 2;
+            for (int i = 0; i < pairs; i++)
+            {
+                float z = Mathf.Lerp(0.45f, -0.45f, pairs == 1 ? 0.5f : i / (float)(pairs - 1));
+                foreach (float x in new[] { -0.17f, 0.17f })
+                {
+                    var hip = new GameObject("Leg").transform;
+                    hip.SetParent(_mount, false);
+                    hip.localPosition = new Vector3(x, boar ? 0.6f : 0.8f, z);
+                    Part(PrimitiveType.Capsule, hip, "Shank", new Vector3(0f, boar ? -0.28f : -0.38f, 0f), new Vector3(0.12f, boar ? 0.3f : 0.4f, 0.12f), dark);
+                    _mountLegs.Add(hip);
+                }
+            }
+
+            // The rider sits in the saddle.
+            _mountHeight = height;
+        }
+
+        private void AnimateMount()
+        {
+            if (_mount == null)
+            {
+                return;
+            }
+
+            float swing = _speed > 0.1f ? Mathf.Sin(Time.time * 9f) * 28f : 0f;
+            for (int i = 0; i < _mountLegs.Count; i++)
+            {
+                _mountLegs[i].localRotation = Quaternion.Euler(((i / 2) % 2 == 0 ^ i % 2 == 0 ? swing : -swing), 0f, 0f);
+            }
+
+            _mount.localPosition = new Vector3(0f, _speed > 0.1f ? Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.05f : 0f, 0f);
+        }
+
+        /// <summary>The template a piece is drawn with: its costume look, else its own id.</summary>
+        private static string LookOf(ItemDefinition item)
+        {
+            return item.LookAs ?? item.Id;
+        }
+
+        /// <summary>Phase 8.4 costume auras: a glowing ring at the feet with motes circling it.</summary>
+        private void BuildAura(ItemDefinition item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Color color = ViewColor(item);
+            var aura = new GameObject("Aura").transform;
+            aura.SetParent(_model, false);
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "AuraRing";
+            Destroy(ring.GetComponent<Collider>());
+            ring.transform.SetParent(aura, false);
+            ring.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            ring.transform.localScale = new Vector3(1.3f, 0.005f, 1.3f);
+            var renderer = ring.GetComponent<Renderer>();
+            renderer.sharedMaterial = RuntimeMaterials.Translucent(new Color(color.r, color.g, color.b, 0.35f));
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+            var orbit = new GameObject("Motes").transform;
+            orbit.SetParent(aura, false);
+            orbit.gameObject.AddComponent<Spinner>().DegreesPerSecond = new Vector3(0f, 70f, 0f);
+            bool rising = (item.LookAs ?? string.Empty).Contains("rise");
+            for (int i = 0; i < 5; i++)
+            {
+                float angle = i * Mathf.PI * 2f / 5f;
+                var mote = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                mote.name = "Mote";
+                Destroy(mote.GetComponent<Collider>());
+                mote.transform.SetParent(orbit, false);
+                mote.transform.localPosition = new Vector3(Mathf.Cos(angle) * 0.6f, rising ? 0.3f + i * 0.28f : 0.25f + (i % 2) * 0.5f, Mathf.Sin(angle) * 0.6f);
+                mote.transform.localScale = Vector3.one * 0.07f;
+                var moteRenderer = mote.GetComponent<Renderer>();
+                moteRenderer.sharedMaterial = RuntimeMaterials.Glow(color, color * 1.6f);
+                moteRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
 
         private static Color ViewColor(ItemDefinition item)
@@ -253,7 +386,12 @@ namespace Runeheir.Visuals
 
             Color color = ViewColor(item);
             Color trim = Color.Lerp(color, Color.white, 0.4f);
-            string id = item.Id;
+            string id = LookOf(item);
+            if (BuildCostumeHead(id, parent, color, trim))
+            {
+                return;
+            }
+
             if (id.Contains("wizard_hat"))
             {
                 Part(PrimitiveType.Cylinder, parent, "HatBrim", new Vector3(0f, 1.7f, 0f), new Vector3(0.7f, 0.02f, 0.7f), color);
@@ -323,11 +461,23 @@ namespace Runeheir.Visuals
             }
 
             Color color = ViewColor(item);
-            if (item.Id.Contains("eyepatch"))
+            string id = LookOf(item);
+            if (id.Contains("head_wings"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Part(PrimitiveType.Cube, parent, "HeadWing", new Vector3(side * 0.26f, 1.62f, -0.04f), new Vector3(0.03f, 0.14f, 0.26f), color, new Vector3(-30f, 0f, side * -20f));
+                }
+            }
+            else if (id.Contains("mask_eyes"))
+            {
+                Part(PrimitiveType.Cube, parent, "Domino", new Vector3(0f, 1.56f, 0.2f), new Vector3(0.36f, 0.1f, 0.04f), color);
+            }
+            else if (id.Contains("eyepatch"))
             {
                 Part(PrimitiveType.Sphere, parent, "Patch", new Vector3(0.08f, 1.55f, 0.2f), new Vector3(0.1f, 0.09f, 0.04f), color);
             }
-            else if (item.Id.Contains("monocle"))
+            else if (id.Contains("monocle"))
             {
                 Part(PrimitiveType.Cylinder, parent, "Monocle", new Vector3(-0.08f, 1.55f, 0.21f), new Vector3(0.1f, 0.01f, 0.1f), color, new Vector3(90f, 0f, 0f));
             }
@@ -345,12 +495,17 @@ namespace Runeheir.Visuals
             }
 
             Color color = ViewColor(item);
-            if (item.Id.Contains("pipe"))
+            string id = LookOf(item);
+            if (id.Contains("scarf"))
+            {
+                Part(PrimitiveType.Cylinder, parent, "FaceScarf", new Vector3(0f, 1.4f, 0.04f), new Vector3(0.44f, 0.08f, 0.42f), color);
+            }
+            else if (id.Contains("pipe"))
             {
                 Part(PrimitiveType.Cylinder, parent, "Pipe", new Vector3(0.06f, 1.42f, 0.27f), new Vector3(0.03f, 0.08f, 0.03f), color, new Vector3(80f, 0f, 0f));
                 Part(PrimitiveType.Cylinder, parent, "Bowl", new Vector3(0.06f, 1.44f, 0.36f), new Vector3(0.07f, 0.05f, 0.07f), color);
             }
-            else if (item.Id.Contains("beard"))
+            else if (id.Contains("beard"))
             {
                 Part(PrimitiveType.Capsule, parent, "Beard", new Vector3(0f, 1.32f, 0.14f), new Vector3(0.22f, 0.16f, 0.12f), color);
             }
@@ -388,7 +543,43 @@ namespace Runeheir.Visuals
             }
 
             Color color = ViewColor(item);
-            if (item.Id.Contains("wings"))
+            string look = LookOf(item);
+            if (look.Contains("tail"))
+            {
+                Part(PrimitiveType.Capsule, parent, "Tail", new Vector3(0f, 0.62f, -0.32f), new Vector3(0.14f, 0.32f, 0.14f), color, new Vector3(-55f, 0f, 0f));
+                Part(PrimitiveType.Sphere, parent, "TailTip", new Vector3(0f, 0.86f, -0.6f), Vector3.one * 0.15f, Color.Lerp(color, Color.white, 0.6f));
+            }
+            else if (look.Contains("wings_bat"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var pivot = new GameObject(side < 0 ? "WingPivotL" : "WingPivotR").transform;
+                    pivot.SetParent(parent, false);
+                    pivot.localPosition = new Vector3(side * 0.1f, 1.2f, -0.22f);
+                    Part(PrimitiveType.Cube, pivot, "Wing", new Vector3(side * 0.3f, 0.12f, 0f), new Vector3(0.5f, 0.12f, 0.03f), color * 0.8f, new Vector3(0f, 0f, side * 25f));
+                    for (int f = 0; f < 3; f++)
+                    {
+                        Part(PrimitiveType.Cube, pivot, "Web", new Vector3(side * (0.18f + f * 0.16f), -0.05f, 0f), new Vector3(0.15f, 0.3f, 0.02f), color, new Vector3(0f, 0f, side * (5f + f * 12f)));
+                    }
+
+                    _gearWings.Add(pivot);
+                }
+            }
+            else if (look.Contains("wings_fairy"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var pivot = new GameObject(side < 0 ? "WingPivotL" : "WingPivotR").transform;
+                    pivot.SetParent(parent, false);
+                    pivot.localPosition = new Vector3(side * 0.08f, 1.12f, -0.22f);
+                    var upper = Part(PrimitiveType.Sphere, pivot, "WingUpper", new Vector3(side * 0.26f, 0.16f, 0f), new Vector3(0.42f, 0.3f, 0.02f), color, new Vector3(0f, 0f, side * 20f));
+                    upper.GetComponent<Renderer>().sharedMaterial = RuntimeMaterials.Translucent(new Color(color.r, color.g, color.b, 0.6f));
+                    var lowerWing = Part(PrimitiveType.Sphere, pivot, "WingLower", new Vector3(side * 0.2f, -0.12f, 0f), new Vector3(0.28f, 0.22f, 0.02f), color, new Vector3(0f, 0f, side * -25f));
+                    lowerWing.GetComponent<Renderer>().sharedMaterial = RuntimeMaterials.Translucent(new Color(color.r, color.g, color.b, 0.6f));
+                    _gearWings.Add(pivot);
+                }
+            }
+            else if (look.Contains("wings"))
             {
                 for (int side = -1; side <= 1; side += 2)
                 {
@@ -400,7 +591,7 @@ namespace Runeheir.Visuals
                     _gearWings.Add(pivot);
                 }
             }
-            else if (item.Id.Contains("muffler"))
+            else if (look.Contains("muffler"))
             {
                 Part(PrimitiveType.Cylinder, neck, "Scarf", new Vector3(0f, 1.28f, 0f), new Vector3(0.4f, 0.06f, 0.38f), color);
                 Part(PrimitiveType.Cube, neck, "ScarfTail", new Vector3(0.1f, 1.08f, -0.2f), new Vector3(0.1f, 0.34f, 0.03f), color, new Vector3(10f, 0f, 8f));
@@ -409,6 +600,89 @@ namespace Runeheir.Visuals
             {
                 Part(PrimitiveType.Cube, parent, "Cape", new Vector3(0f, 0.86f, -0.23f), new Vector3(0.52f, 0.86f, 0.04f), color, new Vector3(8f, 0f, 0f));
             }
+        }
+
+        /// <summary>Phase 8.4 costume headwear: ears, halos, flowers, ribbons, top hats, horns, headphones. False when not one of these.</summary>
+        private bool BuildCostumeHead(string id, Transform parent, Color color, Color trim)
+        {
+            if (id.Contains("ears_bunny"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Part(PrimitiveType.Capsule, parent, "Ear", new Vector3(side * 0.1f, 1.98f, -0.02f), new Vector3(0.08f, 0.2f, 0.04f), color, new Vector3(0f, 0f, side * -10f));
+                    Part(PrimitiveType.Capsule, parent, "EarInner", new Vector3(side * 0.1f, 1.98f, 0f), new Vector3(0.045f, 0.15f, 0.02f), trim, new Vector3(0f, 0f, side * -10f));
+                }
+
+                return true;
+            }
+
+            if (id.Contains("ears_cat") || id.Contains("ears_fox"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Part(PrimitiveType.Cube, parent, "Ear", new Vector3(side * 0.15f, 1.83f, 0f), new Vector3(0.1f, 0.13f, 0.04f), color, new Vector3(0f, 0f, 45f));
+                }
+
+                return true;
+            }
+
+            if (id.Contains("halo"))
+            {
+                var halo = Part(PrimitiveType.Cylinder, parent, "Halo", new Vector3(0f, 2.02f, 0f), new Vector3(0.36f, 0.012f, 0.36f), color);
+                halo.GetComponent<Renderer>().sharedMaterial = RuntimeMaterials.Glow(color, color * 1.5f);
+                return true;
+            }
+
+            if (id.Contains("flower"))
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / 5f;
+                    Part(PrimitiveType.Sphere, parent, "Petal", new Vector3(0.17f + Mathf.Cos(angle) * 0.05f, 1.76f + Mathf.Sin(angle) * 0.05f, 0.08f), Vector3.one * 0.06f, color);
+                }
+
+                Part(PrimitiveType.Sphere, parent, "Heart", new Vector3(0.17f, 1.76f, 0.1f), Vector3.one * 0.04f, new Color(0.98f, 0.85f, 0.3f));
+                return true;
+            }
+
+            if (id.Contains("ribbon"))
+            {
+                Part(PrimitiveType.Cube, parent, "BowL", new Vector3(-0.07f, 1.86f, -0.08f), new Vector3(0.12f, 0.08f, 0.03f), color, new Vector3(0f, 0f, 20f));
+                Part(PrimitiveType.Cube, parent, "BowR", new Vector3(0.07f, 1.86f, -0.08f), new Vector3(0.12f, 0.08f, 0.03f), color, new Vector3(0f, 0f, -20f));
+                Part(PrimitiveType.Sphere, parent, "Knot", new Vector3(0f, 1.86f, -0.08f), Vector3.one * 0.05f, trim);
+                return true;
+            }
+
+            if (id.Contains("tophat"))
+            {
+                Part(PrimitiveType.Cylinder, parent, "Brim", new Vector3(0f, 1.74f, 0f), new Vector3(0.56f, 0.015f, 0.56f), color);
+                Part(PrimitiveType.Cylinder, parent, "Crown", new Vector3(0f, 1.9f, 0f), new Vector3(0.36f, 0.16f, 0.36f), color);
+                Part(PrimitiveType.Cylinder, parent, "Band", new Vector3(0f, 1.78f, 0f), new Vector3(0.37f, 0.025f, 0.37f), trim);
+                return true;
+            }
+
+            if (id.Contains("horns"))
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Part(PrimitiveType.Capsule, parent, "Horn", new Vector3(side * 0.17f, 1.84f, 0f), new Vector3(0.06f, 0.14f, 0.06f), color, new Vector3(0f, 0f, side * -30f));
+                }
+
+                return true;
+            }
+
+            if (id.Contains("headphones"))
+            {
+                Part(PrimitiveType.Cube, parent, "Band", new Vector3(0f, 1.8f, 0f), new Vector3(0.5f, 0.04f, 0.06f), trim);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Part(PrimitiveType.Cylinder, parent, "Cup", new Vector3(side * 0.24f, 1.58f, 0f), new Vector3(0.14f, 0.04f, 0.14f), color, new Vector3(0f, 0f, 90f));
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private void BuildHair(int style, Color hair)
@@ -555,7 +829,8 @@ namespace Runeheir.Visuals
         {
             ResetModel();
             _lungeAttack = true;
-            _flyer = definition.Shape == MonsterShape.Flyer;
+            _flyer = definition.Shape == MonsterShape.Flyer || definition.Shape == MonsterShape.Fish
+                                                           || (definition.Shape == MonsterShape.Slime && definition.Variant == "ghost");
             Color main = RuntimeMaterials.Hex(definition.ColorHex);
             Color dark = main * 0.6f;
             dark.a = 1f;
@@ -594,6 +869,27 @@ namespace Runeheir.Visuals
                         Part(PrimitiveType.Cube, _model, "EarR", new Vector3(0.12f, 1.06f, 0.56f), new Vector3(0.08f, 0.16f, 0.05f), dark);
                     }
 
+                    QuadrupedVariant(definition.Variant, main, dark);
+                    break;
+
+                case MonsterShape.Insect:
+                    BuildInsect(definition.Variant, main, dark);
+                    break;
+
+                case MonsterShape.Plant:
+                    BuildPlant(definition.Variant, main, dark);
+                    break;
+
+                case MonsterShape.Slime:
+                    BuildSlime(definition.Variant, main, dark);
+                    break;
+
+                case MonsterShape.Bird:
+                    BuildBird(definition.Variant, main, dark);
+                    break;
+
+                case MonsterShape.Fish:
+                    BuildFish(definition.Variant, main, dark);
                     break;
 
                 case MonsterShape.Biped:
@@ -683,14 +979,401 @@ namespace Runeheir.Visuals
                 Outfit = RuntimeMaterials.Hex(definition.ColorHex),
                 Skin = RuntimeMaterials.Hex(definition.SkinHex, AvatarLook.DefaultSkin),
                 Hair = AvatarLook.HairPalette[hash % 3 == 0 ? 3 : hash % 3 == 1 ? 0 : 4],
-                HairStyle = 6 + hash % 2,
-                Gender = Gender.Male,
+                HairStyle = definition.LookFemale ? 2 + hash % 3 : 6 + hash % 2,
+                Gender = definition.LookFemale ? Gender.Female : Gender.Male,
                 Weapon = definition.LookWeapon,
                 HeadUpper = ItemCatalog.Get(definition.LookHead)?.Id,
                 HeadLower = ItemCatalog.Get(definition.LookLower)?.Id,
                 Shield = ItemCatalog.Get(definition.LookShield)?.Id,
                 Garment = ItemCatalog.Get(definition.LookGarment)?.Id,
             };
+        }
+
+        // ------------------------------------------------------------ Phase 8 monster shapes
+        private static readonly Color MonsterEye = new Color(0.08f, 0.05f, 0.05f);
+        private static readonly Color Bone = new Color(0.93f, 0.9f, 0.82f);
+        private static readonly Color Leafy = new Color(0.32f, 0.58f, 0.26f);
+        private static readonly Color Beak = new Color(0.95f, 0.66f, 0.2f);
+
+        /// <summary>A capsule from <paramref name="from"/> to <paramref name="to"/> (legs, horns, tails, stems).</summary>
+        private Transform Limb(string name, Vector3 from, Vector3 to, float thickness, Color color, Transform parent = null)
+        {
+            var dir = to - from;
+            var rotation = Quaternion.FromToRotation(Vector3.up, dir.sqrMagnitude > 1e-6f ? dir : Vector3.up);
+            return Part(PrimitiveType.Capsule, parent ?? _model, name, (from + to) * 0.5f, new Vector3(thickness, dir.magnitude * 0.5f, thickness), color,
+                rotation.eulerAngles);
+        }
+
+        private void Eyes(Vector3 center, float spacing, float size, Color color, bool glow = false)
+        {
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var at = center + new Vector3(side * spacing, 0f, 0f);
+                if (glow)
+                {
+                    GlowPart(PrimitiveType.Sphere, _model, "Eye", at, Vector3.one * size, color);
+                }
+                else
+                {
+                    Part(PrimitiveType.Sphere, _model, "Eye", at, Vector3.one * size, color);
+                }
+            }
+        }
+
+        /// <summary>Details on a four-legged beast from its name: tusks, horns, long ears, pointed ears, a shell, a low body.</summary>
+        private void QuadrupedVariant(string variant, Color main, Color dark)
+        {
+            Color light = Color.Lerp(main, Color.white, 0.45f);
+            switch (variant)
+            {
+                case "tusks":
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        Limb("Tusk", new Vector3(s * 0.09f, 0.7f, 0.9f), new Vector3(s * 0.13f, 0.86f, 1.0f), 0.05f, Bone);
+                    }
+
+                    Part(PrimitiveType.Cube, _model, "Bristles", new Vector3(0f, 0.92f, 0.1f), new Vector3(0.12f, 0.12f, 0.7f), dark);
+                    break;
+                case "horns":
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        var root = new Vector3(s * 0.12f, 1.0f, 0.58f);
+                        var mid = root + new Vector3(s * 0.12f, 0.16f, -0.08f);
+                        Limb("Horn", root, mid, 0.07f, Bone);
+                        Limb("HornTip", mid, mid + new Vector3(s * 0.02f, 0.1f, -0.14f), 0.05f, Bone);
+                    }
+
+                    break;
+                case "long_ears":
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        Limb("Ear", new Vector3(s * 0.08f, 1.0f, 0.56f), new Vector3(s * 0.14f, 1.38f, 0.5f), 0.1f, main);
+                        Limb("EarInner", new Vector3(s * 0.08f, 1.03f, 0.585f), new Vector3(s * 0.135f, 1.33f, 0.53f), 0.05f, new Color(0.95f, 0.7f, 0.72f));
+                    }
+
+                    Part(PrimitiveType.Sphere, _model, "Puff", new Vector3(0f, 0.68f, -0.6f), Vector3.one * 0.2f, light);
+                    return;
+                case "ears":
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        Part(PrimitiveType.Cube, _model, "Ear", new Vector3(s * 0.13f, 1.04f, 0.58f), new Vector3(0.1f, 0.14f, 0.05f), dark, new Vector3(0f, 0f, s * -20f));
+                    }
+
+                    Limb("Tail", new Vector3(0f, 0.7f, -0.55f), new Vector3(0f, 0.95f, -0.95f), 0.12f, main);
+                    return;
+                case "shell":
+                    Part(PrimitiveType.Sphere, _model, "Shell", new Vector3(0f, 0.72f, -0.05f), new Vector3(0.95f, 0.6f, 1.1f), dark);
+                    Part(PrimitiveType.Cylinder, _model, "Rim", new Vector3(0f, 0.55f, -0.05f), new Vector3(0.98f, 0.03f, 1.12f), light);
+                    for (int i = 0; i < 3; i++)
+                    {
+                        Part(PrimitiveType.Cylinder, _model, "Scute", new Vector3(0f, 0.98f, -0.3f + i * 0.25f), new Vector3(0.22f, 0.04f, 0.22f), main * 0.8f);
+                    }
+
+                    return;
+                case "low":
+                    Part(PrimitiveType.Sphere, _model, "Belly", new Vector3(0f, 0.38f, 0.05f), new Vector3(0.7f, 0.32f, 0.9f), light);
+                    Eyes(new Vector3(0f, 0.98f, 0.66f), 0.14f, 0.13f, new Color(1f, 0.85f, 0.25f));
+                    Limb("Tail", new Vector3(0f, 0.45f, -0.5f), new Vector3(0f, 0.25f, -1.05f), 0.12f, main);
+                    return;
+            }
+
+            Limb("Tail", new Vector3(0f, 0.72f, -0.55f), new Vector3(0f, 0.9f, -0.85f), 0.07f, dark);
+        }
+
+        /// <summary>Ants and beetles; spiders (eight legs), scorpions (a stinging tail), crabs (claws) and mantises (blades).</summary>
+        private void BuildInsect(string variant, Color main, Color dark)
+        {
+            Color shine = Color.Lerp(main, Color.white, 0.3f);
+            switch (variant)
+            {
+                case "spider":
+                    Part(PrimitiveType.Sphere, _model, "Body", new Vector3(0f, 0.45f, 0.22f), new Vector3(0.48f, 0.34f, 0.48f), dark);
+                    Part(PrimitiveType.Sphere, _model, "Abdomen", new Vector3(0f, 0.58f, -0.35f), new Vector3(0.78f, 0.62f, 0.85f), main);
+                    Part(PrimitiveType.Cube, _model, "Mark", new Vector3(0f, 0.9f, -0.35f), new Vector3(0.12f, 0.02f, 0.3f), shine, new Vector3(0f, 45f, 0f));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        InsectLeg(0.22f + 0.12f * i - 0.18f, 0.2f, 0.62f, 0.07f, dark, -40f + i * 25f);
+                    }
+
+                    GlowPart(PrimitiveType.Sphere, _model, "EyeL", new Vector3(-0.08f, 0.55f, 0.44f), Vector3.one * 0.07f, new Color(1f, 0.25f, 0.2f));
+                    GlowPart(PrimitiveType.Sphere, _model, "EyeR", new Vector3(0.08f, 0.55f, 0.44f), Vector3.one * 0.07f, new Color(1f, 0.25f, 0.2f));
+                    GlowPart(PrimitiveType.Sphere, _model, "EyeL2", new Vector3(-0.13f, 0.5f, 0.42f), Vector3.one * 0.045f, new Color(1f, 0.25f, 0.2f));
+                    GlowPart(PrimitiveType.Sphere, _model, "EyeR2", new Vector3(0.13f, 0.5f, 0.42f), Vector3.one * 0.045f, new Color(1f, 0.25f, 0.2f));
+                    return;
+
+                case "crab":
+                    Part(PrimitiveType.Sphere, _model, "Shell", new Vector3(0f, 0.45f, 0f), new Vector3(0.95f, 0.4f, 0.7f), main);
+                    for (int i = 0; i < 3; i++)
+                    {
+                        InsectLeg(-0.2f + i * 0.17f, 0.3f, 0.55f, 0.07f, dark, 30f - i * 30f);
+                    }
+
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        var shoulder = new Vector3(s * 0.35f, 0.45f, 0.25f);
+                        var wrist = new Vector3(s * 0.48f, 0.55f, 0.6f);
+                        Limb("Arm", shoulder, wrist, 0.1f, dark);
+                        Part(PrimitiveType.Sphere, _model, "Claw", wrist + new Vector3(0f, 0.04f, 0.12f), new Vector3(0.24f, 0.2f, 0.3f), main);
+                        Limb("Pincer", wrist + new Vector3(s * 0.04f, 0.1f, 0.2f), wrist + new Vector3(s * 0.02f, 0.14f, 0.38f), 0.07f, shine);
+                        Limb("Stalk", new Vector3(s * 0.12f, 0.6f, 0.25f), new Vector3(s * 0.14f, 0.78f, 0.3f), 0.04f, dark);
+                        Part(PrimitiveType.Sphere, _model, "Eye", new Vector3(s * 0.14f, 0.8f, 0.3f), Vector3.one * 0.08f, MonsterEye);
+                    }
+
+                    return;
+
+                case "scorpion":
+                    Part(PrimitiveType.Sphere, _model, "Body", new Vector3(0f, 0.38f, 0.05f), new Vector3(0.6f, 0.3f, 0.95f), main);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        InsectLeg(-0.25f + i * 0.15f, 0.22f, 0.5f, 0.06f, dark, 20f - i * 15f);
+                    }
+
+                    var tail = new Vector3(0f, 0.42f, -0.45f);
+                    var segments = new[] { new Vector3(0f, 0.62f, -0.7f), new Vector3(0f, 0.92f, -0.78f), new Vector3(0f, 1.18f, -0.62f), new Vector3(0f, 1.28f, -0.38f) };
+                    foreach (var next in segments)
+                    {
+                        Limb("Tail", tail, next, 0.15f, main);
+                        tail = next;
+                    }
+
+                    Limb("Stinger", tail, tail + new Vector3(0f, -0.12f, 0.16f), 0.07f, Bone);
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        Limb("Arm", new Vector3(s * 0.2f, 0.4f, 0.45f), new Vector3(s * 0.32f, 0.42f, 0.78f), 0.09f, dark);
+                        Part(PrimitiveType.Sphere, _model, "Claw", new Vector3(s * 0.32f, 0.44f, 0.9f), new Vector3(0.18f, 0.12f, 0.24f), main);
+                    }
+
+                    Eyes(new Vector3(0f, 0.5f, 0.5f), 0.08f, 0.06f, MonsterEye);
+                    return;
+
+                case "mantis":
+                    Part(PrimitiveType.Capsule, _model, "Abdomen", new Vector3(0f, 0.5f, -0.35f), new Vector3(0.3f, 0.4f, 0.3f), main, new Vector3(70f, 0f, 0f));
+                    Limb("Thorax", new Vector3(0f, 0.55f, -0.05f), new Vector3(0f, 1.25f, 0.2f), 0.16f, main);
+                    Part(PrimitiveType.Sphere, _model, "Head", new Vector3(0f, 1.35f, 0.28f), new Vector3(0.3f, 0.22f, 0.22f), shine);
+                    Eyes(new Vector3(0f, 1.38f, 0.32f), 0.12f, 0.1f, new Color(0.9f, 0.85f, 0.2f));
+                    for (int i = 0; i < 2; i++)
+                    {
+                        InsectLeg(-0.25f - i * 0.15f, 0.3f, 0.5f, 0.05f, dark, -20f);
+                    }
+
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        var elbow = new Vector3(s * 0.2f, 1.25f, 0.45f);
+                        Limb("Arm", new Vector3(s * 0.08f, 1.05f, 0.2f), elbow, 0.08f, main);
+                        Part(PrimitiveType.Cube, _model, "Blade", elbow + new Vector3(0f, -0.2f, 0.05f), new Vector3(0.05f, 0.45f, 0.1f), Bone, new Vector3(-20f, 0f, 0f));
+                    }
+
+                    _wings.Add(Part(PrimitiveType.Cube, _model, "WingL", new Vector3(-0.15f, 0.75f, -0.3f), new Vector3(0.3f, 0.02f, 0.65f), shine));
+                    _wings.Add(Part(PrimitiveType.Cube, _model, "WingR", new Vector3(0.15f, 0.75f, -0.3f), new Vector3(0.3f, 0.02f, 0.65f), shine));
+                    return;
+            }
+
+            // Ants and beetles.
+            bool beetle = variant == "beetle";
+            Part(PrimitiveType.Sphere, _model, "Head", new Vector3(0f, 0.5f, 0.5f), Vector3.one * 0.34f, dark);
+            Part(PrimitiveType.Sphere, _model, "Thorax", new Vector3(0f, 0.45f, 0.18f), new Vector3(0.36f, 0.3f, 0.38f), main);
+            Part(PrimitiveType.Sphere, _model, "Abdomen", new Vector3(0f, 0.5f, -0.32f), beetle ? new Vector3(0.7f, 0.5f, 0.8f) : new Vector3(0.52f, 0.44f, 0.7f), main);
+            if (beetle)
+            {
+                Part(PrimitiveType.Cube, _model, "Seam", new Vector3(0f, 0.76f, -0.32f), new Vector3(0.02f, 0.02f, 0.62f), dark);
+                Limb("Horn", new Vector3(0f, 0.6f, 0.62f), new Vector3(0f, 0.92f, 0.8f), 0.08f, dark);
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                InsectLeg(0.28f - i * 0.16f, 0.2f, 0.5f, 0.06f, dark, 35f - i * 35f);
+            }
+
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Limb("Antenna", new Vector3(s * 0.06f, 0.62f, 0.6f), new Vector3(s * 0.2f, 0.95f, 0.78f), 0.035f, dark);
+                Limb("Mandible", new Vector3(s * 0.08f, 0.42f, 0.64f), new Vector3(s * 0.02f, 0.38f, 0.8f), 0.05f, Bone);
+            }
+
+            Eyes(new Vector3(0f, 0.56f, 0.64f), 0.1f, 0.07f, shine);
+        }
+
+        /// <summary>A jointed leg on each side at <paramref name="z"/>: out and up to the knee, then down to the ground.</summary>
+        private void InsectLeg(float z, float height, float reach, float thickness, Color color, float sweep)
+        {
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var swing = Quaternion.Euler(0f, s * sweep, 0f);
+                var hip = new Vector3(s * 0.15f, height + 0.25f, z);
+                var knee = hip + swing * new Vector3(s * reach * 0.55f, 0.22f, 0f);
+                var foot = new Vector3(hip.x, 0f, hip.z) + swing * new Vector3(s * reach, 0f, 0f);
+                Limb("Leg", hip, knee, thickness, color);
+                Limb("Shin", knee, foot, thickness * 0.8f, color);
+            }
+        }
+
+        /// <summary>A plant with a face: flowers, snapping flytraps, walking trees, cacti, or a leafy bulb.</summary>
+        private void BuildPlant(string variant, Color main, Color dark)
+        {
+            // Leaves at the root.
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * 90f + 45f;
+                var dir = Quaternion.Euler(0f, a, 0f) * Vector3.forward;
+                Part(PrimitiveType.Sphere, _model, "Leaf", dir * 0.32f + new Vector3(0f, 0.06f, 0f), new Vector3(0.22f, 0.05f, 0.5f), Leafy * 0.85f, new Vector3(-12f, a, 0f));
+            }
+
+            switch (variant)
+            {
+                case "flower":
+                    Limb("Stem", Vector3.zero, new Vector3(0f, 0.95f, 0f), 0.1f, Leafy);
+                    Part(PrimitiveType.Sphere, _model, "LeafL", new Vector3(-0.18f, 0.5f, 0f), new Vector3(0.3f, 0.06f, 0.14f), Leafy, new Vector3(0f, 0f, 25f));
+                    Part(PrimitiveType.Sphere, _model, "LeafR", new Vector3(0.18f, 0.6f, 0f), new Vector3(0.3f, 0.06f, 0.14f), Leafy, new Vector3(0f, 0f, -25f));
+                    for (int i = 0; i < 8; i++)
+                    {
+                        float a = i * 45f;
+                        var dir = Quaternion.Euler(0f, 0f, a) * Vector3.up;
+                        Part(PrimitiveType.Sphere, _model, "Petal", new Vector3(0f, 1.15f, 0.08f) + dir * 0.28f, new Vector3(0.22f, 0.34f, 0.06f), main, new Vector3(0f, 0f, a));
+                    }
+
+                    Part(PrimitiveType.Sphere, _model, "Face", new Vector3(0f, 1.15f, 0.12f), new Vector3(0.36f, 0.36f, 0.16f), new Color(0.98f, 0.82f, 0.3f));
+                    Eyes(new Vector3(0f, 1.2f, 0.2f), 0.07f, 0.06f, MonsterEye);
+                    return;
+
+                case "jaws":
+                    Limb("Stem", Vector3.zero, new Vector3(0f, 0.8f, 0.05f), 0.14f, Leafy);
+                    Color mouth = new Color(0.75f, 0.15f, 0.2f);
+                    Part(PrimitiveType.Sphere, _model, "JawTop", new Vector3(0f, 1.08f, 0.15f), new Vector3(0.6f, 0.26f, 0.6f), main, new Vector3(-22f, 0f, 0f));
+                    Part(PrimitiveType.Sphere, _model, "JawBottom", new Vector3(0f, 0.86f, 0.15f), new Vector3(0.58f, 0.22f, 0.58f), main, new Vector3(18f, 0f, 0f));
+                    Part(PrimitiveType.Sphere, _model, "Maw", new Vector3(0f, 0.97f, 0.22f), new Vector3(0.48f, 0.12f, 0.48f), mouth);
+                    for (int i = 0; i < 5; i++)
+                    {
+                        float x = -0.2f + i * 0.1f;
+                        Limb("Tooth", new Vector3(x, 1.0f, 0.42f), new Vector3(x, 0.92f, 0.44f), 0.035f, Bone);
+                    }
+
+                    Eyes(new Vector3(0f, 1.2f, 0.3f), 0.12f, 0.08f, new Color(1f, 0.9f, 0.3f), glow: true);
+                    return;
+
+                case "tree":
+                    Color bark = new Color(0.42f, 0.3f, 0.2f);
+                    Part(PrimitiveType.Cylinder, _model, "Trunk", new Vector3(0f, 0.7f, 0f), new Vector3(0.42f, 0.7f, 0.42f), bark);
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        Limb("Root", new Vector3(s * 0.15f, 0.15f, 0f), new Vector3(s * 0.4f, 0f, 0.1f), 0.12f, bark);
+                        Limb("Branch", new Vector3(s * 0.15f, 1.0f, 0f), new Vector3(s * 0.55f, 1.25f, 0.15f), 0.1f, bark);
+                        Part(PrimitiveType.Sphere, _model, "Bough", new Vector3(s * 0.55f, 1.35f, 0.15f), Vector3.one * 0.38f, Color.Lerp(Leafy, main, 0.35f));
+                    }
+
+                    Part(PrimitiveType.Sphere, _model, "Canopy", new Vector3(0f, 1.65f, 0f), new Vector3(0.95f, 0.75f, 0.95f), Color.Lerp(Leafy, main, 0.35f));
+                    Eyes(new Vector3(0f, 1.05f, 0.2f), 0.09f, 0.08f, new Color(1f, 0.85f, 0.3f), glow: true);
+                    Part(PrimitiveType.Cube, _model, "Mouth", new Vector3(0f, 0.85f, 0.21f), new Vector3(0.14f, 0.05f, 0.02f), MonsterEye);
+                    return;
+
+                case "cactus":
+                    Part(PrimitiveType.Capsule, _model, "Body", new Vector3(0f, 0.6f, 0f), new Vector3(0.45f, 0.6f, 0.45f), Leafy);
+                    Limb("ArmL", new Vector3(-0.2f, 0.6f, 0f), new Vector3(-0.42f, 0.95f, 0f), 0.16f, Leafy);
+                    Limb("ArmR", new Vector3(0.2f, 0.75f, 0f), new Vector3(0.4f, 1.0f, 0f), 0.14f, Leafy);
+                    Part(PrimitiveType.Sphere, _model, "Bloom", new Vector3(0f, 1.2f, 0f), new Vector3(0.22f, 0.12f, 0.22f), main);
+                    Eyes(new Vector3(0f, 0.85f, 0.22f), 0.08f, 0.07f, MonsterEye);
+                    return;
+            }
+
+            // A leafy bulb with a face.
+            Part(PrimitiveType.Sphere, _model, "Bulb", new Vector3(0f, 0.42f, 0f), new Vector3(0.62f, 0.58f, 0.62f), main);
+            for (int i = 0; i < 3; i++)
+            {
+                float a = i * 120f;
+                var dir = Quaternion.Euler(0f, a, 0f) * Vector3.forward;
+                Limb("Sprout", new Vector3(0f, 0.65f, 0f), new Vector3(0f, 1.0f, 0f) + dir * 0.2f, 0.06f, Leafy);
+                Part(PrimitiveType.Sphere, _model, "SproutLeaf", new Vector3(0f, 1.02f, 0f) + dir * 0.26f, new Vector3(0.18f, 0.05f, 0.3f), Leafy, new Vector3(-30f, a, 0f));
+            }
+
+            Eyes(new Vector3(0f, 0.5f, 0.27f), 0.09f, 0.08f, MonsterEye);
+        }
+
+        /// <summary>Ragnarok's Poring family: a glossy jelly with a face that squashes as it hops.</summary>
+        private void BuildSlime(string variant, Color main, Color dark)
+        {
+            _squash = true;
+            Color body = variant == "ghost" ? Color.Lerp(main, Color.white, 0.6f) : main;
+            Part(PrimitiveType.Sphere, _model, "Jelly", new Vector3(0f, 0.36f, 0f), new Vector3(0.82f, 0.68f, 0.8f), body);
+            Part(PrimitiveType.Sphere, _model, "Shine", new Vector3(-0.17f, 0.56f, 0.24f), new Vector3(0.14f, 0.1f, 0.08f), Color.white, new Vector3(0f, 0f, 30f));
+            Eyes(new Vector3(0f, 0.4f, 0.36f), 0.11f, 0.09f, MonsterEye);
+            Part(PrimitiveType.Sphere, _model, "Mouth", new Vector3(0f, 0.27f, 0.38f), new Vector3(0.1f, 0.05f, 0.04f), new Color(0.75f, 0.25f, 0.3f));
+            switch (variant)
+            {
+                case "angel":
+                    GlowPart(PrimitiveType.Cylinder, _model, "Halo", new Vector3(0f, 0.92f, 0f), new Vector3(0.36f, 0.015f, 0.36f), new Color(1f, 0.92f, 0.5f));
+                    _wings.Add(Part(PrimitiveType.Sphere, _model, "WingL", new Vector3(-0.5f, 0.5f, -0.05f), new Vector3(0.4f, 0.06f, 0.24f), Color.white));
+                    _wings.Add(Part(PrimitiveType.Sphere, _model, "WingR", new Vector3(0.5f, 0.5f, -0.05f), new Vector3(0.4f, 0.06f, 0.24f), Color.white));
+                    break;
+                case "devil":
+                    Limb("HornL", new Vector3(-0.15f, 0.62f, 0.05f), new Vector3(-0.22f, 0.86f, 0f), 0.07f, dark);
+                    Limb("HornR", new Vector3(0.15f, 0.62f, 0.05f), new Vector3(0.22f, 0.86f, 0f), 0.07f, dark);
+                    _wings.Add(Part(PrimitiveType.Cube, _model, "WingL", new Vector3(-0.5f, 0.5f, -0.1f), new Vector3(0.38f, 0.02f, 0.24f), new Color(0.2f, 0.12f, 0.18f)));
+                    _wings.Add(Part(PrimitiveType.Cube, _model, "WingR", new Vector3(0.5f, 0.5f, -0.1f), new Vector3(0.38f, 0.02f, 0.24f), new Color(0.2f, 0.12f, 0.18f)));
+                    Limb("Tail", new Vector3(0f, 0.2f, -0.35f), new Vector3(0f, 0.45f, -0.65f), 0.04f, dark);
+                    break;
+                case "ghost":
+                    Limb("Wisp", new Vector3(0f, 0.12f, -0.2f), new Vector3(0f, -0.05f, -0.55f), 0.18f, body);
+                    break;
+            }
+        }
+
+        /// <summary>A walking bird: chicks and fowl, or tall striders like the Peco Peco.</summary>
+        private void BuildBird(string variant, Color main, Color dark)
+        {
+            bool tall = variant == "tall";
+            float legTop = tall ? 0.9f : 0.42f;
+            Color light = Color.Lerp(main, Color.white, 0.4f);
+            var body = new Vector3(0f, legTop + 0.25f, 0f);
+            Part(PrimitiveType.Sphere, _model, "Body", body, tall ? new Vector3(0.75f, 0.62f, 0.95f) : new Vector3(0.6f, 0.55f, 0.7f), main);
+            Part(PrimitiveType.Sphere, _model, "Breast", body + new Vector3(0f, -0.04f, 0.2f), tall ? new Vector3(0.6f, 0.5f, 0.6f) : new Vector3(0.45f, 0.42f, 0.42f), light);
+            var head = tall ? body + new Vector3(0f, 0.75f, 0.42f) : body + new Vector3(0f, 0.32f, 0.26f);
+            if (tall)
+            {
+                Limb("Neck", body + new Vector3(0f, 0.15f, 0.3f), head, 0.2f, main);
+            }
+
+            Part(PrimitiveType.Sphere, _model, "Head", head, Vector3.one * (tall ? 0.34f : 0.32f), main);
+            Limb("Beak", head + new Vector3(0f, -0.02f, 0.12f), head + new Vector3(0f, -0.06f, tall ? 0.4f : 0.3f), tall ? 0.1f : 0.08f, Beak);
+            Eyes(head + new Vector3(0f, 0.05f, 0.12f), 0.1f, 0.07f, MonsterEye);
+            Limb("Crest", head + new Vector3(0f, 0.12f, 0f), head + new Vector3(0f, 0.3f, -0.12f), 0.06f, dark);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Part(PrimitiveType.Sphere, _model, "Wing", body + new Vector3(s * (tall ? 0.36f : 0.29f), 0.02f, -0.05f), new Vector3(0.1f, 0.34f, 0.55f), dark, new Vector3(-15f, 0f, 0f));
+                var hip = new Vector3(s * 0.13f, legTop + 0.05f, 0f);
+                var foot = new Vector3(s * 0.15f, 0.02f, 0.06f);
+                Limb("Leg", hip, foot, tall ? 0.08f : 0.06f, Beak * 0.9f);
+                Part(PrimitiveType.Cube, _model, "Foot", foot + new Vector3(0f, 0f, 0.07f), new Vector3(0.1f, 0.03f, 0.16f), Beak * 0.9f);
+            }
+
+            for (int i = -1; i <= 1; i++)
+            {
+                Limb("Tail", body + new Vector3(i * 0.08f, 0.05f, -0.35f), body + new Vector3(i * 0.16f, 0.4f, -0.62f), 0.08f, i == 0 ? dark : main);
+            }
+        }
+
+        /// <summary>A fish swimming through the air: forked tail, fins, big eyes; sharks and swordfish by variant.</summary>
+        private void BuildFish(string variant, Color main, Color dark)
+        {
+            Color belly = Color.Lerp(main, Color.white, 0.5f);
+            bool shark = variant == "shark";
+            var body = new Vector3(0f, 0.8f, 0f);
+            Part(PrimitiveType.Sphere, _model, "Body", body, shark ? new Vector3(0.48f, 0.5f, 1.25f) : new Vector3(0.42f, 0.62f, 0.95f), main);
+            Part(PrimitiveType.Sphere, _model, "Belly", body + new Vector3(0f, -0.1f, 0.03f), shark ? new Vector3(0.4f, 0.36f, 1.1f) : new Vector3(0.36f, 0.45f, 0.82f), belly);
+            float back = shark ? -0.62f : -0.5f;
+            Part(PrimitiveType.Cube, _model, "TailTop", body + new Vector3(0f, 0.16f, back - 0.12f), new Vector3(0.04f, 0.38f, 0.22f), dark, new Vector3(40f, 0f, 0f));
+            Part(PrimitiveType.Cube, _model, "TailBottom", body + new Vector3(0f, -0.16f, back - 0.12f), new Vector3(0.04f, 0.38f, 0.22f), dark, new Vector3(-40f, 0f, 0f));
+            Part(PrimitiveType.Cube, _model, "Dorsal", body + new Vector3(0f, shark ? 0.36f : 0.36f, -0.05f), shark ? new Vector3(0.04f, 0.42f, 0.3f) : new Vector3(0.03f, 0.25f, 0.42f), dark,
+                new Vector3(-30f, 0f, 0f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Part(PrimitiveType.Sphere, _model, "Fin", body + new Vector3(s * 0.22f, -0.12f, 0.12f), new Vector3(0.2f, 0.04f, 0.14f), dark, new Vector3(0f, s * 30f, s * -25f));
+                Part(PrimitiveType.Sphere, _model, "EyeWhite", body + new Vector3(s * 0.17f, 0.1f, shark ? 0.42f : 0.32f), Vector3.one * 0.13f, Color.white);
+                Part(PrimitiveType.Sphere, _model, "Eye", body + new Vector3(s * 0.21f, 0.1f, shark ? 0.44f : 0.34f), Vector3.one * 0.07f, MonsterEye);
+            }
+
+            if (variant == "sword")
+            {
+                Limb("Bill", body + new Vector3(0f, 0.05f, 0.4f), body + new Vector3(0f, 0.08f, 1.1f), 0.05f, Bone);
+            }
         }
 
         // ------------------------------------------------------------ Phase 5 monster shapes
@@ -781,6 +1464,12 @@ namespace Runeheir.Visuals
         /// <summary>Stacked blocks of ice (Ice Golem) or rune-cut stone (Ancient Golem).</summary>
         private void BuildGolem(MonsterDefinition definition, Color main, Color dark)
         {
+            if (definition.SiegeObject)
+            {
+                BuildSiegeObject(definition, main, dark);
+                return;
+            }
+
             bool ancient = definition.Id.Contains("ancient");
             Color rune = ancient ? new Color(0.45f, 0.85f, 1f) : new Color(0.75f, 0.95f, 1f);
             Part(PrimitiveType.Cube, _model, "LegL", new Vector3(-0.22f, 0.26f, 0f), new Vector3(0.3f, 0.52f, 0.35f), dark);
@@ -831,6 +1520,61 @@ namespace Runeheir.Visuals
                     Part(PrimitiveType.Cube, _model, "Hair", new Vector3(i * 0.08f, 1.3f, -0.18f), new Vector3(0.05f, 0.7f, 0.03f), hair, new Vector3(-12f, 0f, i * 4f));
                 }
             }
+        }
+
+        /// <summary>
+        /// Phase 8 sieges: a Jarlstone is a golden rune-gem over a stepped plinth with glyphs circling it; a Castle Hoard is an
+        /// iron-bound chest with a glowing lock.
+        /// </summary>
+        private void BuildSiegeObject(MonsterDefinition definition, Color main, Color dark)
+        {
+            Color stone = new Color(0.36f, 0.35f, 0.38f);
+            if (definition.Id == Social.SiegeRules.JarlstoneId)
+            {
+                Part(PrimitiveType.Cylinder, _model, "Plinth", new Vector3(0f, 0.12f, 0f), new Vector3(1.2f, 0.12f, 1.2f), stone);
+                Part(PrimitiveType.Cylinder, _model, "Step", new Vector3(0f, 0.32f, 0f), new Vector3(0.85f, 0.1f, 0.85f), stone * 1.15f);
+                Part(PrimitiveType.Cylinder, _model, "Socket", new Vector3(0f, 0.5f, 0f), new Vector3(0.45f, 0.08f, 0.45f), dark);
+
+                // A cube stood on its corner and stretched upwards reads as a cut gem.
+                var gem = new GameObject("Gem").transform;
+                gem.SetParent(_model, false);
+                gem.localPosition = new Vector3(0f, 1.25f, 0f);
+                gem.localScale = new Vector3(0.62f, 1.25f, 0.62f);
+                gem.gameObject.AddComponent<Spinner>().DegreesPerSecond = new Vector3(0f, 20f, 0f);
+                var facet = GlowPart(PrimitiveType.Cube, gem, "Facet", Vector3.zero, Vector3.one * 0.62f, main);
+                facet.localEulerAngles = new Vector3(45f, 0f, 35.26f);
+
+                var orbit = new GameObject("Glyphs").transform;
+                orbit.SetParent(_model, false);
+                orbit.localPosition = new Vector3(0f, 1.2f, 0f);
+                orbit.gameObject.AddComponent<Spinner>().DegreesPerSecond = new Vector3(0f, -45f, 0f);
+                Color glyph = new Color(1f, 0.93f, 0.6f);
+                for (int i = 0; i < 4; i++)
+                {
+                    float angle = i * Mathf.PI * 0.5f;
+                    GlowPart(PrimitiveType.Cube, orbit, "GlyphV", new Vector3(Mathf.Cos(angle) * 0.75f, 0f, Mathf.Sin(angle) * 0.75f), new Vector3(0.04f, 0.26f, 0.04f), glyph);
+                    GlowPart(PrimitiveType.Cube, orbit, "GlyphD", new Vector3(Mathf.Cos(angle) * 0.75f, 0.06f, Mathf.Sin(angle) * 0.75f), new Vector3(0.04f, 0.14f, 0.04f), glyph)
+                        .localEulerAngles = new Vector3(0f, -i * 90f, 40f);
+                }
+
+                var ring = GroundRing.Create("JarlRing", new Color(1f, 0.82f, 0.3f, 0.9f), 1.1f, 0.08f);
+                ring.ShowAt(transform.position);
+                ring.transform.SetParent(transform, true);
+                ring.SetSpin(15f);
+                return;
+            }
+
+            Color iron = new Color(0.25f, 0.25f, 0.28f);
+            Part(PrimitiveType.Cube, _model, "Chest", new Vector3(0f, 0.3f, 0f), new Vector3(0.95f, 0.6f, 0.62f), main);
+            Part(PrimitiveType.Cylinder, _model, "Lid", new Vector3(0f, 0.6f, 0f), new Vector3(0.6f, 0.475f, 0.6f), main * 1.1f, new Vector3(0f, 0f, 90f));
+            foreach (float x in new[] { -0.32f, 0.32f })
+            {
+                Part(PrimitiveType.Cube, _model, "Band", new Vector3(x, 0.3f, 0f), new Vector3(0.07f, 0.62f, 0.64f), iron);
+                Part(PrimitiveType.Cylinder, _model, "LidBand", new Vector3(x, 0.6f, 0f), new Vector3(0.62f, 0.035f, 0.62f), iron, new Vector3(0f, 0f, 90f));
+            }
+
+            Part(PrimitiveType.Cube, _model, "Plate", new Vector3(0f, 0.55f, 0.32f), new Vector3(0.18f, 0.2f, 0.03f), iron);
+            GlowPart(PrimitiveType.Cube, _model, "Lock", new Vector3(0f, 0.53f, 0.34f), new Vector3(0.07f, 0.09f, 0.02f), new Color(1f, 0.8f, 0.3f));
         }
 
         private static Transform GlowPart(PrimitiveType type, Transform parent, string name, Vector3 localPosition, Vector3 localScale, Color color)
@@ -935,9 +1679,12 @@ namespace Runeheir.Visuals
                 _weaponPivot.localRotation = Quaternion.Euler(weaponOverride ?? WeaponAngle(attackT), 0f, 0f);
             }
 
-            _model.localPosition = new Vector3(0f, (bob + hover + jump) * (1f - _deadBlend) - _deadBlend * 0.15f, lunge);
+            AnimateMount();
+            _model.localPosition = new Vector3(0f, _mountHeight + (bob + hover + jump) * (1f - _deadBlend) - _deadBlend * 0.15f, lunge);
             _model.localRotation = Quaternion.Euler(-85f * _deadBlend + staggerTilt, spin, shake);
-            _model.localScale = Vector3.one * (_baseScale * scale);
+            // Slimes squash and stretch as they hop.
+            float squash = _squash ? Mathf.Sin(_bobPhase * 2f) * (_speed > 0.2f ? 0.12f : 0.035f) * (1f - _deadBlend) : 0f;
+            _model.localScale = new Vector3(1f + squash, 1f - squash, 1f + squash) * (_baseScale * scale);
 
             // Ragnarok's casting circle at the caster's feet.
             if (_castBlend > 0.01f && _castCircle == null)

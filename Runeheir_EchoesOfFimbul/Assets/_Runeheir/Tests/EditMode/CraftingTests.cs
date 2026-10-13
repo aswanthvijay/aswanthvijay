@@ -56,7 +56,7 @@ namespace Runeheir.Tests
             Assert.IsNull(CraftingRules.Get(CraftKind.Forge, "hunters_bow"), "smiths don't make bows");
             Assert.IsNull(CraftingRules.Get(CraftKind.Forge, "eitri_great_axe"), "legendary (level 4) weapons can't be forged");
             Assert.IsNull(CraftingRules.Get(CraftKind.Forge, "rusty_seax"));
-            Assert.AreEqual(8, CraftingRules.For(CraftKind.Brew).Count);
+            Assert.AreEqual(9, CraftingRules.For(CraftKind.Brew).Count, "eight brews and the Embryo");
         }
 
         [Test]

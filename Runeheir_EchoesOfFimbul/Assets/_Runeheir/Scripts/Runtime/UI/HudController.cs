@@ -1,16 +1,18 @@
 using System;
 using System.Collections.Generic;
+using Runeheir.Audio;
 using Runeheir.Controls;
 using Runeheir.Field;
 using Runeheir.Items;
 using Runeheir.Jobs;
-using Runeheir.Player;
 using Runeheir.Online;
+using Runeheir.Player;
 using Runeheir.Session;
 using Runeheir.Social;
 using Runeheir.World;
 using Runeheir.WorldBuilding;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Runeheir.UI
 {
@@ -411,13 +413,18 @@ namespace Runeheir.UI
             _social = new SocialHud(this, _player);
             NpcActor.Interacted += OnNpcInteracted;
             _menu = BuildMenu();
+            _pet = new PetWindow(this, _player);
+            _mercenary = new MercenaryWindow(this, _player);
             _deathDialog = BuildDeathDialog();
             UITooltip.Create(Canvas);
         }
 
+        private PetWindow _pet;
+        private MercenaryWindow _mercenary;
+
         private UIWindow BuildMenu()
         {
-            var menu = UIWindow.Create(Canvas.transform, "Menu", 810f, 380f, 300f, 230f);
+            var menu = UIWindow.Create(Canvas.transform, "Menu", 810f, 380f, 300f, 334f);
             menu.CenterOnShow = true;
             string[] labels = { "Character Select", "Exit Game", "Return to Game" };
             UnityEngine.Events.UnityAction[] actions =
@@ -431,6 +438,23 @@ namespace Runeheir.UI
                 var button = UIFactory.CreateButton(menu.Content, labels[i], actions[i], 17);
                 button.GetComponent<RectTransform>().SetRect(10f, 10f + i * 52f, 260f, 42f);
             }
+
+            // Phase 8 audio: music and sound volume, in quarter steps (click to cycle).
+            Button music = null, sound = null;
+            string Label(string name, float v) => $"{name}: {(v <= 0f ? "Off" : Mathf.RoundToInt(v * 100f) + "%")}";
+            float Next(float v) => v >= 0.99f ? 0f : Mathf.Min(1f, Mathf.Round(v * 4f + 1f) / 4f);
+            music = UIFactory.CreateButton(menu.Content, Label("Music", GameAudio.MusicVolume), () =>
+            {
+                GameAudio.SetMusicVolume(Next(GameAudio.MusicVolume));
+                music.GetComponentInChildren<Text>().text = Label("Music", GameAudio.MusicVolume);
+            }, 17);
+            music.GetComponent<RectTransform>().SetRect(10f, 166f, 260f, 42f);
+            sound = UIFactory.CreateButton(menu.Content, Label("Sound", GameAudio.SfxVolume), () =>
+            {
+                GameAudio.SetSfxVolume(Next(GameAudio.SfxVolume));
+                sound.GetComponentInChildren<Text>().text = Label("Sound", GameAudio.SfxVolume);
+            }, 17);
+            sound.GetComponent<RectTransform>().SetRect(10f, 218f, 260f, 42f);
 
             menu.Hide();
             return menu;
@@ -488,6 +512,8 @@ namespace Runeheir.UI
                 CloseNpcWindows();
             }
 
+            _pet?.Tick();
+            _mercenary?.Tick();
             HandleKeys();
             _chatFocusedLastFrame = _chat.IsFocused;
             _typingLastFrame = UIFocus.IsTyping;
@@ -558,6 +584,16 @@ namespace Runeheir.UI
             {
                 _social.VendSetup.Toggle();
             }
+
+            if (GameInput.KeyDown(GameKey.J))
+            {
+                _pet.Toggle();
+            }
+
+            if (GameInput.KeyDown(GameKey.R))
+            {
+                _mercenary.Toggle();
+            }
         }
 
         private void HandleEscape()
@@ -580,7 +616,7 @@ namespace Runeheir.UI
             var windows = new List<UIWindow>
             {
                 _status.Window, _skills.Window, _inventory.Window, _equipment.Window, _jobChange.Window, _npcDialog.Window, _shop.Window,
-                _storage.Window, _forge.Window, _compound.Window, _confirm.Window, _menu,
+                _storage.Window, _forge.Window, _compound.Window, _confirm.Window, _menu, _pet.Window, _mercenary.Window,
             };
             windows.AddRange(_social.Windows);
             foreach (var window in windows)

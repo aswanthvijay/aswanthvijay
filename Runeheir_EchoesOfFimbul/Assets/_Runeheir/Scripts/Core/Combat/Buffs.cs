@@ -550,5 +550,25 @@ namespace Runeheir.Combat
         {
             ById[definition.Id] = definition;
         }
+
+        /// <summary>
+        /// Buffs defined by data outside this catalog: the imported XileRetro items' food, potions and gear auto-bonuses
+        /// (Phase 8). An id that already exists is kept.
+        /// </summary>
+        public static BuffDefinition AddExternal(BuffDefinition definition)
+        {
+            if (definition == null || string.IsNullOrEmpty(definition.Id))
+            {
+                return null;
+            }
+
+            if (!ById.TryGetValue(definition.Id, out var existing))
+            {
+                ById[definition.Id] = definition;
+                return definition;
+            }
+
+            return existing;
+        }
     }
 }

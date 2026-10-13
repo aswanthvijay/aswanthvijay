@@ -36,7 +36,7 @@ namespace Runeheir.UI
         public EquipmentWindow(HudController hud, PlayerCharacter player)
         {
             _player = player;
-            Window = UIWindow.Create(hud.Canvas.transform, "Equipment", 900f, 110f, 620f, 330f);
+            Window = UIWindow.Create(hud.Canvas.transform, "Equipment", 900f, 110f, 620f, 442f);
 
             for (int i = 0; i < LeftColumn.Length; i++)
             {
@@ -44,10 +44,23 @@ namespace Runeheir.UI
                 BuildSlot(RightColumn[i], 600f - SlotWidth - 20f, i * (SlotHeight + 4f), rightAligned: true);
             }
 
+            BuildSlot(EquipPosition.Ammo, 0f, LeftColumn.Length * (SlotHeight + 4f), rightAligned: false);
+
+            // Phase 8.4: the costume row (looks only).
+            var costumeLabel = UIFactory.CreateText(Window.Content, "<color=#9AA8BC>Costume · changes your look, never your stats</color>", 12, UITheme.Text, TextAnchor.MiddleRight);
+            costumeLabel.rectTransform.SetRect(SlotWidth + 12f, LeftColumn.Length * (SlotHeight + 4f) + 14f, 600f - SlotWidth - 32f, 24f);
+            var costumes = new[] { EquipPosition.CostumeUpper, EquipPosition.CostumeMid, EquipPosition.CostumeLower, EquipPosition.CostumeGarment };
+            float costumeWidth = (600f - 20f - 3f * 6f) / costumes.Length;
+            for (int i = 0; i < costumes.Length; i++)
+            {
+                BuildSlot(costumes[i], i * (costumeWidth + 6f), (LeftColumn.Length + 1) * (SlotHeight + 4f), rightAligned: false, costumeWidth);
+            }
+
             _summary = UIFactory.CreateText(Window.Content, string.Empty, 12, UITheme.Text, TextAnchor.UpperCenter);
             _summary.rectTransform.SetRect(SlotWidth + 8f, 0f, 600f - 2f * SlotWidth - 36f, 280f);
 
             player.Equipment.Changed += Refresh;
+            player.Equipment.AmmoSpent += Refresh;
             player.StatsRecalculated += Refresh;
             player.Inventory.Changed += Refresh; // refine/cards change while the forge works on worn pieces
             Window.VisibilityChanged += Refresh;
@@ -60,21 +73,22 @@ namespace Runeheir.UI
         public void Dispose()
         {
             _player.Equipment.Changed -= Refresh;
+            _player.Equipment.AmmoSpent -= Refresh;
             _player.StatsRecalculated -= Refresh;
             _player.Inventory.Changed -= Refresh;
         }
 
-        private void BuildSlot(EquipPosition position, float x, float y, bool rightAligned)
+        private void BuildSlot(EquipPosition position, float x, float y, bool rightAligned, float width = SlotWidth)
         {
             int index = (int)position;
             var slot = UIFactory.CreatePanel(Window.Content, "Equip" + position, UITheme.SlotBg);
-            slot.rectTransform.SetRect(x, y, SlotWidth, SlotHeight);
+            slot.rectTransform.SetRect(x, y, width, SlotHeight);
             _icons[index] = UIFactory.CreateIcon(slot.transform, string.Empty, Color.gray, 12);
-            _icons[index].rectTransform.SetRect(rightAligned ? SlotWidth - 46f : 4f, 4f, 42f, 42f);
+            _icons[index].rectTransform.SetRect(rightAligned ? width - 46f : 4f, 4f, 42f, 42f);
             _glyphs[index] = _icons[index].GetComponentInChildren<Text>();
             _names[index] = UIFactory.CreateText(slot.transform, string.Empty, 12, UITheme.Text,
                 rightAligned ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft);
-            _names[index].rectTransform.SetRect(rightAligned ? 4f : 52f, 2f, SlotWidth - 58f, SlotHeight - 4f);
+            _names[index].rectTransform.SetRect(rightAligned ? 4f : 52f, 2f, width - 58f, SlotHeight - 4f);
 
             var pointer = slot.gameObject.AddComponent<UIPointerHandler>();
             pointer.DoubleClick = () => _player.Unequip(position);
@@ -107,8 +121,7 @@ namespace Runeheir.UI
                     continue;
                 }
 
-                _icons[i].color = RuntimeMaterials.Hex(item.IconColorHex);
-                _glyphs[i].text = item.IconLabel;
+                ItemIcons.Apply(_icons[i], item, _glyphs[i]);
                 _names[i].text = own != null
                     ? $"{covering.DisplayName}\n<size=11><color=#9AA8BC>{EquipKinds.Label(position)}</color></size>"
                     : $"<color=#7F8C8D>{item.Name}</color>\n<size=11><color=#7F8C8D>(covers this slot)</color></size>";

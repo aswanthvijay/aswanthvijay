@@ -1,4 +1,5 @@
 using System;
+using Runeheir.Audio;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -57,6 +58,11 @@ namespace Runeheir.UI
 
         public void Show()
         {
+            if (!gameObject.activeSelf && Time.timeSinceLevelLoad > 1f)
+            {
+                GameAudio.Play(Sfx.UiOpen, null, 0.4f);
+            }
+
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             if (CenterOnShow)
@@ -133,6 +139,11 @@ namespace Runeheir.UI
             if (!gameObject.activeSelf)
             {
                 return;
+            }
+
+            if (Time.timeSinceLevelLoad > 1f)
+            {
+                GameAudio.Play(Sfx.UiClose, null, 0.35f);
             }
 
             gameObject.SetActive(false);

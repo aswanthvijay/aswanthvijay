@@ -28,6 +28,12 @@ namespace Runeheir.UI
             {
                 AppendEquipment(text, entry, item);
             }
+            else if (item.IsAmmo)
+            {
+                text.Append($"\n<color=#9AA8BC>Ammunition for {WeaponRules.Label(item.AmmoFor)}s · ATK {item.Atk}")
+                    .Append(item.Element != Element.Neutral ? $" · {item.Element} element" : string.Empty).Append("</color>");
+                text.Append('\n').Append(item.Description);
+            }
             else
             {
                 text.Append('\n').Append(item.Description);
@@ -71,6 +77,10 @@ namespace Runeheir.UI
             }
 
             text.Append('\n').Append(item.Description);
+            if (item.Effect != null && item.Effect.Inactive.Count > 0)
+            {
+                text.Append($"\n<color=#7F8C8D>Not yet in Runeheir: {string.Join("; ", item.Effect.Inactive)}</color>");
+            }
 
             if (item.Sockets > 0)
             {
@@ -120,12 +130,34 @@ namespace Runeheir.UI
                 text.Append($" · tier {item.MinTier}+ jobs");
             }
 
+            if (item.RebornOnly)
+            {
+                text.Append(" · reborn only");
+            }
+
+            if (item.AllowedJobs != null)
+            {
+                text.Append(" · ").Append(JobsLabel(item.AllowedJobs));
+            }
+
             text.Append(item.Refinable ? $" · refinable to +{RefineRules.MaxRefine}" : " · can't be refined");
             text.Append("</color>");
             if (player != null && !EquipmentSet.CanWear(player.Record, item, out string reason))
             {
                 text.Append($"\n<color=#FF786B>{reason}</color>");
             }
+        }
+
+        /// <summary>"Warrior, Berserker, Einherjar", shortened past six jobs.</summary>
+        private static string JobsLabel(JobId[] jobs)
+        {
+            var names = new System.Collections.Generic.List<string>();
+            foreach (var job in jobs)
+            {
+                names.Add(JobDatabase.Get(job).Name);
+            }
+
+            return names.Count <= 6 ? string.Join(", ", names) : $"{string.Join(", ", names.GetRange(0, 5))} and {names.Count - 5} more jobs";
         }
 
         private static string GlyphName(ItemStack entry, int groove)

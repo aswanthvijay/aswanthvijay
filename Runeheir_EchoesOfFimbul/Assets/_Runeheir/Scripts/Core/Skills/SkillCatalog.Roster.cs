@@ -156,6 +156,21 @@ namespace Runeheir.Skills
             // ---------------------------------------------------------------- Berserker (Knight), Einherjar (Lord Knight)
             Register(new SkillDefinition
             {
+                Id = "horsemanship", Name = "Horsemanship", Job = JobId.Berserker, MaxLevel = 1, Requires = Req("battle_frenzy", 1),
+                Description = "Ragnarok's Riding: call Sleipnir's Foal, the eight-legged steed's son, or get down. Riding: +36% movement speed and "
+                              + "+1,000 carrying weight, but -50% ASPD until Cavalry Mastery steadies you.",
+                IconLabel = "RID", IconColorHex = "#A9927D",
+                Target = SkillTarget.Self, Special = SkillSpecial.Mount, Motion = SkillMotion.Cast, SpCost = 0f, Cooldown = 1f,
+            });
+            Register(new SkillDefinition
+            {
+                Id = "cavalry_mastery", Name = "Cavalry Mastery", Job = JobId.Berserker, MaxLevel = 5, Passive = true, Requires = Req("horsemanship", 1),
+                Description = "Ragnarok's Cavalier Mastery: fight as well in the saddle as on foot. Each level wins back 10% of the riding ASPD penalty.",
+                IconLabel = "CAV", IconColorHex = "#8D6E63",
+                PassivePerLevel = StatModifiers.Empty(), // its effect is the riding buff's level (MountRules)
+            });
+            Register(new SkillDefinition
+            {
                 Id = "riposte", Name = "Riposte", Job = JobId.Berserker, MaxLevel = 5, Requires = Req("battle_frenzy", 1),
                 Description = "Ragnarok's Counter Attack: read the next blow; your next attack is a sure critical.",
                 IconLabel = "CNT", IconColorHex = "#B03A2E",
@@ -193,6 +208,21 @@ namespace Runeheir.Skills
             });
 
             // ---------------------------------------------------------------- Guardian (Crusader), Valkyrie (Paladin)
+            Register(new SkillDefinition
+            {
+                Id = "boar_riding", Name = "Boar Riding", Job = JobId.Guardian, MaxLevel = 1, Requires = Req("spear_mastery", 1),
+                Description = "Ragnarok's Riding for Crusaders: call Gullinbursti, Freyr's golden boar, or get down. Riding: +36% movement speed and "
+                              + "+1,000 carrying weight, but -50% ASPD until Boar Mastery steadies you.",
+                IconLabel = "RID", IconColorHex = "#D4AC0D",
+                Target = SkillTarget.Self, Special = SkillSpecial.Mount, Motion = SkillMotion.Cast, SpCost = 0f, Cooldown = 1f,
+            });
+            Register(new SkillDefinition
+            {
+                Id = "boar_mastery", Name = "Boar Mastery", Job = JobId.Guardian, MaxLevel = 5, Passive = true, Requires = Req("boar_riding", 1),
+                Description = "Ragnarok's Cavalier Mastery: the boar's charge becomes yours. Each level wins back 10% of the riding ASPD penalty.",
+                IconLabel = "CAV", IconColorHex = "#B7950B",
+                PassivePerLevel = StatModifiers.Empty(), // its effect is the riding buff's level (MountRules)
+            });
             Register(new SkillDefinition
             {
                 Id = "shield_bash", Name = "Shield Bash", Job = JobId.Guardian, MaxLevel = 5, Requires = Req("guardians_oath", 3),

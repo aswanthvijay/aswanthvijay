@@ -14,10 +14,14 @@ namespace Runeheir.Items
     /// </summary>
     public sealed class EquipmentSet
     {
-        public const int Positions = 10;
+        /// <summary>Ten paperdoll positions, the ammunition slot (Phase 8) and four costume slots (Phase 8.4).</summary>
+        public const int Positions = 15;
 
-        /// <summary>Save format of the equipment array: 0 = saved before equipment existed.</summary>
-        public const int CurrentDataVersion = 1;
+        /// <summary>
+        /// Save format of the equipment array: 0 = saved before equipment existed, 2 = with the ammunition slot, 3 = with the
+        /// costume slots.
+        /// </summary>
+        public const int CurrentDataVersion = 3;
 
         private readonly CharacterRecord _record;
         private readonly Inventory _inventory;
@@ -31,6 +35,9 @@ namespace Runeheir.Items
 
         /// <summary>Something was equipped, unequipped, refined or carded.</summary>
         public event Action Changed;
+
+        /// <summary>One shot of worn ammunition was spent (the stack is still there; nothing else changed).</summary>
+        public event Action AmmoSpent;
 
         /// <summary>The piece stored at <paramref name="position"/> (null when empty or only blocked by another piece).</summary>
         public ItemStack Get(EquipPosition position)
@@ -87,7 +94,7 @@ namespace Runeheir.Items
         /// <summary>Job, tier, line and level rules for wearing <paramref name="item"/>.</summary>
         public static bool CanWear(CharacterRecord record, ItemDefinition item, out string reason)
         {
-            if (item == null || !item.IsEquipment)
+            if (item == null || !item.IsWearable)
             {
                 reason = "That can't be equipped.";
                 return false;
@@ -109,6 +116,24 @@ namespace Runeheir.Items
             if (item.RequiredLine.HasValue && job.Line != item.RequiredLine.Value)
             {
                 reason = $"Only the {JobDatabase.Get(item.RequiredLine.Value).Name} line can wear {item.Name}.";
+                return false;
+            }
+
+            if (item.RebornOnly && !record.Reborn && !job.IsExpanded)
+            {
+                reason = $"{item.Name} is for reborn characters only.";
+                return false;
+            }
+
+            if (item.RequiredGender.HasValue && record.Gender != item.RequiredGender.Value)
+            {
+                reason = $"Only {(item.RequiredGender.Value == Gender.Female ? "women" : "men")} can wear {item.Name}.";
+                return false;
+            }
+
+            if (item.AllowedJobs != null && Array.IndexOf(item.AllowedJobs, record.Job) < 0)
+            {
+                reason = $"{JobDatabase.NameFor(record)}s can't use {item.Name}.";
                 return false;
             }
 
@@ -137,6 +162,11 @@ namespace Runeheir.Items
             }
 
             var position = TargetPosition(item);
+            if (item.IsAmmo)
+            {
+                return EquipAmmo(entry, out reason);
+            }
+
             var displaced = new List<EquipPosition>();
             for (int i = 0; i < Positions; i++)
             {
@@ -173,6 +203,53 @@ namespace Runeheir.Items
             _record.Equipment[(int)position] = entry;
             reason = null;
             Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Ammunition goes on as a whole stack; the same kind tops up the stack already worn.</summary>
+        private bool EquipAmmo(ItemStack entry, out string reason)
+        {
+            var worn = Get(EquipPosition.Ammo);
+            _inventory.RemoveEntry(entry);
+            if (worn != null && worn.ItemId == entry.ItemId)
+            {
+                worn.Amount += entry.Amount;
+            }
+            else
+            {
+                if (worn != null)
+                {
+                    ForceIntoBag(_record, _inventory, worn);
+                }
+
+                _record.Equipment[(int)EquipPosition.Ammo] = entry;
+            }
+
+            reason = null;
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Spends one shot of worn ammunition (the stack comes off when it runs out). False when none is worn.</summary>
+        public bool SpendAmmo()
+        {
+            var worn = Get(EquipPosition.Ammo);
+            if (worn == null)
+            {
+                return false;
+            }
+
+            worn.Amount--;
+            if (worn.Amount <= 0)
+            {
+                _record.Equipment[(int)EquipPosition.Ammo] = null;
+                Changed?.Invoke();
+            }
+            else
+            {
+                AmmoSpent?.Invoke();
+            }
+
             return true;
         }
 
@@ -292,6 +369,19 @@ namespace Runeheir.Items
         public EquipPosition TargetPosition(ItemDefinition item)
         {
             var slots = item.Slots;
+            if (item.IsAmmo || (slots & EquipSlot.Ammo) != 0)
+            {
+                return EquipPosition.Ammo;
+            }
+
+            if ((slots & EquipSlot.Costume) != 0)
+            {
+                if ((slots & EquipSlot.CostumeUpper) != 0) return EquipPosition.CostumeUpper;
+                if ((slots & EquipSlot.CostumeMid) != 0) return EquipPosition.CostumeMid;
+                if ((slots & EquipSlot.CostumeLower) != 0) return EquipPosition.CostumeLower;
+                return EquipPosition.CostumeGarment;
+            }
+
             if ((slots & EquipSlot.Accessory) != 0)
             {
                 return Get(EquipPosition.Accessory1) == null || Get(EquipPosition.Accessory2) != null ? EquipPosition.Accessory1 : EquipPosition.Accessory2;
@@ -306,7 +396,7 @@ namespace Runeheir.Items
             return (slots & EquipSlot.HeadMid) != 0 ? EquipPosition.HeadMid : EquipPosition.HeadLower;
         }
 
-        /// <summary>Always 10 entries; empty positions are null.</summary>
+        /// <summary>Always <see cref="Positions"/> entries; empty positions are null.</summary>
         public static ItemStack[] Normalize(ItemStack[] equipment)
         {
             var normalized = new ItemStack[Positions];
@@ -341,11 +431,15 @@ namespace Runeheir.Items
                     continue;
                 }
 
-                entry.Amount = 1;
+                if (!item.IsAmmo)
+                {
+                    entry.Amount = 1;
+                }
+
                 entry.Sanitize();
                 var position = (EquipPosition)i;
                 bool accessory = item.Slots == EquipSlot.Accessory;
-                bool fits = item.IsEquipment && (item.Slots & EquipKinds.SlotOf(position)) != 0
+                bool fits = item.IsWearable && (item.Slots & EquipKinds.SlotOf(position)) != 0
                             && (accessory ? position == EquipPosition.Accessory1 || position == EquipPosition.Accessory2 : set.TargetPosition(item) == position)
                             && set.Covering(position) == null && CanWear(record, item, out _);
                 if (fits)
@@ -384,6 +478,15 @@ namespace Runeheir.Items
         public readonly DamageBonuses Bonuses = new DamageBonuses();
         public readonly List<OnHitEffect> OnHit = new List<OnHitEffect>();
 
+        /// <summary>Auto-casts and auto-buffs from gear and cards (Phase 8).</summary>
+        public readonly List<AutoCast> AutoCasts = new List<AutoCast>();
+
+        /// <summary>Skills the gear lets you use, at the highest level any piece grants.</summary>
+        public readonly Dictionary<string, int> GrantedSkills = new Dictionary<string, int>();
+
+        /// <summary>+% damage per skill id.</summary>
+        public readonly Dictionary<string, float> SkillDamagePercent = new Dictionary<string, float>();
+
         public WeaponProfile Weapon = WeaponProfile.BareHands;
         public bool HasWeapon;
         public bool WeaponUnbreakable;
@@ -400,6 +503,11 @@ namespace Runeheir.Items
         /// <summary>Runeword on the weapon, if its two glyphs spell one.</summary>
         public RunewordDefinition Runeword;
 
+        /// <summary>Worn ammunition that fits the weapon: each basic attack spends one (Phase 8).</summary>
+        public bool AmmoInUse;
+
+        public string AmmoItemId;
+
         public static EquipmentStats Compute(CharacterRecord record)
         {
             var stats = new EquipmentStats();
@@ -415,6 +523,25 @@ namespace Runeheir.Items
                 // A broken weapon does nothing at all (no ATK, cards or runeword) until it's repaired.
                 if (item == null || entry.IsEmpty || (item.IsWeapon && entry.Broken))
                 {
+                    continue;
+                }
+
+                if (item.IsAmmo)
+                {
+                    // Ammunition only counts when it fits the weapon in hand: its ATK, element and bonuses ride the shot.
+                    if (stats.HasWeapon && item.AmmoFor == stats.Weapon.Type && entry.Amount > 0)
+                    {
+                        stats.AmmoInUse = true;
+                        stats.AmmoItemId = item.Id;
+                        stats.Modifiers.Atk += item.Atk;
+                        if (item.Element != Element.Neutral)
+                        {
+                            stats.Weapon.Element = item.Element;
+                        }
+
+                        stats.Add(item.Effect, record);
+                    }
+
                     continue;
                 }
 
@@ -435,6 +562,22 @@ namespace Runeheir.Items
                 }
 
                 stats.Add(item.Effect, record);
+                if (item.PerRefine != null && entry.Refine > 0)
+                {
+                    stats.Add(item.PerRefine, record, item.PerRefineLimit > 0 ? Math.Min(entry.Refine, item.PerRefineLimit) : entry.Refine);
+                }
+
+                if (item.RefineBonuses != null)
+                {
+                    foreach (var bonus in item.RefineBonuses)
+                    {
+                        if (entry.Refine >= bonus.MinRefine)
+                        {
+                            stats.Add(bonus.Bonus, record);
+                        }
+                    }
+                }
+
                 foreach (string cardId in entry.Cards ?? Array.Empty<string>())
                 {
                     stats.Add(ItemCatalog.Get(cardId)?.Effect, record);
@@ -447,35 +590,61 @@ namespace Runeheir.Items
                 }
             }
 
+            stats.Add(Pets.PetCatalog.LoyalBonus(record), record); // Phase 8: a Loyal pet's bonus
             return stats;
         }
 
-        private void Add(EquipEffect effect, CharacterRecord record)
+        /// <param name="times">How many times over (per refine level); flags, procs and element changes apply once.</param>
+        private void Add(EquipEffect effect, CharacterRecord record, float times = 1f)
         {
-            if (effect == null)
+            if (effect == null || times <= 0f)
             {
                 return;
             }
 
-            Modifiers.Add(effect.Modifiers);
+            Modifiers.AddScaled(effect.Modifiers, times);
             for (int i = 0; i < CombatEnumCounts.Races; i++)
             {
-                Bonuses.VsRace[i] += effect.VsRace[i];
-                Bonuses.TakenFromRace[i] += effect.TakenFromRace[i];
+                Bonuses.VsRace[i] += effect.VsRace[i] * times;
+                Bonuses.TakenFromRace[i] += effect.TakenFromRace[i] * times;
+                Bonuses.CritVsRace[i] += effect.CritVsRace[i] * times;
+                Bonuses.DefBypassVsRace[i] += effect.DefBypassVsRace[i] * times;
+                Bonuses.MdefBypassVsRace[i] += effect.MdefBypassVsRace[i] * times;
+                Bonuses.MagicVsRace[i] += effect.MagicVsRace[i] * times;
             }
 
             for (int i = 0; i < CombatEnumCounts.Sizes; i++)
             {
-                Bonuses.VsSize[i] += effect.VsSize[i];
+                Bonuses.VsSize[i] += effect.VsSize[i] * times;
+                Bonuses.TakenFromSize[i] += effect.TakenFromSize[i] * times;
             }
 
             for (int i = 0; i < CombatEnumCounts.Elements; i++)
             {
-                Bonuses.VsElement[i] += effect.VsElement[i];
-                Bonuses.TakenFromElement[i] += effect.TakenFromElement[i];
+                Bonuses.VsElement[i] += effect.VsElement[i] * times;
+                Bonuses.TakenFromElement[i] += effect.TakenFromElement[i] * times;
+                Bonuses.MagicVsElement[i] += effect.MagicVsElement[i] * times;
             }
 
+            Bonuses.VsBoss += effect.VsBoss * times;
+            Bonuses.VsNormal += effect.VsNormal * times;
+
             OnHit.AddRange(effect.OnHit);
+            foreach (var auto in effect.AutoCasts)
+            {
+                AutoCasts.Add(Math.Abs(times - 1f) < 0.0001f ? auto : auto.Scaled(times));
+            }
+
+            foreach (var grant in effect.GrantedSkills)
+            {
+                GrantedSkills[grant.Key] = Math.Max(grant.Value, GrantedSkills.TryGetValue(grant.Key, out int had) ? had : 0);
+            }
+
+            foreach (var bonus in effect.SkillDamage)
+            {
+                SkillDamagePercent[bonus.Key] = bonus.Value * times + (SkillDamagePercent.TryGetValue(bonus.Key, out float had) ? had : 0f);
+            }
+
             if (effect.ArmorElement.HasValue)
             {
                 ArmorElement = effect.ArmorElement.Value;
@@ -493,13 +662,18 @@ namespace Runeheir.Items
 
             if (effect.ResistStatus != StatusEffect.None && effect.ResistPercent > 0f)
             {
-                ExtraResist[(int)effect.ResistStatus] += effect.ResistPercent;
+                ExtraResist[(int)effect.ResistStatus] += effect.ResistPercent * times;
+            }
+
+            for (int i = 0; i < Math.Min(effect.StatusResist.Length, ExtraResist.Length); i++)
+            {
+                ExtraResist[i] += effect.StatusResist[i] * times;
             }
 
             WeaponUnbreakable |= effect.Unbreakable;
             if (effect.AtkPerBaseLevel > 0f)
             {
-                Modifiers.Atk += (int)(effect.AtkPerBaseLevel * record.BaseLevel);
+                Modifiers.Atk += (int)(effect.AtkPerBaseLevel * record.BaseLevel * times);
             }
 
             var condition = effect.Condition;
@@ -508,7 +682,6 @@ namespace Runeheir.Items
                 Add(condition.Bonus, record);
             }
         }
-    
 
         private static int MaxStatusValue()
         {

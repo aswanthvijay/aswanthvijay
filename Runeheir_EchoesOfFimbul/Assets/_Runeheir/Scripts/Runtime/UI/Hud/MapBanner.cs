@@ -60,6 +60,7 @@ namespace Runeheir.UI
                 case MapKind.Arena: return "Arena";
                 case MapKind.Dungeon: return "Dungeon";
                 case MapKind.Lair: return "MVP Lair";
+                case MapKind.Castle: return "Castle · War of the Realms";
                 default: return "Field";
             }
         }

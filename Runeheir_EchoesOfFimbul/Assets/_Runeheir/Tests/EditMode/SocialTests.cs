@@ -458,7 +458,7 @@ namespace Runeheir.Tests
             var vigrid = MapCatalog.Get(MapCatalog.VigridHaven);
             Assert.IsTrue(VendingRules.MapAllowsVending(vigrid));
             Assert.IsTrue(vigrid.Npcs.Any(n => n.Kind == NpcKind.CartMerchant));
-            Assert.IsFalse(MapCatalog.All.Where(m => m.Id != MapCatalog.VigridHaven).Any(VendingRules.MapAllowsVending), "only Vigrid vends");
+            Assert.IsTrue(MapCatalog.All.Where(VendingRules.MapAllowsVending).All(m => m.IsTown), "street stalls only in towns (Ragnarok rule)");
         }
     }
 }

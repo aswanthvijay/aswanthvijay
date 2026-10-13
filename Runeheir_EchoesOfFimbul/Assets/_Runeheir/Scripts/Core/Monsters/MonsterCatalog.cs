@@ -12,6 +12,38 @@ namespace Runeheir.Monsters
     {
         public const string TrainingDummy = "training_dummy";
 
+        /// <summary>
+        /// The War of the Realms (Phase 8): each hall's Jarlstone (Ragnarok's Emperium), which only a rival guild can strike
+        /// during a siege, and the hoards that gather in a held hall for its guild to open (Ragnarok's treasure chests).
+        /// </summary>
+        private static void RegisterSiegeMonsters()
+        {
+            Register(new MonsterDefinition
+            {
+                Id = Social.SiegeRules.JarlstoneId, Name = "Jarlstone", Level = 99, MaxHp = 250000, Def = 400, Mdef = 60,
+                Element = Element.Holy, Race = Race.Angel, Size = Size.Small,
+                Stationary = true, Passive = true, SiegeObject = true, RespawnSeconds = 6f,
+                Shape = MonsterShape.Golem, ColorHex = "#F4D03F", Scale = 0.9f,
+            });
+            var hoard = new MonsterDefinition
+            {
+                Id = Social.SiegeRules.HoardId, Name = "Castle Hoard", Level = 1, MaxHp = 1,
+                Element = Element.Neutral, Race = Race.Formless, Size = Size.Small,
+                Stationary = true, Passive = true, SiegeObject = true, RespawnSeconds = 6f * 3600f,
+                Shape = MonsterShape.Golem, ColorHex = "#8A5A2B", Scale = 0.8f,
+            };
+            foreach (var (name, chance) in new[] { ("Elite Hoard Chest", 60f), ("Uber Hoard Chest", 40f), ("Godly Hoard Chest", 12f), ("Tailor's Mystery Box", 30f) })
+            {
+                var chest = Items.ItemCatalog.FindByName(name);
+                if (chest != null)
+                {
+                    hoard.Drops.Add(new DropEntry(chest.Id, chance));
+                }
+            }
+
+            Register(hoard);
+        }
+
         private static readonly Dictionary<string, MonsterDefinition> ById = new Dictionary<string, MonsterDefinition>(StringComparer.OrdinalIgnoreCase);
         private static readonly List<MonsterDefinition> Ordered = new List<MonsterDefinition>();
 
@@ -33,6 +65,8 @@ namespace Runeheir.Monsters
             RegisterMiniBosses();
             RegisterMvps();
             RegisterRosterDrops();
+            RegisterSiegeMonsters();
+            RegisterXileMonsters(); // Phase 8: XileRetro's bestiary (Generated/MonsterCatalog.Xile.g.cs)
         }
 
         /// <summary>

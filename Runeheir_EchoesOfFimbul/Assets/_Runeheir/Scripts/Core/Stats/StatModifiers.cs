@@ -132,6 +132,28 @@ namespace Runeheir.Stats
         /// <summary>Percent more from NPC shops when selling (the Trader's Silver Tongue, Ragnarok's Overcharge).</summary>
         public float SellBonusPercent;
 
+        /// <summary>Percent more natural HP / SP regeneration (Ragnarok's bHPrecovRate / bSPrecovRate).</summary>
+        public float HpRegenPercent;
+
+        public float SpRegenPercent;
+
+        /// <summary>Percent more healing from your heal skills (bHealPower).</summary>
+        public float HealPowerPercent;
+
+        /// <summary>Percent change in the SP your skills cost; negative is cheaper (bUseSPrate).</summary>
+        public float SpCostPercent;
+
+        /// <summary>Percent more physical damage with bows and thunder-rods (bLongAtkRate).</summary>
+        public float LongRangePercent;
+
+        /// <summary>Percent chance to dodge any basic attack outright, even a critical one (Ragnarok's Perfect Dodge, bFlee2).</summary>
+        public float PerfectDodge;
+
+        /// <summary>Percent more EXP from kills (battle manuals) and percent better item drop chances (bubble gum).</summary>
+        public float ExpPercent;
+
+        public float DropPercent;
+
         public static StatModifiers Empty()
         {
             return new StatModifiers();
@@ -210,6 +232,14 @@ namespace Runeheir.Stats
             WeightCapacity += Scale(other.WeightCapacity, times);
             BuyDiscountPercent += other.BuyDiscountPercent * times;
             SellBonusPercent += other.SellBonusPercent * times;
+            HpRegenPercent += other.HpRegenPercent * times;
+            SpRegenPercent += other.SpRegenPercent * times;
+            HealPowerPercent += other.HealPowerPercent * times;
+            SpCostPercent += other.SpCostPercent * times;
+            LongRangePercent += other.LongRangePercent * times;
+            PerfectDodge += other.PerfectDodge * times;
+            ExpPercent += other.ExpPercent * times;
+            DropPercent += other.DropPercent * times;
             AttackRange += other.AttackRange * times;
             DamageTakenPercent += other.DamageTakenPercent * times;
             BlockChance += other.BlockChance * times;
@@ -257,6 +287,7 @@ namespace Runeheir.Stats
             SpDrainOnHit = 0;
             WeightCapacity = 0;
             BuyDiscountPercent = SellBonusPercent = 0f;
+            HpRegenPercent = SpRegenPercent = HealPowerPercent = SpCostPercent = LongRangePercent = PerfectDodge = ExpPercent = DropPercent = 0f;
         }
 
         public StatModifiers Clone()

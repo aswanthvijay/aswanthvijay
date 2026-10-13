@@ -285,6 +285,744 @@
           "color": "#A6E6FF"
         }
       ]
+    },
+    {
+      "key": "mystic",
+      "jobs": [
+        "Mystic",
+        "FreyjasKin"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#D8CFC0"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#8FD8FF"
+        }
+      ]
+    },
+    {
+      "key": "sorcerer",
+      "jobs": [
+        "Sorcerer",
+        "Archmage"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#2A2833"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#D2A54A"
+        },
+        {
+          "slot": "Fur",
+          "color": "#3A3446"
+        },
+        {
+          "slot": "Glow",
+          "color": "#7FD6FF"
+        }
+      ]
+    },
+    {
+      "key": "sage",
+      "jobs": [
+        "Sage",
+        "Chronomancer",
+        "FylgjaCaller"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#E3DCCB"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C9A04A"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#B8A8FF"
+        }
+      ]
+    },
+    {
+      "key": "devotee",
+      "jobs": [
+        "Devotee"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#E8E2D4"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfit"
+        },
+        {
+          "slot": "Under",
+          "color": "#CFC6B4"
+        },
+        {
+          "slot": "Leather",
+          "color": "#B39668"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFE9A6"
+        }
+      ]
+    },
+    {
+      "key": "gothi",
+      "jobs": [
+        "Gothi",
+        "HighGothi"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "#EEE9DD"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfit"
+        },
+        {
+          "slot": "Under",
+          "color": "#D8D0BF"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#D8B04E"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFE9A6"
+        }
+      ]
+    },
+    {
+      "key": "monk",
+      "jobs": [
+        "Monk",
+        "Champion",
+        "GlimaFighter",
+        "SolGuardian"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#E2D6BE"
+        },
+        {
+          "slot": "Leather",
+          "color": "#6B4A2E"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#3A2618"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFB45A"
+        }
+      ]
+    },
+    {
+      "key": "huntsman",
+      "jobs": [
+        "Huntsman",
+        "Ranger",
+        "Deadeye"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#D9CDB4"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7C5A36"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3420"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#E4DDCF"
+        },
+        {
+          "slot": "Glow",
+          "color": "#B6F07A"
+        }
+      ]
+    },
+    {
+      "key": "skald",
+      "jobs": [
+        "Skald",
+        "Thul"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#E9DFC8"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#D6A947"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFD27A"
+        }
+      ]
+    },
+    {
+      "key": "seidkona",
+      "jobs": [
+        "Seidkona",
+        "Volva"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#E8DCCD"
+        },
+        {
+          "slot": "Leather",
+          "color": "#7A5534"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4A3222"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#D9B24C"
+        },
+        {
+          "slot": "Fur",
+          "color": "#BFB6A8"
+        },
+        {
+          "slot": "Glow",
+          "color": "#E6A6FF"
+        }
+      ]
+    },
+    {
+      "key": "trader",
+      "jobs": [
+        "Trader"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#E3D8C0"
+        },
+        {
+          "slot": "Leather",
+          "color": "#8A6238"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#4E3622"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#CFA64C"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFD27A"
+        }
+      ]
+    },
+    {
+      "key": "smith",
+      "jobs": [
+        "Runesmith",
+        "Forgelord"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#CDBEA2"
+        },
+        {
+          "slot": "Leather",
+          "color": "#6A4A30"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#3A281A"
+        },
+        {
+          "slot": "Metal",
+          "color": "#8E979F"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FF7A2E"
+        }
+      ]
+    },
+    {
+      "key": "brewer",
+      "jobs": [
+        "Brewmaster",
+        "Lifeweaver"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#E2DBCA"
+        },
+        {
+          "slot": "Leather",
+          "color": "#6E5236"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#3E2E20"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#6CFFB0"
+        }
+      ]
+    },
+    {
+      "key": "scout",
+      "jobs": [
+        "Scout"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#CFC7B4"
+        },
+        {
+          "slot": "Leather",
+          "color": "#6E5638"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#3C2E1F"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#9CFFB0"
+        }
+      ]
+    },
+    {
+      "key": "assassin",
+      "jobs": [
+        "Assassin",
+        "ShadowWalker",
+        "Nightraider"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#26262C"
+        },
+        {
+          "slot": "Leather",
+          "color": "#3A302A"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#211B18"
+        },
+        {
+          "slot": "Metal",
+          "color": "#8C939C"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#3F454D"
+        },
+        {
+          "slot": "Gold",
+          "color": "#A88A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#CFC4B2"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FF5A5A"
+        }
+      ]
+    },
+    {
+      "key": "outlaw",
+      "jobs": [
+        "Outlaw",
+        "Vargr",
+        "Thunderer"
+      ],
+      "slots": [
+        {
+          "slot": "Cloth",
+          "color": "$outfit"
+        },
+        {
+          "slot": "ClothDark",
+          "color": "$outfitDark"
+        },
+        {
+          "slot": "Under",
+          "color": "#D2C6AE"
+        },
+        {
+          "slot": "Leather",
+          "color": "#5E4430"
+        },
+        {
+          "slot": "LeatherDark",
+          "color": "#33251A"
+        },
+        {
+          "slot": "Metal",
+          "color": "#98A0AA"
+        },
+        {
+          "slot": "MetalDark",
+          "color": "#5A636E"
+        },
+        {
+          "slot": "Gold",
+          "color": "#C29A48"
+        },
+        {
+          "slot": "Fur",
+          "color": "#6E6660"
+        },
+        {
+          "slot": "Glow",
+          "color": "#FFB45A"
+        }
+      ]
     }
   ],
   "hairStyles": 8,

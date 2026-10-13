@@ -30,6 +30,12 @@ namespace Runeheir.Social
         public float DropRate = 5f;
         public float CardDropRate = 1f;
 
+        /// <summary>Phase 8, the War of the Realms: the days ("Wed,Sat", "daily", or empty for none), start hour and length.</summary>
+        public string SiegeDays = "Wed,Sat";
+
+        public int SiegeStartHour = 20;
+        public int SiegeMinutes = 60;
+
         public void Sanitize()
         {
             Name = ChatRules.Sanitize(string.IsNullOrWhiteSpace(Name) ? "Runeheir Alpha" : Name, MaxNameLength);
@@ -40,6 +46,9 @@ namespace Runeheir.Social
             JobExpRate = Clamp(JobExpRate, 0f, 1000f);
             DropRate = Clamp(DropRate, 0f, 100f);
             CardDropRate = Clamp(CardDropRate, 0f, 100f);
+            SiegeDays = (SiegeDays ?? string.Empty).Trim();
+            SiegeStartHour = Math.Max(0, Math.Min(23, SiegeStartHour));
+            SiegeMinutes = Math.Max(0, Math.Min(24 * 60, SiegeMinutes));
         }
 
         public ServerRates Rates()

@@ -64,7 +64,16 @@ namespace Runeheir.UI
         }
 
         /// <summary>Adds one row. <paramref name="tooltip"/> is built lazily on hover.</summary>
-        public void Add(string glyph, Color iconColor, string title, string detail, Action onClick, Func<string> tooltip = null,
+        /// <summary>A row for an item: its pictogram icon (see <see cref="ItemIcons"/>), title and detail.</summary>
+        public Image AddItem(Items.ItemDefinition item, string title, string detail, Action onClick, Func<string> tooltip = null,
+            bool selected = false, bool dimmed = false, Action onDoubleClick = null)
+        {
+            var icon = Add(item?.IconLabel ?? "?", Visuals.RuntimeMaterials.Hex(item?.IconColorHex), title, detail, onClick, tooltip, selected, dimmed, onDoubleClick);
+            ItemIcons.Apply(icon, item);
+            return icon;
+        }
+
+        public Image Add(string glyph, Color iconColor, string title, string detail, Action onClick, Func<string> tooltip = null,
             bool selected = false, bool dimmed = false, Action onDoubleClick = null)
         {
             float width = Root.rect.width > 1f ? Root.rect.width : Root.sizeDelta.x;
@@ -92,6 +101,7 @@ namespace Runeheir.UI
             _rows.Add(row.gameObject);
             _content.sizeDelta = new Vector2(0f, 4f + _rows.Count * _rowHeight);
             _empty.text = string.Empty;
+            return icon;
         }
 
         public void ScrollToTop()

@@ -197,6 +197,9 @@ namespace Runeheir.Net
         /// <summary>Take this (the partner's side, or your own back after a failed trade).</summary>
         TradeReceive = 44,
 
+        /// <summary>Phase 8 sieges: leave this map for your save point (Text = why).</summary>
+        Expel = 70,
+
         StallOpened = 60,
         StallClosed = 61,
         StallView = 62,

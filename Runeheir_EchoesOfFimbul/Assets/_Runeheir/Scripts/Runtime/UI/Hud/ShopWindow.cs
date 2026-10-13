@@ -107,7 +107,7 @@ namespace Runeheir.UI
                     }
 
                     var captured = entry;
-                    _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.DisplayName,
+                    _list.AddItem(item, entry.DisplayName,
                         $"{TradeRules.SellPrice(item, bonus):N0} z each{(entry.Amount > 1 ? $" · x{entry.Amount:N0}" : string.Empty)}",
                         null, () => ItemTooltips.For(captured, "double-click: sell"), onDoubleClick: () => Sell(captured));
                 }
@@ -124,7 +124,7 @@ namespace Runeheir.UI
                     }
 
                     int owned = _player.Inventory.Count(id);
-                    _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), item.Name,
+                    _list.AddItem(item, item.Name,
                         $"<color=#EBC466>{TradeRules.BuyPrice(item, discount):N0} z</color>{(owned > 0 ? $" · you have {owned:N0}" : string.Empty)}",
                         null, () => ItemTooltips.For(Preview(item), "double-click: buy"), onDoubleClick: () => Buy(id));
                 }

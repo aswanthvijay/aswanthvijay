@@ -120,6 +120,33 @@ namespace Runeheir.EditorTools
             files.Add(Shoot(folder, "unity_cloaks_back.png", new Vector3(-0.6f, 1.45f, 6.3f), new Vector3(6f, 184f, 0f), 30f));
             UnityEngine.Object.DestroyImmediate(cloaks.gameObject);
 
+            // 1c. Art Pass 2: every other job in its line's outfit and job color, six to a page (unity_lines_front_<n>.png).
+            var lineJobs = new List<JobId>();
+            foreach (JobId job in Enum.GetValues(typeof(JobId)))
+            {
+                string key = OutfitCatalog.ForJob(job)?.Key;
+                if (key != null && key != OutfitCatalog.CommonKey && Array.FindIndex(Outfits, o => o.Key == key) < 0)
+                {
+                    lineJobs.Add(job);
+                }
+            }
+
+            for (int page = 0; page * 6 < lineJobs.Count; page++)
+            {
+                var lines = new GameObject("Lines").transform;
+                int count = Math.Min(6, lineJobs.Count - page * 6);
+                for (int i = 0; i < count; i++)
+                {
+                    int n = page * 6 + i;
+                    float x = (i - 2.5f) * 0.95f;
+                    Spawn(lines, LookFor(lineJobs[n], Gender.Male, n), new Vector3(x, 0f, 0f), 180f, Rest());
+                    Spawn(lines, LookFor(lineJobs[n], Gender.Female, n), new Vector3(x + 0.35f, 0f, 1.5f), 180f, Rest());
+                }
+
+                files.Add(Shoot(folder, $"unity_lines_front_{page + 1}.png", new Vector3(0.75f, 1.35f, -6.3f), new Vector3(5f, -4f, 0f), 30f));
+                UnityEngine.Object.DestroyImmediate(lines.gameObject);
+            }
+
             // 2. Every weapon in hand, in the battle stance.
             var armory = new GameObject("Armory").transform;
             for (int i = 0; i < Armory.Length; i++)
@@ -193,6 +220,23 @@ namespace Runeheir.EditorTools
                 Skin = AvatarLook.DefaultSkin,
                 Hair = AvatarLook.HairPalette[(female ? FemaleHairColor : MaleHairColor)[index]],
                 HairStyle = (female ? FemaleHair : MaleHair)[index],
+                Gender = gender,
+                Weapon = job.StarterWeapon.Type,
+            };
+        }
+
+        /// <summary>Any job in its outfit, with a hair style and color picked from <paramref name="n"/>.</summary>
+        private static AvatarLook LookFor(JobId jobId, Gender gender, int n)
+        {
+            var job = JobDatabase.Get(jobId);
+            bool female = gender == Gender.Female;
+            return new AvatarLook
+            {
+                Job = jobId,
+                Outfit = RuntimeMaterials.Hex(job.ColorHex),
+                Skin = AvatarLook.DefaultSkin,
+                Hair = AvatarLook.HairPalette[(n * 3 + (female ? 1 : 0)) % AvatarLook.HairPalette.Length],
+                HairStyle = (female ? FemaleHair : MaleHair)[n % 6],
                 Gender = gender,
                 Weapon = job.StarterWeapon.Type,
             };

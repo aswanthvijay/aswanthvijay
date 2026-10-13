@@ -13,17 +13,18 @@ namespace Runeheir.Tests
     /// <summary>Phase 5 bestiary: the 35 card monsters, their skills and phases, MVP rewards, boss timers and weapon breaking.</summary>
     public sealed class BestiaryTests
     {
-        private static IEnumerable<MonsterDefinition> Real => MonsterCatalog.All.Where(m => !m.Immortal);
+        private static IEnumerable<MonsterDefinition> Real => MonsterCatalog.All.Where(m => !m.Immortal && !m.SiegeObject);
 
         // ------------------------------------------------------------ catalog
         [Test]
         public void Bestiary_Has35CardMonsters_4MiniBosses_And3Mvps()
         {
-            var carded = MonsterCatalog.All.Where(m => !m.Immortal && !m.SummonOnly).ToList();
+            // Runeheir's own bestiary (RoId 0); the imported XileRetro monsters are covered by XileDatabaseTests.
+            var carded = MonsterCatalog.All.Where(m => !m.Immortal && !m.SummonOnly && !m.SiegeObject && m.RoId == 0).ToList();
             Assert.AreEqual(35, carded.Count, "GDD §6: one monster per Soul Card");
             Assert.AreEqual(4, carded.Count(m => m.Rank == MonsterRank.MiniBoss));
             Assert.AreEqual(3, carded.Count(m => m.Rank == MonsterRank.Mvp));
-            var cards = ItemCatalog.All.Where(i => i.IsCard).Select(i => i.Id).ToList();
+            var cards = ItemCatalog.All.Where(i => i.IsCard && i.RoId == 0).Select(i => i.Id).ToList();
             CollectionAssert.AreEquivalent(cards, carded.Select(m => m.Id + "_card"), "every card has its monster and every monster its card");
             foreach (var mvp in carded.Where(m => m.IsMvp))
             {
@@ -34,7 +35,8 @@ namespace Runeheir.Tests
         [Test]
         public void Stats_ClimbWithLevel()
         {
-            var normals = Real.Where(m => m.Rank == MonsterRank.Normal && !m.SummonOnly).OrderBy(m => m.Level).ToList();
+            // Runeheir's own curve; imported monsters keep their Ragnarok spread around it (XileDatabaseTests).
+            var normals = Real.Where(m => m.Rank == MonsterRank.Normal && !m.SummonOnly && m.RoId == 0).OrderBy(m => m.Level).ToList();
             for (int i = 1; i < normals.Count; i++)
             {
                 var weaker = normals[i - 1];
@@ -52,9 +54,9 @@ namespace Runeheir.Tests
                 Assert.LessOrEqual(monster.AtkMin, monster.AtkMax, monster.Id);
                 Assert.Greater(monster.MaxHp, 0, monster.Id);
                 Assert.That(monster.Level, Is.InRange(1, 255), monster.Id);
-                if (monster.IsBoss)
+                if (monster.IsBoss && monster.RoId == 0)
                 {
-                    var peers = Real.Where(m => !m.IsBoss && System.Math.Abs(m.Level - monster.Level) <= 30).ToList();
+                    var peers = Real.Where(m => !m.IsBoss && m.RoId == 0 && System.Math.Abs(m.Level - monster.Level) <= 30).ToList();
                     Assert.IsTrue(peers.All(p => monster.MaxHp > p.MaxHp * 4), $"{monster.Id} must be far tougher than monsters of its level");
                 }
             }
@@ -157,7 +159,9 @@ namespace Runeheir.Tests
         {
             var sold = new HashSet<string>(ShopCatalog.All.SelectMany(s => s.ItemIds));
             var dropped = new HashSet<string>(MonsterCatalog.All.SelectMany(m => m.Drops.Concat(m.MvpDrops)).Select(d => d.ItemId));
-            foreach (var item in ItemCatalog.All)
+            // Runeheir's own items. Imported XileRetro gear is sold by Vigrid's smith and armourer or (Phase 8.5) dropped by the
+            // imported bestiary; until then the rest of it is GM-only (XileDatabaseTests checks the dealers' stock).
+            foreach (var item in ItemCatalog.All.Where(i => i.RoId == 0))
             {
                 Assert.IsTrue(sold.Contains(item.Id) || dropped.Contains(item.Id), $"{item.Name} can't be obtained");
             }

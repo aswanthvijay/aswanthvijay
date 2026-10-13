@@ -116,7 +116,7 @@ namespace Runeheir.UI
                 }
 
                 var captured = stack;
-                list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), stack.DisplayName, item.IsStackable ? $"x{stack.Amount:N0}" : null,
+                list.AddItem(item, stack.DisplayName, item.IsStackable ? $"x{stack.Amount:N0}" : null,
                     null, () => ItemTooltips.For(captured, null));
             }
         }
@@ -260,7 +260,7 @@ namespace Runeheir.UI
                     var item = entry.Item?.Definition;
                     if (item != null)
                     {
-                        _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.Item.DisplayName,
+                        _list.AddItem(item, entry.Item.DisplayName,
                             $"x{entry.Item.Amount:N0} left · {entry.Price:N0} z each", null);
                     }
                 }
@@ -280,7 +280,7 @@ namespace Runeheir.UI
                 }
 
                 int index = i;
-                _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), line.Entry.DisplayName,
+                _list.AddItem(item, line.Entry.DisplayName,
                     $"x{line.Amount:N0} · {line.Price:N0} z each · click to remove", () =>
                     {
                         _lines.RemoveAt(index);
@@ -436,7 +436,7 @@ namespace Runeheir.UI
 
                 int index = i;
                 var captured = entry.Item;
-                _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), $"<b>{stall.Title}</b> · {entry.Item.DisplayName}",
+                _list.AddItem(item, $"<b>{stall.Title}</b> · {entry.Item.DisplayName}",
                     $"{entry.Price:N0} z each · {entry.Item.Amount:N0} left", null, () => ItemTooltips.For(captured, "double-click: buy"),
                     onDoubleClick: () => Buy(index));
             }

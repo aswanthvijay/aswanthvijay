@@ -564,6 +564,8 @@ namespace Runeheir.Net
                 SendGuild(other, null);
                 Notify(other, $"The guild {guild.Name} has been disbanded.");
             }
+
+            ReleaseHalls(guild.Name);
         }
 
         private void PushGuild(GuildRecord guild)

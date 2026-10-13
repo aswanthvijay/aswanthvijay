@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Runeheir.Audio;
 using Runeheir.Combat;
 using Runeheir.Movement;
 using Runeheir.Session;
@@ -92,9 +93,23 @@ namespace Runeheir.Player
         /// <summary>Free Cast: the caster may walk while the cast bar fills.</summary>
         public bool CanMoveWhileCasting => _owner.Stats != null && _owner.Stats.CastMoveSpeedPercent > 0f;
 
+        /// <summary>A skill's SP cost after gear that makes skills cheaper or dearer (Ragnarok's bUseSPrate).</summary>
+        private int SpCost(SkillDefinition skill, int level)
+        {
+            int cost = skill.SpCost.AtInt(level);
+            float percent = _owner.Stats != null ? _owner.Stats.SpCostPercent : 0f;
+            return cost <= 0 ? cost : Mathf.Max(1, Mathf.RoundToInt(cost * (1f + percent / 100f)));
+        }
+
         /// <summary>Hotkey pressed (or skill double-clicked in the skill window). <paramref name="requestedLevel"/> 0 = highest learned.</summary>
         public void RequestSkill(string skillId, CombatEntity hovered, Vector3? hoveredGround, int requestedLevel = 0)
         {
+            var requested = SkillCatalog.Get(skillId);
+            if (requested != null && requested.Special != SkillSpecial.Mount)
+            {
+                _owner.GetDownToFight(); // the fjord horse is for travel
+            }
+
             var skill = SkillCatalog.Get(skillId);
             if (skill == null)
             {
@@ -258,6 +273,32 @@ namespace Runeheir.Player
             StartCoroutine(SkillEffects.Run(cast));
         }
 
+        /// <summary>What a skill sounds like when it goes off (Phase 8 audio).</summary>
+        public static Sfx SoundOf(SkillDefinition skill)
+        {
+            if (skill.Special == SkillSpecial.Heal || skill.Special == SkillSpecial.Cleanse || skill.Special == SkillSpecial.Resurrect)
+            {
+                return skill.Special == SkillSpecial.Resurrect ? Sfx.Revive : Sfx.Heal;
+            }
+
+            if (skill.IsMagic)
+            {
+                return SfxBank.ForElement(skill.Element);
+            }
+
+            if (skill.Damage != SkillDamage.None)
+            {
+                return skill.Element != Combat.Element.Neutral ? SfxBank.ForElement(skill.Element) : Sfx.SwingHeavy;
+            }
+
+            if (!string.IsNullOrEmpty(skill.DebuffId))
+            {
+                return Sfx.Debuff;
+            }
+
+            return !string.IsNullOrEmpty(skill.BuffId) ? Sfx.Buff : Sfx.CastRelease;
+        }
+
         /// <summary>Remaining/total cooldown for hotkey overlays (max of the skill's own and the after-cast delay).</summary>
         public float GetCooldown(string skillId, out float total)
         {
@@ -372,7 +413,7 @@ namespace Runeheir.Player
                 return false;
             }
 
-            if (_owner.Sp < skill.SpCost.AtInt(level))
+            if (_owner.Sp < SpCost(skill, level))
             {
                 reason = "Not enough SP.";
                 return false;
@@ -398,9 +439,32 @@ namespace Runeheir.Player
                 return false;
             }
 
-            if (skill.Special == SkillSpecial.Performance && _owner.Buffs.StacksOf(SkillBuffs.Performing) > 0)
+            bool performance = skill.Special == SkillSpecial.Performance || skill.Special == SkillSpecial.Ensemble;
+            if (performance && (_owner.Buffs.StacksOf(SkillBuffs.Performing) > 0 || _owner.Buffs.StacksOf(SkillBuffs.Ensemble) > 0))
             {
                 reason = "Finish your current performance first.";
+                return false;
+            }
+
+            if (skill.Special == SkillSpecial.Homunculus && !_owner.CanWeaveOrCallHomunculus(out string homunculusReason))
+            {
+                reason = homunculusReason;
+                return false;
+            }
+
+            if (skill.Special == SkillSpecial.HomunculusRevive)
+            {
+                var homunculus = Homunculi.HomunculusRules.Of(_owner.Record);
+                if (homunculus == null || homunculus.RestSeconds <= 0f)
+                {
+                    reason = homunculus == null ? "You have no homunculus." : $"{homunculus.Name} isn't down.";
+                    return false;
+                }
+            }
+
+            if (skill.Special == SkillSpecial.Ensemble && EnsembleAura.FindPartner(_owner, skill) == null)
+            {
+                reason = $"{skill.Name} is a duet: stand beside a {(EnsembleRules.IsSkaldSide(_owner.Record.Job) ? "Seidkona or Völva" : "Skald or Thul")} of your party who knows it.";
                 return false;
             }
 
@@ -500,6 +564,7 @@ namespace Runeheir.Player
                 return;
             }
 
+            GameAudio.Play(Sfx.CastCharge, _owner.Position, 0.5f);
             _castingSkill = skill;
             _castingLevel = level;
             _castTarget = target;
@@ -552,7 +617,7 @@ namespace Runeheir.Player
                 return;
             }
 
-            if (!_owner.TrySpendSp(skill.SpCost.AtInt(level)))
+            if (!_owner.TrySpendSp(SpCost(skill, level)))
             {
                 ChatLog.Error("Not enough SP.");
                 return;
@@ -625,9 +690,19 @@ namespace Runeheir.Player
             }
 
             StartCoroutine(SkillEffects.Run(cast));
+            GameAudio.Play(SoundOf(skill), cast.Target != null ? cast.Target.Position : cast.Point, 0.85f);
+            if (_owner is PlayerCharacter castingPlayer)
+            {
+                castingPlayer.TriggerSkillAutoCasts(skill.Id, cast.Target);
+            }
+
             StateChanged?.Invoke();
             SkillUsed?.Invoke(skill, level);
             AnySkillUsed?.Invoke(_owner, skill, level);
+            if ((skill.Id == "raven_strike" || skill.Id == "raven_assault") && _owner.Raven != null && cast.Target != null)
+            {
+                _owner.Raven.Swoop(cast.Target.Position);
+            }
         }
 
         private void Awake()

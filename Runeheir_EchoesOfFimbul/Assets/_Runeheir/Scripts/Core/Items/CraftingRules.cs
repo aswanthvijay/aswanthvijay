@@ -103,6 +103,12 @@ namespace Runeheir.Items
             BrewRecipe(ItemCatalog.RuneSowilo, 1, 7, 30, ("harpy_feather", 1), ("sprite_leaf", 2));
             BrewRecipe(ItemCatalog.RuneUruz, 1, 9, 35, ("boar_tusk", 2), ("imp_horn", 1));
             BrewRecipe(ItemCatalog.RuneIsa, 1, 10, 40, ("ice_core", 1), ("sprite_leaf", 1));
+
+            // Phase 8: Ragnarok's Embryo, for Weave Life (the vessels and seeds are sold at Brokk's forge).
+            if (ItemCatalog.Get(Homunculi.HomunculusRules.EmbryoItemId) != null)
+            {
+                BrewRecipe(Homunculi.HomunculusRules.EmbryoItemId, 1, 6, 30, ("xr7140", 1), ("xr7141", 1), ("xr7143", 1), ("xr7134", 1));
+            }
         }
 
         public static IReadOnlyList<CraftRecipe> For(CraftKind kind)

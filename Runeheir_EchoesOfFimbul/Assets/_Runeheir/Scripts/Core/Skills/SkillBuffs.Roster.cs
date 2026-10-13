@@ -22,6 +22,20 @@ namespace Runeheir.Skills
         // ---- Huntsman line: songs and dances
         public const string HawkFocus = "hawk_focus";
         public const string Performing = "performing";
+
+        // Mounts (Phase 8): the buff while riding; its level is the cavalry mastery + 1.
+        public const string MountHorse = "mount_horse";
+        public const string MountWarhorse = "mount_warhorse";
+        public const string MountBoar = "mount_boar";
+
+        // Duets (Ragnarok's ensembles).
+        public const string Ensemble = "ensemble";
+        public const string MeadOfPlenty = "mead_of_plenty";
+        public const string Ginnungagap = "ginnungagap";
+        public const string ShieldWallDrums = "shield_wall_drums";
+        public const string RingOfAndvari = "ring_of_andvari";
+        public const string MimirsWell = "mimirs_well";
+        public const string SigurdsHide = "sigurds_hide";
         public const string WhistleOfHeimdall = "whistle_of_heimdall";
         public const string SunsetLay = "sunset_lay";
         public const string BragisVerse = "bragis_verse";
@@ -124,6 +138,28 @@ namespace Runeheir.Skills
                 new StatModifiers().SetStat(StatType.Agi, 2).SetStat(StatType.Dex, 2)));
             register(Buff(Performing, "Performing", "PRF", "#B7950B", 30f, "Playing or dancing: half speed, and no other performance until this one ends.",
                 new StatModifiers { MoveSpeedPercent = -50f }));
+            register(Buff(MountHorse, "Riding", "RDE", "#A9927D", 1e7f, "On a fjord horse: +25% movement speed. Get down to fight.",
+                new StatModifiers { MoveSpeedPercent = 25f }));
+            register(Buff(MountWarhorse, "Riding Sleipnir's Foal", "RDE", "#A9927D", 1e7f,
+                "+36% movement speed and +1,000 weight; -50% ASPD, 10% less per level of Cavalry Mastery.",
+                new StatModifiers { MoveSpeedPercent = 36f, WeightCapacity = 1000, AspdPercent = -50f }, new StatModifiers { AspdPercent = 10f }));
+            register(Buff(MountBoar, "Riding Gullinbursti", "RDE", "#D4AC0D", 1e7f,
+                "+36% movement speed and +1,000 weight; -50% ASPD, 10% less per level of Boar Mastery.",
+                new StatModifiers { MoveSpeedPercent = 36f, WeightCapacity = 1000, AspdPercent = -50f }, new StatModifiers { AspdPercent = 10f }));
+            register(Buff(Ensemble, "Duet", "DUO", "#B7950B", 60f, "Playing a duet: rooted to the spot until it ends.",
+                new StatModifiers { MoveSpeedPercent = -100f }));
+            register(Buff(MeadOfPlenty, "Mead of Plenty", "MKR", "#F7DC6F", PerformanceLinger, "A duet: +20% EXP, +10% per level.",
+                new StatModifiers { ExpPercent = 20f }, new StatModifiers { ExpPercent = 10f }));
+            register(Debuff(Ginnungagap, "Ginnungagap", "ETC", "#4A235A", PerformanceLinger, "Lost in the void: no DEF.",
+                new StatModifiers { DefPercent = -100f }));
+            register(Buff(ShieldWallDrums, "Drums of the Shield-Wall", "DRM", "#A04000", PerformanceLinger, "A duet: +25 ATK and +20 DEF per level.",
+                new StatModifiers { Atk = 25, Def = 20 }, new StatModifiers { Atk = 25, Def = 20 }));
+            register(Buff(RingOfAndvari, "Ring of Andvari", "RON", "#D4AC0D", PerformanceLinger, "A duet: +75 ATK, +25 per level.",
+                new StatModifiers { Atk = 75 }, new StatModifiers { Atk = 25 }));
+            register(Buff(MimirsWell, "Mímir's Well", "ITA", "#2E86C1", PerformanceLinger, "A duet: skills cost 30% less SP, 5% less per level.",
+                new StatModifiers { SpCostPercent = -30f }, new StatModifiers { SpCostPercent = -5f }));
+            register(Buff(SigurdsHide, "Sigurd's Hide", "INV", "#1E8449", PerformanceLinger, "A duet: 15% less damage taken, 3% less per level.",
+                new StatModifiers { DamageTakenPercent = -15f }, new StatModifiers { DamageTakenPercent = -3f }));
             register(Buff(WhistleOfHeimdall, "Whistle of Heimdall", "WHS", "#5DADE2", PerformanceLinger, "A Skald's song: +3 FLEE per level.",
                 new StatModifiers { Flee = 3 }, new StatModifiers { Flee = 3 }));
             register(Buff(SunsetLay, "Sunset Lay", "ACS", "#E67E22", PerformanceLinger, "A Skald's song: +2% ASPD per level.",

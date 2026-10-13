@@ -199,7 +199,7 @@ namespace Runeheir.Combat
         /// <summary>One basic attack roll against <paramref name="target"/>.</summary>
         public virtual DamageResult RollBasicAttack(CombatEntity target)
         {
-            return DamageCalculator.Physical(BuildAttackerProfile(), target.BuildDefenderProfile(), 100f, true, SystemRandomSource.Shared);
+            return DamageCalculator.BasicAttack(BuildAttackerProfile(), target.BuildDefenderProfile(), SystemRandomSource.Shared);
         }
 
         /// <summary>A basic attack connected (procs: Storm Fists, Keen Edge, Auto Rune).</summary>
@@ -227,6 +227,11 @@ namespace Runeheir.Combat
                 // as if it landed, so on-hit effects follow it to the realm too.
                 Remote.RelayDamage(result, attacker, physicalMelee, poiseDamage);
                 return result;
+            }
+
+            if (RefusesHitFrom(attacker))
+            {
+                return DamageResult.Miss();
             }
 
             if (physicalMelee && !result.IsMiss && !result.IsBlocked)
@@ -648,6 +653,12 @@ namespace Runeheir.Combat
         protected void RaiseVitalsChanged()
         {
             VitalsChanged?.Invoke();
+        }
+
+        /// <summary>Phase 8 sieges: some things can only be struck by some players (a Jarlstone, a castle's hoard).</summary>
+        protected virtual bool RefusesHitFrom(CombatEntity attacker)
+        {
+            return false;
         }
 
         protected virtual void OnDamaged(DamageResult result, CombatEntity attacker)

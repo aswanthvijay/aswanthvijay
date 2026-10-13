@@ -78,6 +78,21 @@ namespace Runeheir.Stats
 
         public float CritDamagePercent;
         public float LifeStealPercent;
+
+        /// <summary>Percent more healing from heal skills, percent change in skill SP costs, percent more bow and thunder-rod damage.</summary>
+        public float HealPowerPercent;
+
+        public float SpCostPercent;
+        public float LongRangePercent;
+
+        /// <summary>Percent chance to dodge a basic attack outright (gear only; Ragnarok's Perfect Dodge). 0–95.</summary>
+        public float PerfectDodge;
+
+        /// <summary>Percent more EXP from kills and better drop chances (manuals, bubble gum). Never below -100.</summary>
+        public float ExpPercent;
+
+        public float DropPercent;
+
         public float SpStealPercent;
         public int SpDrainOnHit;
 
@@ -152,8 +167,8 @@ namespace Runeheir.Stats
             d.WeightCapacity = StatFormulas.WeightCapacity(total.Str) + Math.Max(0, mods.WeightCapacity);
             d.BuyDiscountPercent = Math.Max(0f, Math.Min(Items.TradeRules.MaxPricePercent, mods.BuyDiscountPercent));
             d.SellBonusPercent = Math.Max(0f, Math.Min(Items.TradeRules.MaxPricePercent, mods.SellBonusPercent));
-            d.HpRegenPerTick = StatFormulas.HpRegenPerTick(d.MaxHp, total.Vit) + Math.Max(0, mods.HpRegenFlat);
-            d.SpRegenPerTick = StatFormulas.SpRegenPerTick(d.MaxSp, total.Int) + Math.Max(0, mods.SpRegenFlat);
+            d.HpRegenPerTick = (int)(StatFormulas.HpRegenPerTick(d.MaxHp, total.Vit) * Math.Max(0f, 1f + mods.HpRegenPercent / 100f)) + Math.Max(0, mods.HpRegenFlat);
+            d.SpRegenPerTick = (int)(StatFormulas.SpRegenPerTick(d.MaxSp, total.Int) * Math.Max(0f, 1f + mods.SpRegenPercent / 100f)) + Math.Max(0, mods.SpRegenFlat);
 
             d.PhysicalDamagePercent = mods.PhysicalDamagePercent;
             d.MagicDamagePercent = mods.MagicDamagePercent;
@@ -168,6 +183,12 @@ namespace Runeheir.Stats
             d.CastMoveSpeedPercent = StatFormulas.Clamp(mods.CastMoveSpeedPercent, 0f, 100f);
             d.CritDamagePercent = mods.CritDamagePercent;
             d.LifeStealPercent = Math.Max(0f, mods.LifeStealPercent);
+            d.HealPowerPercent = mods.HealPowerPercent;
+            d.SpCostPercent = Math.Max(-90f, mods.SpCostPercent);
+            d.LongRangePercent = mods.LongRangePercent;
+            d.PerfectDodge = StatFormulas.Clamp(mods.PerfectDodge, 0f, 95f);
+            d.ExpPercent = Math.Max(-100f, mods.ExpPercent);
+            d.DropPercent = Math.Max(-100f, mods.DropPercent);
             d.SpStealPercent = Math.Max(0f, mods.SpStealPercent);
             d.SpDrainOnHit = Math.Max(0, mods.SpDrainOnHit);
             d.CooldownPercent = Math.Max(-90f, mods.CooldownPercent);

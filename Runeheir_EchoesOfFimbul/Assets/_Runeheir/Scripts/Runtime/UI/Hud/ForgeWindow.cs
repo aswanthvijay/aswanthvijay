@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using Runeheir.Audio;
 using Runeheir.Combat;
 using Runeheir.Items;
 using Runeheir.Player;
@@ -203,7 +204,7 @@ namespace Runeheir.UI
                 var item = entry.Definition;
                 var captured = entry;
                 string worn = _player.IsWorn(entry) ? "<color=#7DCEA0>[worn]</color> " : string.Empty;
-                _list.Add(item.IconLabel, RuntimeMaterials.Hex(item.IconColorHex), entry.DisplayName, worn + RowDetail(entry),
+                _list.AddItem(item, entry.DisplayName, worn + RowDetail(entry),
                     () => Select(captured), () => ItemTooltips.For(captured), selected: entry == _selected);
             }
 
@@ -382,14 +383,17 @@ namespace Runeheir.UI
             switch (outcome)
             {
                 case RefineOutcome.Success:
+                    GameAudio.Play(Sfx.RefineSuccess);
                     ShowResult(message, UITheme.Success);
                     WorldFeedback.Announce(_player, $"+{entry.Refine}!", new Color(1f, 0.85f, 0.3f));
                     GroundRing.SpawnPulse(_player.Position, new Color(1f, 0.7f, 0.25f, 1f), 0.3f, 1.8f, 0.5f);
                     break;
                 case RefineOutcome.Downgraded:
+                    GameAudio.Play(Sfx.RefineFail);
                     ShowResult(message, new Color(1f, 0.7f, 0.3f));
                     break;
                 case RefineOutcome.Shattered:
+                    GameAudio.Play(Sfx.RefineShatter);
                     ShowResult(message, UITheme.Error);
                     WorldFeedback.Announce(_player, "Shattered!", new Color(1f, 0.35f, 0.3f));
                     break;

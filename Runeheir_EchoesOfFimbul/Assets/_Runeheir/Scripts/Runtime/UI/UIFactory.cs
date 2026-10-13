@@ -1,3 +1,4 @@
+using Runeheir.Audio;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -177,6 +178,7 @@ namespace Runeheir.UI
             var image = CreatePanel(parent, "Button_" + label, Color.white);
             var button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
+            button.onClick.AddListener(() => GameAudio.Play(Sfx.UiClick, null, 0.45f));
 
             // Mouse-driven UI: a clicked button must not stay selected, or Enter/WASD would press it again.
             button.navigation = new Navigation { mode = Navigation.Mode.None };

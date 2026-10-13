@@ -22,6 +22,23 @@ namespace Runeheir.Monsters
 
         /// <summary>A person-shaped warrior drawn with the player model: outlaws, berserkers, draugr, Hel's soldiers.</summary>
         Humanoid = 8,
+
+        // Phase 8: more bodies for the XileRetro bestiary.
+
+        /// <summary>Head, thorax and abdomen on six legs (ants, beetles); spiders, scorpions, crabs and mantises by variant.</summary>
+        Insect = 9,
+
+        /// <summary>A stem and a face among leaves; flowers, flytraps, walking trees and cacti by variant.</summary>
+        Plant = 10,
+
+        /// <summary>A squashy jelly that hops (Ragnarok's Poring family); angel, devil and ghost slimes by variant.</summary>
+        Slime = 11,
+
+        /// <summary>A walking bird on two legs (chicks, the Peco Peco); tall birds by variant.</summary>
+        Bird = 12,
+
+        /// <summary>A fish swimming through the air with fins and a forked tail; sharks and swordfish by variant.</summary>
+        Fish = 13,
     }
 
     /// <summary>GDD §6: normal monsters, 2-hour field mini-bosses and 1-hour MVP world bosses.</summary>
@@ -52,6 +69,10 @@ namespace Runeheir.Monsters
         public const float RangedThreshold = 3f;
 
         public string Id;
+
+        /// <summary>The monster's id in the XileRetro / rAthena database it was adapted from (0 for Runeheir's own).</summary>
+        public int RoId;
+
         public string Name;
         public int Level;
         public int MaxHp;
@@ -90,6 +111,9 @@ namespace Runeheir.Monsters
         /// <summary>Only appears when a boss calls it (Sköll and Hati): no card, no drops, not in branches.</summary>
         public bool SummonOnly;
 
+        /// <summary>Phase 8: a castle's Jarlstone or hoard. Not a creature of the bestiary (no EXP, outside the balance curves).</summary>
+        public bool SiegeObject;
+
         public float MoveSpeed = 3f;
         public float AttackRange = 0.9f;
 
@@ -117,6 +141,9 @@ namespace Runeheir.Monsters
         public List<DropEntry> MvpDrops = new List<DropEntry>();
 
         public MonsterShape Shape;
+
+        /// <summary>Phase 8: a detail for the body drawn from the creature's name ("tusks", "horns", "spider", "flower"...).</summary>
+        public string Variant;
         public string ColorHex = "#999999";
         public float Scale = 1f;
 
@@ -128,6 +155,9 @@ namespace Runeheir.Monsters
         public string LookShield;
         public string LookGarment;
         public string SkinHex = "#B8C4C9";
+
+        /// <summary>Humanoids: drawn with the female body (the Hirð's bowwomen).</summary>
+        public bool LookFemale;
 
         public bool IsBoss => Rank != MonsterRank.Normal;
 

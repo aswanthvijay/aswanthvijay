@@ -20,6 +20,22 @@ namespace Runeheir.Items
         public const string Armory = "vigrid_armory";
         public const string BranchWarden = "branch_warden";
 
+        /// <summary>Phase 8: the weapons and armor Ragnarok's town dealers sell, under their Norse names.</summary>
+        public const string WeaponSmith = "vigrid_weapon_smith";
+
+        public const string Armourer = "vigrid_armourer";
+
+        /// <summary>Phase 8: the Hird's contract scrolls (Ragnarok's mercenary guilds).</summary>
+        public const string HirdHall = "vigrid_hird_hall";
+
+        /// <summary>Phase 8: the fjord horse's reins.</summary>
+        public const string Stable = "vigrid_stable";
+
+        /// <summary>Phase 8.4: XileRetro's costumes (head; back and feet).</summary>
+        public const string TailorHead = "vigrid_tailor_head";
+
+        public const string TailorBack = "vigrid_tailor_back";
+
         private static readonly Dictionary<string, ShopDefinition> ById = new Dictionary<string, ShopDefinition>
         {
             {
@@ -50,6 +66,9 @@ namespace Runeheir.Items
                         ItemCatalog.RuneOfPreservation, ItemCatalog.RuneOfExtraction,
                         RunewordRules.Sowilo, RunewordRules.Tiwaz, RunewordRules.Isa, RunewordRules.Hagalaz, RunewordRules.Thurisaz, RunewordRules.Uruz,
                         ItemCatalog.RuneThurisaz, ItemCatalog.RuneIsa, ItemCatalog.RuneHagalaz,
+
+                        // Phase 8: what a Brewmaster needs for an Embryo (Weave Life).
+                        "xr7140", "xr7141", "xr7143", "xr7134",
                     },
                 }
             },
@@ -75,6 +94,60 @@ namespace Runeheir.Items
                     Name = "Hall of Branches Supply",
                     Greeting = "Branches and something to drink before whatever climbs out of them.",
                     ItemIds = new[] { ItemCatalog.DeadBranch, ItemCatalog.LingonberryTonic, ItemCatalog.HoneyMead, ItemCatalog.AetherSap, ItemCatalog.RuneSowilo },
+                }
+            },
+            {
+                WeaponSmith, new ShopDefinition
+                {
+                    Id = WeaponSmith,
+                    Name = "Eyvind's Weapon Smithy",
+                    Greeting = "Every blade, bow and rod a traveller could want, from seax to greatsword. Bring zeny, not stories.",
+                    ItemIds = ItemCatalog.XileWeaponDealerStock,
+                }
+            },
+            {
+                Armourer, new ShopDefinition
+                {
+                    Id = Armourer,
+                    Name = "Ragna's Armoury",
+                    Greeting = "Helms, mail, cloaks and boots. Fit for the road, and for the snow on it.",
+                    ItemIds = ItemCatalog.XileArmorDealerStock,
+                }
+            },
+            {
+                HirdHall, new ShopDefinition
+                {
+                    Id = HirdHall,
+                    Name = "Thrand's Hirð Hall",
+                    Greeting = "Bowmen, spearmen and huscarls, sworn to you for half an hour. A higher grade fights harder, and won't follow a green hand.",
+                    ItemIds = ItemCatalog.XileMercenaryDealerStock,
+                }
+            },
+            {
+                Stable, new ShopDefinition
+                {
+                    Id = Stable,
+                    Name = "Hestr's Stable",
+                    Greeting = "A fjord horse for the long roads. Knights and Guardians ride their own; the rest of you, buy the reins.",
+                    ItemIds = new[] { Characters.MountRules.ReinsItemId },
+                }
+            },
+            {
+                TailorHead, new ShopDefinition
+                {
+                    Id = TailorHead,
+                    Name = "Gerðr's Hats & Ears",
+                    Greeting = "Ears, crowns, lenses and wigs. Wear them over your helm: they change how you look, not how you fight.",
+                    ItemIds = ItemCatalog.XileCostumeHeadDealerStock,
+                }
+            },
+            {
+                TailorBack, new ShopDefinition
+                {
+                    Id = TailorBack,
+                    Name = "Ylfa's Wings & Auras",
+                    Greeting = "Wings like the valkyries', cloaks, tails and a glow at your heels. All for show, and worth every coin.",
+                    ItemIds = ItemCatalog.XileCostumeBackDealerStock,
                 }
             },
         };

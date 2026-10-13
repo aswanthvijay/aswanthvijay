@@ -83,6 +83,9 @@ namespace Runeheir.Monsters
         /// <summary>Buff: id from the BuffCatalog (monster buffs are in <see cref="MonsterBuffs"/>).</summary>
         public string BuffId;
 
+        /// <summary>The level a <see cref="MonsterSkillKind.Buff"/> applies its buff at (mercenaries' Blessing scales with it).</summary>
+        public int BuffLevel = 1;
+
         public string SummonId;
         public int SummonCount;
 
@@ -134,6 +137,9 @@ namespace Runeheir.Monsters
 
         /// <summary>True when the caster already has this buff.</summary>
         public Func<string, bool> HasBuff;
+
+        /// <summary>Mercenaries: their master's HP percent (heals mend the more hurt of the two). 0 = no one to look after.</summary>
+        public float AllyHpPercent;
     }
 
     /// <summary>Pure skill-selection rules (the runtime brain adds timers, movement and visuals).</summary>
@@ -163,7 +169,13 @@ namespace Runeheir.Monsters
         /// <summary>True when the skill's conditions hold right now (cooldowns are the caller's).</summary>
         public static bool IsUsable(MonsterSkill skill, in MonsterSkillContext context)
         {
-            if (skill == null || context.HpPercent > skill.BelowHpPercent || context.Phase < skill.MinPhase)
+            if (skill == null)
+            {
+                return false;
+            }
+
+            float hp = skill.Kind == MonsterSkillKind.Heal && context.AllyHpPercent > 0f ? Math.Min(context.HpPercent, context.AllyHpPercent) : context.HpPercent;
+            if (hp > skill.BelowHpPercent || context.Phase < skill.MinPhase)
             {
                 return false;
             }
@@ -180,7 +192,7 @@ namespace Runeheir.Monsters
                 case MonsterSkillKind.Buff:
                     return context.HasTarget && !string.IsNullOrEmpty(skill.BuffId) && (context.HasBuff == null || !context.HasBuff(skill.BuffId));
                 case MonsterSkillKind.Heal:
-                    return skill.HealPercent > 0f && context.HpPercent < 100f;
+                    return skill.HealPercent > 0f && hp < 100f;
                 case MonsterSkillKind.Summon:
                     return context.HasTarget && skill.SummonCount > 0 && !string.IsNullOrEmpty(skill.SummonId)
                            && (context.SummonsAlive == null || context.SummonsAlive(skill.SummonId) < skill.SummonCount);

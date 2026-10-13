@@ -1,3 +1,4 @@
+using Runeheir.Audio;
 using Runeheir.Field;
 using Runeheir.Online;
 using Runeheir.Player;
@@ -85,6 +86,8 @@ namespace Runeheir.WorldBuilding
             {
                 return false;
             }
+
+            GameAudio.Play(Sfx.Portal);
 
             if (!WorldSceneAvailable)
             {

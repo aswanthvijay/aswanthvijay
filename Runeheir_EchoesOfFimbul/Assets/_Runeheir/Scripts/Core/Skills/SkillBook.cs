@@ -42,12 +42,27 @@ namespace Runeheir.Skills
             return LevelIn(_record, id);
         }
 
-        /// <summary>The learned level of <paramref name="id"/>, or 0 if it isn't learned or the current job can't use it.</summary>
+        /// <summary>
+        /// The usable level of <paramref name="id"/>: learned (if the current job can use it), copied by Loki's Mimicry, or
+        /// granted by gear (Phase 8), whichever is highest. 0 = not usable.
+        /// </summary>
         public int UsableLevel(string id)
         {
             int own = SkillCatalog.CanUse(_record.Job, id) ? GetLevel(id) : 0;
-            return Math.Max(own, MimicryRules.CopiedLevel(_record, id));
+            int granted = _granted != null && id != null && _granted.TryGetValue(id, out int level) ? level : 0;
+            return Math.Max(Math.Max(own, MimicryRules.CopiedLevel(_record, id)), granted);
         }
+
+        /// <summary>Skills the worn gear grants (Ragnarok's <c>skill</c> bonus), refreshed whenever the gear changes.</summary>
+        public IReadOnlyDictionary<string, int> Granted => _granted ?? EmptyGrants;
+
+        public void SetGranted(IReadOnlyDictionary<string, int> granted)
+        {
+            _granted = granted;
+        }
+
+        private static readonly Dictionary<string, int> EmptyGrants = new Dictionary<string, int>();
+        private IReadOnlyDictionary<string, int> _granted;
 
         public static int LevelIn(CharacterRecord record, string id)
         {

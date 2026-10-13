@@ -244,7 +244,8 @@ namespace Runeheir.UI
                 bool hoveredNow = entity == hovered;
                 var monster = entity as Monster;
                 bool casting = monster != null && monster.IsCasting;
-                bool showHp = plate.IsPlayer || hoveredNow || plate.IsBoss || casting || Time.time < plate.ShowHpUntil;
+                bool showHp = plate.IsPlayer || hoveredNow || plate.IsBoss || casting || Time.time < plate.ShowHpUntil
+                              || (monster != null && monster.Master != null);
                 bool visible = screen.z > 0f && !entity.IsDead && (showHp || hoveredNow);
                 plate.Root.gameObject.SetActive(visible);
                 if (!visible)

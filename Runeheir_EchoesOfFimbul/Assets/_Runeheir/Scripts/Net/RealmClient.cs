@@ -219,6 +219,13 @@ namespace Runeheir.Net
                 case SocialEvent.Error:
                     ChatLog.Error(update.Text);
                     break;
+                case SocialEvent.Expel:
+                    if (PlayerCharacter.Local != null)
+                    {
+                        WorldTravel.ToSavePoint(PlayerCharacter.Local, update.Text);
+                    }
+
+                    break;
 
                 case SocialEvent.Party:
                     State.Party = Json.Read<PartyInfo>(update.Json);

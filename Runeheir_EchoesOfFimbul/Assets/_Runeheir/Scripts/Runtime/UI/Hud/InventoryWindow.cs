@@ -141,8 +141,7 @@ namespace Runeheir.UI
                 _badges[i].text = item != null && item.IsEquipment ? Badge(entry) : string.Empty;
                 if (item != null)
                 {
-                    _icons[i].color = RuntimeMaterials.Hex(item.IconColorHex);
-                    _glyphs[i].text = item.IconLabel;
+                    ItemIcons.Apply(_icons[i], item, _glyphs[i]);
                 }
             }
 
@@ -163,7 +162,7 @@ namespace Runeheir.UI
                 return Tab.Etc;
             }
 
-            if (item.IsEquipment)
+            if (item.IsWearable)
             {
                 return Tab.Gear;
             }
@@ -207,7 +206,7 @@ namespace Runeheir.UI
             }
 
             string hint = _hud.InventoryClickOverride != null ? "double-click: store"
-                : item.IsEquipment ? "double-click: wear"
+                : item.IsWearable ? "double-click: wear"
                 : item.IsCard ? "double-click: compound"
                 : item.IsUsable ? "double-click: use"
                 : null;
@@ -217,11 +216,12 @@ namespace Runeheir.UI
         private DragPayload Payload(int index)
         {
             var item = EntryAt(index)?.Definition;
-            return item == null || !(item.IsUsable || item.IsEquipment)
+            return item == null || !(item.IsUsable || item.IsWearable)
                 ? null
                 : new DragPayload
                 {
                     Slot = HotkeySlot.Item(item.Id),
+                    ItemId = item.Id,
                     Glyph = item.IconLabel,
                     Color = RuntimeMaterials.Hex(item.IconColorHex),
                 };
@@ -242,7 +242,7 @@ namespace Runeheir.UI
                 return;
             }
 
-            if (item.IsEquipment)
+            if (item.IsWearable)
             {
                 _player.Equip(entry);
             }

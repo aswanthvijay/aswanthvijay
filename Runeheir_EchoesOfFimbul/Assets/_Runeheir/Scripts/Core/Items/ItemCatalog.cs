@@ -6,7 +6,8 @@ namespace Runeheir.Items
 {
     /// <summary>
     /// Every item: consumables, GDD §7 runestones and crafting runes, loot, the 87 GDD §5 equipment pieces
-    /// (ItemCatalog.Weapons.cs / ItemCatalog.Gear.cs) and the 35 GDD §6 Soul Cards (ItemCatalog.Cards.cs).
+    /// (ItemCatalog.Weapons.cs / ItemCatalog.Gear.cs), the 35 GDD §6 Soul Cards (ItemCatalog.Cards.cs) and, from
+    /// Phase 8, the XileRetro database adapted to Norse myth (ItemCatalog.Xile.cs and Generated/).
     /// </summary>
     public static partial class ItemCatalog
     {
@@ -44,9 +45,24 @@ namespace Runeheir.Items
             RegisterWeapons();
             RegisterGear();
             RegisterCards();
+            RegisterXileDatabase();
         }
 
         public static IReadOnlyList<ItemDefinition> All => Ordered;
+
+        /// <summary>The first item with exactly this name, or null (for ids the importer chose, like the hoard chests).</summary>
+        public static ItemDefinition FindByName(string name)
+        {
+            foreach (var item in Ordered)
+            {
+                if (string.Equals(item.Name, name, StringComparison.Ordinal))
+                {
+                    return item;
+                }
+            }
+
+            return null;
+        }
 
         public static ItemDefinition Get(string id)
         {
@@ -62,6 +78,13 @@ namespace Runeheir.Items
 
         private static void RegisterConsumables()
         {
+            Register(new ItemDefinition
+            {
+                Id = Characters.MountRules.ReinsItemId, Name = "Reins of the Fjord Horse", Kind = ItemKind.Consumable, Weight = 5, Price = 150000,
+                Description = "Whistle up your sturdy fjord horse, or send it home. Riding: +25% movement speed, but you get down to fight. "
+                              + "Never used up.",
+                IconLabel = "RNS", IconColorHex = "#A9927D", Special = ItemSpecialEffect.Mount,
+            });
             Register(new ItemDefinition
             {
                 Id = LingonberryTonic, Name = "Lingonberry Tonic", Kind = ItemKind.Consumable, Weight = 7, Price = 50,
