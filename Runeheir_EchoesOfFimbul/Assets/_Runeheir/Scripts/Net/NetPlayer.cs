@@ -496,6 +496,7 @@ namespace Runeheir.Net
         {
             if (isServer)
             {
+                Session?.Ledger.AddExp(baseExp, jobExp, Time.unscaledTimeAsDouble);
                 TargetExperience(baseExp, jobExp);
             }
         }
@@ -504,6 +505,7 @@ namespace Runeheir.Net
         {
             if (isServer && item != null)
             {
+                Session?.Ledger.AddItemIn(item.Id, 1, Time.unscaledTimeAsDouble);
                 TargetLoot(item.Id, baseChance, mvpReward);
             }
         }
@@ -520,6 +522,7 @@ namespace Runeheir.Net
         {
             if (isServer)
             {
+                Session?.Ledger.AddExp(bonusExp, 0, Time.unscaledTimeAsDouble);
                 TargetMvp(monsterName ?? string.Empty, bonusExp);
             }
         }

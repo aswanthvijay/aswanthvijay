@@ -29,6 +29,14 @@ namespace Runeheir.Field
 
         public static void Execute(string input, PlayerCharacter player)
         {
+            // The realm answers these itself (and decides who may use them), with or without @commands.
+            string head = (input ?? string.Empty).TrimStart('@').Split(' ')[0].ToLowerInvariant();
+            if (Online.OnlineSession.IsOnline && (head == "siege" || head == "guard"))
+            {
+                Online.OnlineSession.Current.SendChat(new Social.ChatInput(Social.ChatChannel.Local, null, input.Trim(), false));
+                return;
+            }
+
             if (!Enabled)
             {
                 ChatLog.Error(OnlineSession.Current != null ? "This realm doesn't allow @commands." : "@commands are disabled in release builds.");
@@ -279,6 +287,10 @@ namespace Runeheir.Field
                 case "warp":
                 case "go":
                     Warp(player, parts);
+                    break;
+
+                case "guard":
+                    ChatLog.Gm("The realm guard checks saves on a realm (Host or Join); offline there's nothing to guard.");
                     break;
 
                 case "siege":

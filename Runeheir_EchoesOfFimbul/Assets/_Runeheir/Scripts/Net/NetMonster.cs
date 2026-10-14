@@ -298,6 +298,7 @@ namespace Runeheir.Net
         {
             if (TryAttacker(sender, out var attacker))
             {
+                amount = RealmServer.Instance.GuardHit(sender, amount);
                 _monster.ReceiveDamage(NetWire.Result(amount, flags, elementMultiplier), attacker, physicalMelee,
                     NetWire.Clamp(poiseDamage, 0f, 10000f));
             }
@@ -377,6 +378,11 @@ namespace Runeheir.Net
             {
                 _monster.MarkStolenFrom();
                 WorldFeedback.Announce(_monster, "Stolen!", new Color(1f, 0.85f, 0.3f));
+            }
+
+            if (itemId != null)
+            {
+                thief?.Session?.Ledger.AddItemIn(itemId, 1, Time.unscaledTimeAsDouble);
             }
 
             thief?.TargetStolen(itemId ?? string.Empty, reason ?? string.Empty);

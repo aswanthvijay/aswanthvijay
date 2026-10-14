@@ -26,7 +26,8 @@ namespace Runeheir.EditorTools
 
         private static readonly string[] Maps =
         {
-            "xr_moc_fild01", "xr_ayo_fild01", "xr_cmd_fild01", "xr_thor_v01", "xr_moc_pryd01", MapCatalog.VigridHaven, "castle_bilskirnir",
+            MapCatalog.WhisperwoodPlains, "xr_moc_fild01", "xr_ayo_fild01", "xr_cmd_fild01", "xr_thor_v01", "xr_moc_pryd01", MapCatalog.VigridHaven,
+            "castle_bilskirnir",
         };
 
         [MenuItem("Runeheir/Art/Render Map Previews", priority = 51)]
@@ -57,6 +58,217 @@ namespace Runeheir.EditorTools
                 Debug.LogException(e);
                 EditorApplication.Exit(1);
             }
+        }
+
+        [MenuItem("Runeheir/Art/Render Showcase", priority = 52)]
+        public static void ShowcaseMenu()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
+            var files = Showcase();
+            EditorUtility.RevealInFinder(files[0]);
+        }
+
+        public static void ShowcaseFromCommandLine()
+        {
+            try
+            {
+                foreach (string file in Showcase())
+                {
+                    Debug.Log("[Runeheir] Showcase written: " + file);
+                }
+
+                EditorApplication.Exit(0);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                EditorApplication.Exit(1);
+            }
+        }
+
+        /// <summary>
+        /// A staged shot of the "Option B" concept with today's art: a snowy Norse village at dusk on the Jotun Steppe, its
+        /// longhouses and mead hall roofed in snow, braziers and a rune arch glowing, snow-laden firs, and a blond hero in a
+        /// blue cape mid-swing with a greatsword (the slash arc is staged) against frost wolves and a purple mushroom
+        /// creature. Builds/Previews/showcase_game.png and showcase_wide.png.
+        /// </summary>
+        public static List<string> Showcase()
+        {
+            string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", OutputFolder));
+            Directory.CreateDirectory(folder);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var sun = new GameObject("Sun").AddComponent<Light>();
+            sun.type = LightType.Directional;
+            sun.shadows = LightShadows.Soft;
+            RenderSettings.sun = sun;
+            var camera = new GameObject("ShowcaseCamera").AddComponent<Camera>();
+            var map = MapCatalog.Get(MapCatalog.JotunSteppe);
+            var built = WorldBuilder.Build(map, camera, Vector3.zero, applyAtmosphere: true);
+            var c = built.SavePoint;
+
+            // Dusk: a low, rosy sun and a cold sky, so the fires and runes carry the scene.
+            sun.intensity = built.Theme.SunIntensity * 0.7f;
+            sun.color = new Color(1f, 0.8f, 0.68f);
+            sun.transform.rotation = Quaternion.Euler(30f, -50f, 0f);
+            var dusk = built.Theme;
+            dusk.AmbientSky = new Color(0.5f, 0.58f, 0.78f);
+            dusk.AmbientEquator = new Color(0.42f, 0.46f, 0.6f);
+            AmbientProbe(dusk);
+            RenderSettings.fogColor = new Color(0.62f, 0.7f, 0.84f);
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = RenderSettings.fogColor;
+            Visuals.PostEffects.Apply(camera, sun.color, 0.8f);
+
+            // Clear the generated scenery around the stage.
+            var props = built.Root.Find("Props");
+            var clear = new List<GameObject>();
+            foreach (Transform prop in props)
+            {
+                var d = prop.position - c;
+                d.y = 0f;
+                if (d.magnitude < 24f)
+                {
+                    clear.Add(prop.gameObject);
+                }
+            }
+
+            foreach (var go in clear)
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+
+            var stage = new GameObject("Stage").transform;
+            void Place(PropKind kind, float x, float z, float yaw = 0f, float scale = 1f, MapTheme theme = MapTheme.Tundra)
+            {
+                PropFactory.Build(new PropPlacement { Kind = kind, At = new GroundPoint(c.x + x, c.z + z), Yaw = yaw, Scale = scale }, theme, stage);
+            }
+
+            // The village behind the fight.
+            Place(PropKind.MeadHall, 1f, 22f, 45f);
+            Place(PropKind.House, -9f, 10f, 225f);
+            Place(PropKind.House, 10f, 8f, 200f, 0.95f);
+            Place(PropKind.Stall, -3.5f, 9f, 215f);
+            Place(PropKind.Well, 4.5f, 13f);
+            foreach (var (x, z) in new[] { (-2.8f, -1.4f), (3.9f, -0.8f), (-4.8f, 6.5f), (5.2f, 5.6f), (-1.5f, 15f), (5.5f, 16.5f) })
+            {
+                Place(PropKind.Brazier, x, z);
+            }
+
+            Place(PropKind.Banner, -5.8f, 3.6f, 45f, 1f, MapTheme.Castle);
+            Place(PropKind.Banner, 6.2f, 2.8f, 45f, 1f, MapTheme.Castle);
+            Place(PropKind.Banner, -0.2f, 11.2f, 45f, 1f, MapTheme.Castle);
+            foreach (var (x, z, s) in new[] { (-12f, 3f, 1.2f), (-10.5f, -5f, 1f), (11f, -4f, 1.1f), (13f, 4f, 1.25f), (-6f, 17f, 1.15f), (11f, 16f, 1.2f),
+                         (-14f, 12f, 1.3f), (15f, 12f, 1.1f), (-8f, -9f, 0.9f), (7f, -9f, 1f) })
+            {
+                Place(PropKind.Tree, x, z, x * 17f, s);
+            }
+
+            Place(PropKind.Rock, -5f, -4.5f, 30f, 0.7f);
+            Place(PropKind.Rock, 7.5f, -3f, 110f, 0.55f);
+            Place(PropKind.Bush, -7.5f, 1f, 0f, 1f);
+
+            // The rune arch: two carved stones and a glowing lintel, turned to face the camera.
+            var arch = new GameObject("RuneArch").transform;
+            arch.SetPositionAndRotation(c + new Vector3(-7f, 0f, 0.5f), Quaternion.Euler(0f, 45f, 0f));
+            foreach (float side in new[] { -1.5f, 1.5f })
+            {
+                var stone = new GameObject("Pillar").transform;
+                stone.SetParent(arch, false);
+                stone.localPosition = new Vector3(side, 0f, 0f);
+                PropFactory.Build(new PropPlacement { Kind = PropKind.Runestone, At = new GroundPoint(stone.position.x, stone.position.z), Yaw = 45f, Scale = 1.25f },
+                    MapTheme.Tundra, arch);
+                UnityEngine.Object.DestroyImmediate(stone.gameObject);
+            }
+
+            var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.DestroyImmediate(lintel.GetComponent<Collider>());
+            lintel.transform.SetParent(arch, false);
+            lintel.transform.localPosition = new Vector3(0f, 3.35f, 0f);
+            lintel.transform.localScale = new Vector3(4.4f, 0.55f, 0.65f);
+            lintel.GetComponent<Renderer>().sharedMaterial = RuntimeMaterials.Matte(new Color(0.6f, 0.65f, 0.72f), 1.2f);
+            var glyphs = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.DestroyImmediate(glyphs.GetComponent<Collider>());
+            glyphs.transform.SetParent(arch, false);
+            glyphs.transform.localPosition = new Vector3(0f, 3.35f, -0.34f);
+            glyphs.transform.localScale = new Vector3(3.2f, 0.16f, 0.04f);
+            glyphs.GetComponent<Renderer>().sharedMaterial = RuntimeMaterials.Glow(new Color(0.45f, 0.85f, 1f), new Color(0.6f, 1.1f, 1.4f));
+
+            // The hero: blond and spiky-haired, in a blue cape, a greatsword just past the strike.
+            var hero = new GameObject("Hero").transform;
+            hero.SetPositionAndRotation(c, Quaternion.Euler(0f, 42f, 0f));
+            var look = new AvatarLook
+            {
+                Job = Jobs.JobId.Valkyrie,
+                Gender = Gender.Male,
+                HairStyle = 1,
+                Hair = AvatarLook.HairPalette[2],
+                Skin = AvatarLook.DefaultSkin,
+                Outfit = RuntimeMaterials.Hex(Jobs.JobDatabase.Get(Jobs.JobId.Valkyrie).ColorHex),
+                Weapon = Combat.WeaponType.TwoHandSword,
+            };
+            var avatar = PlaceholderAvatar.CreateHumanoid(hero, look);
+            avatar.Rig?.Animate(new RigMotion { Time = 0.8f, Combat = 1f, AttackT = 0.58f, AttackIndex = 1, SkillT = -1f });
+            SlashArc(hero);
+
+            // What it's fighting.
+            void Foe(Monsters.MonsterDefinition definition, float x, float z)
+            {
+                var holder = new GameObject(definition.Id).transform;
+                var at = c + new Vector3(x, 0f, z);
+                var toHero = c - at;
+                holder.SetPositionAndRotation(at, Quaternion.LookRotation(new Vector3(toHero.x, 0f, toHero.z)));
+                PlaceholderAvatar.CreateMonster(holder, definition);
+            }
+
+            var wolf = new Monsters.MonsterDefinition { Id = "showcase_frost_wolf", Name = "Frost Wolf", Shape = Monsters.MonsterShape.Quadruped, ColorHex = "#D8E6F2", Scale = 1.15f };
+            Foe(wolf, 2.7f, 1.5f);
+            Foe(wolf, 1.3f, 3.2f);
+            Foe(new Monsters.MonsterDefinition { Id = "showcase_spore", Name = "Spore", Shape = Monsters.MonsterShape.Blob, ColorHex = "#8E5BC2", Scale = 1.15f }, -1.9f, 3.5f);
+
+            return new List<string>
+            {
+                Shoot(camera, folder, "showcase_game.png", c + new Vector3(0.6f, 0f, 2.6f), 15f, 36f),
+                Shoot(camera, folder, "showcase_wide.png", c + new Vector3(0f, 0f, 7f), 31f, 42f),
+            };
+        }
+
+        /// <summary>A staged greatsword slash: a tapered glowing crescent sweeping across the hero's front.</summary>
+        private static void SlashArc(Transform hero)
+        {
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+            const int steps = 24;
+            var tilt = Quaternion.Euler(0f, 0f, -28f);
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float angle = Mathf.Lerp(-75f, 115f, t) * Mathf.Deg2Rad;
+                var dir = tilt * new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle));
+                float width = 0.7f * Mathf.Sin(Mathf.PI * Mathf.Pow(t, 0.7f));
+                var center = new Vector3(0f, 1.25f, 0f);
+                vertices.Add(center + dir * 1.35f);
+                vertices.Add(center + dir * (1.35f + width));
+                if (i > 0)
+                {
+                    int a = (i - 1) * 2;
+                    triangles.AddRange(new[] { a, a + 1, a + 3, a, a + 3, a + 2, a + 3, a + 1, a, a + 2, a + 3, a });
+                }
+            }
+
+            var mesh = new Mesh { name = "SlashArc" };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            var go = new GameObject("SlashArc");
+            go.transform.SetParent(hero, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = RuntimeMaterials.Glow(new Color(0.3f, 0.78f, 1f), new Color(0.22f, 0.75f, 1.25f));
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
         }
 
         public static List<string> Render()
@@ -117,7 +329,55 @@ namespace Runeheir.EditorTools
             }
 
             files.AddRange(Bestiary(folder));
+            files.Add(KitLineup(folder));
             return files;
+        }
+
+        /// <summary>
+        /// Art Pass 3: every model in Resources/Environment, painted for the meadow (front row) and the tundra (back row),
+        /// in the game shader: Builds/Previews/environment_kit.png.
+        /// </summary>
+        private static string KitLineup(string folder)
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var theme = WorldTheme.For(MapTheme.Meadow);
+            var sun = new GameObject("Sun").AddComponent<Light>();
+            sun.type = LightType.Directional;
+            sun.shadows = LightShadows.Soft;
+            sun.color = theme.SunColor;
+            sun.intensity = theme.SunIntensity;
+            sun.transform.rotation = Quaternion.Euler(theme.SunEuler);
+            RenderSettings.sun = sun;
+            AmbientProbe(theme);
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            ground.transform.localScale = Vector3.one * 12f;
+            ground.GetComponent<Renderer>().sharedMaterial = RuntimeMaterials.Lit(theme.Ground, 0f);
+            var camera = new GameObject("PreviewCamera").AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = theme.Fog;
+            Visuals.PostEffects.Apply(camera, theme.SunColor, 0.35f);
+
+            var models = new List<string>();
+            foreach (var prefab in Resources.LoadAll<GameObject>(EnvironmentKit.Folder.TrimEnd('/')))
+            {
+                models.Add(prefab.name);
+            }
+
+            models.Sort(string.CompareOrdinal);
+            var across = new Vector3(1f, 0f, -1f).normalized;
+            var away = new Vector3(1f, 0f, 1f).normalized;
+            for (int i = 0; i < models.Count; i++)
+            {
+                for (int row = 0; row < 2; row++)
+                {
+                    var holder = new GameObject(models[i]).transform;
+                    holder.position = across * ((i - (models.Count - 1) * 0.5f) * 3.2f) + away * (row * 7f);
+                    holder.rotation = Quaternion.Euler(0f, 200f, 0f);
+                    EnvironmentKit.Spawn(models[i], holder, row == 0 ? MapTheme.Meadow : MapTheme.Tundra, i);
+                }
+            }
+
+            return Shoot(camera, folder, "environment_kit.png", away * 3f, 46f, 34f);
         }
 
         /// <summary>
@@ -301,6 +561,7 @@ namespace Runeheir.EditorTools
             camera.farClipPlane = 400f;
             var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
             camera.targetTexture = target;
+            GrassField.DrawAll(camera);
             camera.Render();
 
             var previous = RenderTexture.active;

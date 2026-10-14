@@ -172,10 +172,27 @@ Messages are up to 120 characters. The realm mutes anyone sending more than 6 li
 
 This is an **alpha**. Before you open a realm to strangers:
 
-- **Characters are run by their own clients.** A modified client could cheat its own character (stats, items, zeny). Play with people you trust; a server-run character is planned for after the alpha.
+- **Characters are run by their own clients, but the realm guard checks them (Phase 9).** Before the realm keeps a save,
+  it checks it against its last good copy and a ledger of what it handed that character:
+  - **Always:** unknown items, overfull stacks, refines past +20 and more cards than sockets are refused.
+  - **With `AllowGmCommands` off** (a public realm), it also refuses:
+    - stats or skills beyond what the levels give, and skills from another line;
+    - a job the character can't have reached;
+    - more EXP than the realm awarded (times the most any bonus allows);
+    - drop-only items (cards, MVP prizes, chest gear) the realm never handed over;
+    - goods given away in trades or stalls but kept;
+    - zeny that sales, trades and stalls don't explain.
+  - **Hits** on the realm's monsters are capped at what the character could ever deal.
+  - A refused save keeps the last good one. After `GuardStrikes` refusals (default 3), the player is sent back to the login
+    screen.
+  - Every verdict goes to `realm_guard.log`, and the host can type `@guard`. Set `"Guard": false` in realm.json to turn it
+    off.
+  - The host's own character is trusted, and movement isn't checked. A fully server-run character would close what's
+    left.
 - **Nothing is encrypted.** Logins travel over plain UDP. **Use a password you don't use anywhere else.**
 - **Boss timers reset when the realm restarts.** They're kept for as long as the realm runs.
-- **GM commands are on by default** (`AllowGmCommands`). On someone else's realm, the commands that change the world (`@monster`, `@spawn`, `@bossrespawn`, `@bosstime`) are host-only.
+- **GM commands are on by default** (`AllowGmCommands`). Turn them off for a public realm: that's also what switches on the
+  guard's progress and wealth checks. On someone else's realm, the commands that change the world (`@monster`, `@spawn`, `@bossrespawn`, `@bosstime`) are host-only.
 - **No PvP yet.** Players can't hurt each other.
 - **If you disconnect, log in again.** The game doesn't resume a dropped session on its own.
 - Placeholder art and sound as in Phase 5.

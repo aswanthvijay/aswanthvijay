@@ -53,3 +53,7 @@ Thumbs.db
 /Tools/Blender/Previews/
 /Tools/Blender/Out/
 __pycache__/
+
+# Downloaded third-party art (Poly Haven CC0 samples): kept out of git until we decide how to ship it
+/Assets/_Runeheir/ThirdParty/
+/Assets/_Runeheir/ThirdParty.meta

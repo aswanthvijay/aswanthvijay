@@ -733,6 +733,14 @@ namespace Runeheir.Net
                 commit.GaveB = gave;
             }
 
+            if (gave)
+            {
+                // Their game took the offer out before saying so: every save from now on must show it gone.
+                var given = trade.OfferOf(session.CharacterName);
+                session.Ledger.AddGoods(given?.Items, false, GuardClock);
+                session.Ledger.AddZenyOut(given?.Zeny ?? 0, GuardClock);
+            }
+
             if (!gave)
             {
                 Error(session, string.IsNullOrEmpty(error) ? "You couldn't hand over your side." : ChatRules.Sanitize(error));
@@ -748,20 +756,20 @@ namespace Runeheir.Net
             bool success = commit.GaveA.Value && commit.GaveB.Value;
             if (success)
             {
-                Send(a, new SocialUpdate { Kind = SocialEvent.TradeReceive, Json = Json.Write(trade.OfferB), Text = trade.B });
-                Send(b, new SocialUpdate { Kind = SocialEvent.TradeReceive, Json = Json.Write(trade.OfferA), Text = trade.A });
+                HandOffer(a, trade.OfferB, trade.B);
+                HandOffer(b, trade.OfferA, trade.A);
             }
             else
             {
                 // Whoever already gave gets their side back.
                 if (commit.GaveA.Value)
                 {
-                    Send(a, new SocialUpdate { Kind = SocialEvent.TradeReceive, Json = Json.Write(trade.OfferA), Text = string.Empty });
+                    HandOffer(a, trade.OfferA, string.Empty);
                 }
 
                 if (commit.GaveB.Value)
                 {
-                    Send(b, new SocialUpdate { Kind = SocialEvent.TradeReceive, Json = Json.Write(trade.OfferB), Text = string.Empty });
+                    HandOffer(b, trade.OfferB, string.Empty);
                 }
             }
 
@@ -782,12 +790,12 @@ namespace Runeheir.Net
             {
                 if (commit.GaveA == true)
                 {
-                    Send(Find(trade.A), new SocialUpdate { Kind = SocialEvent.TradeReceive, Json = Json.Write(trade.OfferA), Text = string.Empty });
+                    HandOffer(Find(trade.A), trade.OfferA, string.Empty);
                 }
 
                 if (commit.GaveB == true)
                 {
-                    Send(Find(trade.B), new SocialUpdate { Kind = SocialEvent.TradeReceive, Json = Json.Write(trade.OfferB), Text = string.Empty });
+                    HandOffer(Find(trade.B), trade.OfferB, string.Empty);
                 }
 
                 _commits.Remove(trade);
@@ -931,6 +939,7 @@ namespace Runeheir.Net
         {
             var seller = Find(owner);
             long paid = order != null && amount > 0 ? Math.Max(0, order.UnitPrice) * amount : 0;
+            buyer?.Ledger.AddZenyOut(paid, GuardClock); // their game paid before ordering; a refund gives it back
             if (seller?.Stall == null || seller == buyer || order == null || buyer.Entity == null || seller.Entity == null
                 || !string.Equals(seller.MapId, buyer.MapId, StringComparison.OrdinalIgnoreCase)
                 || CombatEntity.HorizontalDistance(buyer.Entity.Position, seller.Entity.Position) > 12f)
@@ -973,6 +982,9 @@ namespace Runeheir.Net
                 return;
             }
 
+            seller.Ledger.AddGoods(new[] { sale.Goods }, false, GuardClock);
+            seller.Ledger.AddZenyIn(sale.Cost, GuardClock);
+            sale.Buyer?.Ledger.AddGoods(new[] { sale.Goods }, true, GuardClock);
             if (sale.Buyer != null && !sale.Buyer.Disconnected)
             {
                 sale.Buyer.Connection.Send(new SocialUpdate
@@ -997,6 +1009,7 @@ namespace Runeheir.Net
 
         private void Refund(RealmSession buyer, long zeny, string reason)
         {
+            buyer?.Ledger.AddZenyIn(zeny, GuardClock);
             Send(buyer, new SocialUpdate { Kind = SocialEvent.Refund, Number = Math.Max(0, zeny), Text = reason });
         }
     }

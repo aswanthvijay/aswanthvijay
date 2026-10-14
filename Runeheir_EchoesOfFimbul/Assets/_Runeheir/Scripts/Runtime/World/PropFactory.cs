@@ -58,10 +58,10 @@ namespace Runeheir.WorldBuilding
                 case PropKind.Runestone: Runestone(t, theme); break;
                 case PropKind.Windmill: Windmill(t); break;
                 case PropKind.Campfire: Campfire(t); break;
-                case PropKind.House: House(t, seed); break;
-                case PropKind.MeadHall: MeadHall(t); break;
-                case PropKind.Stall: Stall(t, seed); break;
-                case PropKind.Well: Well(t); break;
+                case PropKind.House: House(t, theme, seed); break;
+                case PropKind.MeadHall: MeadHall(t, theme); break;
+                case PropKind.Stall: Stall(t, theme, seed); break;
+                case PropKind.Well: Well(t, theme); break;
                 case PropKind.Banner: Banner(t, theme, seed); break;
                 case PropKind.Torch: Torch(t); break;
                 case PropKind.Brazier: Brazier(t, theme); break;
@@ -86,11 +86,14 @@ namespace Runeheir.WorldBuilding
                 case PropKind.Cactus: Cactus(t, seed); break;
                 case PropKind.PalmTree: PalmTree(t, seed); break;
                 case PropKind.JungleTree: JungleTree(t, seed); break;
-                case PropKind.Fern: Fern(t, seed); break;
+                case PropKind.Fern: Kit(t, "fern_0", theme, seed, () => Fern(t, seed)); break;
                 case PropKind.LavaPool: LavaPool(t, seed); break;
                 case PropKind.Obelisk: Obelisk(t, theme); break;
                 case PropKind.Urn: Urn(t, seed); break;
                 case PropKind.Throne: Throne(t); break;
+                case PropKind.Bush: Kit(t, "bush_" + seed % 2, theme, seed, () => Part(PrimitiveType.Sphere, t, "Bush", new Vector3(0f, 0.5f, 0f), new Vector3(1.4f, 1f, 1.4f), Leaf)); break;
+                case PropKind.Flowers: Kit(t, "flowers_0", theme, seed, () => Mushroom(t, seed)); break;
+                case PropKind.Stump: Kit(t, "stump_0", theme, seed, () => Part(PrimitiveType.Cylinder, t, "Stump", new Vector3(0f, 0.25f, 0f), new Vector3(0.8f, 0.25f, 0.8f), Bark)); break;
                 case PropKind.Hearth: Hearth(t, prop.Length > 0f ? prop.Length : 6f); break;
             }
 
@@ -141,6 +144,15 @@ namespace Runeheir.WorldBuilding
 
         private static void Tree(Transform t, MapTheme theme, int seed)
         {
+            // Broadleafs on green land, firs on the cold coasts and in the snow.
+            bool broadleaf = theme == MapTheme.Meadow || theme == MapTheme.Town || theme == MapTheme.BirchForest || theme == MapTheme.Jungle
+                             || theme == MapTheme.Coast || theme == MapTheme.Arena || theme == MapTheme.Castle;
+            string model = broadleaf && seed % 5 != 0 ? "tree_round_" + seed % 3 : "tree_pine_" + seed % 2;
+            if (EnvironmentKit.Spawn(model, t, theme, seed) != null)
+            {
+                return;
+            }
+
             Part(PrimitiveType.Cylinder, t, "Trunk", new Vector3(0f, 1.2f, 0f), new Vector3(0.38f, 1.2f, 0.38f), Bark);
             Color needles = theme == MapTheme.Town ? new Color(0.62f, 0.55f, 0.18f) : theme == MapTheme.Fjord ? Pine * 0.85f : Pine;
             if (theme == MapTheme.Meadow && seed % 3 == 0)
@@ -163,6 +175,11 @@ namespace Runeheir.WorldBuilding
 
         private static void BirchTree(Transform t, MapTheme theme, int seed)
         {
+            if (EnvironmentKit.Spawn("tree_birch_" + seed % 2, t, theme, seed) != null)
+            {
+                return;
+            }
+
             Part(PrimitiveType.Cylinder, t, "Trunk", new Vector3(0f, 1.5f, 0f), new Vector3(0.32f, 1.5f, 0.32f), BirchBark);
             Part(PrimitiveType.Cube, t, "Mark", new Vector3(0f, 1.1f, 0.15f), new Vector3(0.2f, 0.08f, 0.05f), new Color(0.15f, 0.13f, 0.12f), outline: 0f);
             Color leaves = seed % 3 == 0 ? AutumnRed : seed % 3 == 1 ? AutumnGold : new Color(0.85f, 0.75f, 0.28f);
@@ -177,6 +194,12 @@ namespace Runeheir.WorldBuilding
 
         private static void DeadTree(Transform t, MapTheme theme)
         {
+            int seed = Mathf.Abs(Mathf.RoundToInt(t.position.x * 3.1f + t.position.z * 1.7f));
+            if (EnvironmentKit.Spawn("tree_dead_" + seed % 2, t, theme, seed) != null)
+            {
+                return;
+            }
+
             Color bark = Snowy(theme) ? new Color(0.42f, 0.40f, 0.40f) : theme == MapTheme.Desert ? new Color(0.70f, 0.64f, 0.56f) : DarkWood;
             Part(PrimitiveType.Cylinder, t, "Trunk", new Vector3(0f, 1.4f, 0f), new Vector3(0.34f, 1.4f, 0.34f), bark);
             Part(PrimitiveType.Cylinder, t, "BranchL", new Vector3(-0.45f, 2.4f, 0f), new Vector3(0.12f, 0.6f, 0.12f), bark, new Vector3(0f, 0f, 40f));
@@ -189,6 +212,11 @@ namespace Runeheir.WorldBuilding
 
         private static void Rock(Transform t, MapTheme theme, int seed)
         {
+            if (EnvironmentKit.Spawn("rock_" + seed % 3, t, theme, seed) != null)
+            {
+                return;
+            }
+
             Color color = theme == MapTheme.Fjord ? new Color(0.42f, 0.46f, 0.50f) : Snowy(theme) ? new Color(0.66f, 0.71f, 0.76f)
                 : theme == MapTheme.Desert || theme == MapTheme.Coast || theme == MapTheme.SandTomb ? Sandstone * 0.9f
                 : theme == MapTheme.Volcano ? Basalt * 1.3f : Stone;
@@ -261,26 +289,26 @@ namespace Runeheir.WorldBuilding
                 Part(PrimitiveType.Sphere, t, "Stone", new Vector3(Mathf.Cos(angle) * 0.75f, 0.12f, Mathf.Sin(angle) * 0.75f), new Vector3(0.35f, 0.25f, 0.35f), Stone, outline: 0.8f);
             }
 
-            Part(PrimitiveType.Cylinder, t, "Logs", new Vector3(0f, 0.15f, 0f), new Vector3(0.18f, 0.5f, 0.18f), Bark, new Vector3(80f, 30f, 0f));
-            GlowPart(PrimitiveType.Sphere, t, "Flame", new Vector3(0f, 0.45f, 0f), new Vector3(0.45f, 0.7f, 0.45f), Flame, new Color(1.4f, 0.6f, 0.15f));
-            PointLight(t, new Vector3(0f, 1.2f, 0f), new Color(1f, 0.6f, 0.25f), 9f, 2.5f);
+            foreach (float yaw in new[] { 30f, 90f, 150f })
+            {
+                Part(PrimitiveType.Cylinder, t, "Log", new Vector3(0f, 0.15f, 0f), new Vector3(0.16f, 0.5f, 0.16f), Bark, new Vector3(80f, yaw, 0f));
+            }
+
+            Fire(t, new Vector3(0f, 0.12f, 0f), 1.15f, false);
         }
 
         private static void Brazier(Transform t, MapTheme theme)
         {
             bool spirit = theme == MapTheme.Crypt;
-            Color fire = spirit ? SpiritFlame : Flame;
             Part(PrimitiveType.Cylinder, t, "Stand", new Vector3(0f, 0.55f, 0f), new Vector3(0.16f, 0.55f, 0.16f), Iron);
             Part(PrimitiveType.Cylinder, t, "Bowl", new Vector3(0f, 1.15f, 0f), new Vector3(0.75f, 0.12f, 0.75f), Iron * 1.2f);
-            GlowPart(PrimitiveType.Sphere, t, "Flame", new Vector3(0f, 1.45f, 0f), new Vector3(0.5f, 0.75f, 0.5f), fire, fire * 1.6f);
-            PointLight(t, new Vector3(0f, 1.9f, 0f), spirit ? new Color(0.5f, 0.7f, 1f) : new Color(1f, 0.6f, 0.25f), 7f, 2f);
+            Fire(t, new Vector3(0f, 1.18f, 0f), 1.05f, spirit);
         }
 
         private static void Torch(Transform t)
         {
             Part(PrimitiveType.Cylinder, t, "Pole", new Vector3(0f, 0.9f, 0f), new Vector3(0.08f, 0.9f, 0.08f), DarkWood, outline: 0.8f);
-            GlowPart(PrimitiveType.Sphere, t, "Flame", new Vector3(0f, 1.95f, 0f), new Vector3(0.22f, 0.35f, 0.22f), Flame, new Color(1.4f, 0.6f, 0.15f));
-            PointLight(t, new Vector3(0f, 2.1f, 0f), new Color(1f, 0.6f, 0.25f), 5f, 1.4f);
+            Fire(t, new Vector3(0f, 1.8f, 0f), 0.5f, false);
         }
 
         // ---------------------------------------------------------------- town
@@ -301,8 +329,13 @@ namespace Runeheir.WorldBuilding
             }
         }
 
-        private static void House(Transform t, int seed)
+        private static void House(Transform t, MapTheme theme, int seed)
         {
+            if (EnvironmentKit.Spawn("house_" + seed % 2, t, theme, seed) != null)
+            {
+                return;
+            }
+
             Color walls = seed % 2 == 0 ? Wood : new Color(0.62f, 0.50f, 0.36f);
             Part(PrimitiveType.Cube, t, "Walls", new Vector3(0f, 1.6f, 0f), new Vector3(7f, 3.2f, 5.4f), walls);
             Roof(t, new Vector3(0f, 3.2f, 0f), 7.6f, 6f, 2.4f, seed % 3 == 0 ? RoofRed : Thatch);
@@ -310,8 +343,13 @@ namespace Runeheir.WorldBuilding
             GlowPart(PrimitiveType.Cube, t, "Window", new Vector3(2.2f, 1.9f, 2.72f), new Vector3(0.9f, 0.7f, 0.06f), new Color(1f, 0.8f, 0.45f), new Color(0.9f, 0.6f, 0.25f));
         }
 
-        private static void MeadHall(Transform t)
+        private static void MeadHall(Transform t, MapTheme theme)
         {
+            if (EnvironmentKit.Spawn("meadhall_0", t, theme, Mathf.Abs(Mathf.RoundToInt(t.position.x * 3.1f + t.position.z * 1.7f))) != null)
+            {
+                return;
+            }
+
             Part(PrimitiveType.Cube, t, "Walls", new Vector3(0f, 2.4f, 0f), new Vector3(16f, 4.8f, 11f), DarkWood * 1.15f);
             Part(PrimitiveType.Cube, t, "Base", new Vector3(0f, 0.3f, 0f), new Vector3(16.6f, 0.6f, 11.6f), Stone);
             Roof(t, new Vector3(0f, 4.8f, 0f), 17f, 12.4f, 4.6f, Thatch * 0.9f);
@@ -348,8 +386,13 @@ namespace Runeheir.WorldBuilding
             PointLight(t, new Vector3(-1.5f, 1.2f, 3.6f), new Color(1f, 0.5f, 0.15f), 8f, 2.4f);
         }
 
-        private static void Stall(Transform t, int seed)
+        private static void Stall(Transform t, MapTheme theme, int seed)
         {
+            if (EnvironmentKit.Spawn("stall_0", t, theme, seed) != null)
+            {
+                return;
+            }
+
             Color stripe = seed % 2 == 0 ? new Color(0.75f, 0.2f, 0.15f) : new Color(0.2f, 0.4f, 0.7f);
             Part(PrimitiveType.Cube, t, "Counter", new Vector3(0f, 0.5f, 0f), new Vector3(2.8f, 1f, 1.2f), Wood);
             foreach (var x in new[] { -1.3f, 1.3f })
@@ -366,8 +409,13 @@ namespace Runeheir.WorldBuilding
             Part(PrimitiveType.Sphere, t, "Goods", new Vector3(-0.6f, 1.15f, 0f), new Vector3(0.5f, 0.3f, 0.5f), new Color(0.85f, 0.6f, 0.25f), outline: 0.8f);
         }
 
-        private static void Well(Transform t)
+        private static void Well(Transform t, MapTheme theme)
         {
+            if (EnvironmentKit.Spawn("well_0", t, theme, Mathf.Abs(Mathf.RoundToInt(t.position.x * 3.1f + t.position.z * 1.7f))) != null)
+            {
+                return;
+            }
+
             Part(PrimitiveType.Cylinder, t, "Ring", new Vector3(0f, 0.45f, 0f), new Vector3(2f, 0.45f, 2f), Stone);
             Part(PrimitiveType.Cylinder, t, "Water", new Vector3(0f, 0.86f, 0f), new Vector3(1.6f, 0.02f, 1.6f), new Color(0.2f, 0.35f, 0.55f), outline: 0f);
             foreach (var x in new[] { -0.85f, 0.85f })
@@ -391,6 +439,11 @@ namespace Runeheir.WorldBuilding
 
         private static void Statue(Transform t, MapTheme theme)
         {
+            if (EnvironmentKit.Spawn("statue_0", t, theme, 4) != null)
+            {
+                return;
+            }
+
             Color stone = Snowy(theme) ? new Color(0.62f, 0.66f, 0.72f) : Stone;
             Part(PrimitiveType.Cube, t, "Plinth", new Vector3(0f, 0.5f, 0f), new Vector3(2.4f, 1f, 2.4f), stone * 0.85f);
             Part(PrimitiveType.Capsule, t, "Robe", new Vector3(0f, 2.3f, 0f), new Vector3(1.1f, 1.4f, 0.9f), stone);
@@ -408,6 +461,11 @@ namespace Runeheir.WorldBuilding
 
         private static void Tent(Transform t, int seed)
         {
+            if (EnvironmentKit.Spawn("tent_0", t, MapTheme.Meadow, seed) != null)
+            {
+                return;
+            }
+
             Color canvas = seed % 2 == 0 ? Cloth : new Color(0.62f, 0.52f, 0.38f);
             Roof(t, Vector3.zero, 3.4f, 3.6f, 2.2f, canvas);
             Part(PrimitiveType.Cylinder, t, "Pole", new Vector3(0f, 1.2f, 1.75f), new Vector3(0.08f, 1.2f, 0.08f), DarkWood, outline: 0.8f);
@@ -631,7 +689,7 @@ namespace Runeheir.WorldBuilding
             {
                 float x = (i + 0.5f) / flames * (length - 1f) - (length - 1f) * 0.5f;
                 Part(PrimitiveType.Cube, t, "Log", new Vector3(x, 0.3f, 0f), new Vector3(1.1f, 0.18f, 0.18f), DarkWood, new Vector3(0f, i % 2 == 0 ? 25f : -25f, 0f));
-                GlowPart(PrimitiveType.Sphere, t, "Flame", new Vector3(x, 0.65f, 0f), new Vector3(0.55f, 0.8f, 0.55f), Flame, Flame * 1.6f);
+                Fire(t, new Vector3(x, 0.32f, 0f), 0.85f, false);
             }
 
             PointLight(t, new Vector3(-length * 0.25f, 1.6f, 0f), new Color(1f, 0.6f, 0.25f), 9f, 2.2f);
@@ -639,6 +697,15 @@ namespace Runeheir.WorldBuilding
         }
 
         // ---------------------------------------------------------------- helpers
+        /// <summary>A kit model, or the primitive stand-in when the model isn't there.</summary>
+        private static void Kit(Transform t, string model, MapTheme theme, int seed, System.Action fallback)
+        {
+            if (EnvironmentKit.Spawn(model, t, theme, seed) == null)
+            {
+                fallback();
+            }
+        }
+
         /// <summary>A gabled roof: two slabs meeting at the ridge, running along local X.</summary>
         private static void Roof(Transform t, Vector3 eaves, float length, float depth, float rise, Color color)
         {
@@ -647,6 +714,42 @@ namespace Runeheir.WorldBuilding
             float angle = Mathf.Atan2(rise, half) * Mathf.Rad2Deg;
             Part(PrimitiveType.Cube, t, "RoofN", eaves + new Vector3(0f, rise * 0.5f, half * 0.5f), new Vector3(length, 0.25f, slope), color, new Vector3(angle, 0f, 0f));
             Part(PrimitiveType.Cube, t, "RoofS", eaves + new Vector3(0f, rise * 0.5f, -half * 0.5f), new Vector3(length, 0.25f, slope), color, new Vector3(-angle, 0f, 0f));
+        }
+
+        /// <summary>
+        /// Art Pass 3: a stylized fire: a wide red-orange base, an orange body, a yellow top and a pale tip, with two side
+        /// tongues, all self-lit (the bloom makes them glow), flickering with its light. Spirit fire burns blue.
+        /// </summary>
+        private static void Fire(Transform t, Vector3 at, float size, bool spirit)
+        {
+            var pivot = new GameObject("Fire").transform;
+            pivot.SetParent(t, false);
+            pivot.localPosition = at;
+            pivot.localScale = Vector3.one * size;
+            Color deep = spirit ? new Color(0.2f, 0.32f, 0.95f) : new Color(0.95f, 0.22f, 0.04f);
+            Color body = spirit ? new Color(0.35f, 0.58f, 1f) : new Color(1f, 0.42f, 0.07f);
+            Color top = spirit ? new Color(0.6f, 0.82f, 1f) : new Color(1f, 0.66f, 0.18f);
+            Color tip = spirit ? new Color(0.88f, 0.96f, 1f) : new Color(1f, 0.88f, 0.55f);
+            GlowPart(PrimitiveType.Sphere, pivot, "Base", new Vector3(0f, 0.18f, 0f), new Vector3(0.62f, 0.42f, 0.62f), deep, deep * 0.55f);
+            GlowPart(PrimitiveType.Sphere, pivot, "Body", new Vector3(0f, 0.45f, 0f), new Vector3(0.46f, 0.52f, 0.46f), body, body * 0.6f);
+            GlowPart(PrimitiveType.Sphere, pivot, "Top", new Vector3(0.02f, 0.76f, 0f), new Vector3(0.3f, 0.46f, 0.3f), top, top * 0.7f);
+            GlowPart(PrimitiveType.Sphere, pivot, "Tip", new Vector3(0.04f, 1.03f, 0f), new Vector3(0.14f, 0.3f, 0.14f), tip, tip * 0.85f);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var tongue = GlowPart(PrimitiveType.Sphere, pivot, "Tongue", new Vector3(side * 0.2f, 0.55f, 0.05f), new Vector3(0.18f, 0.36f, 0.18f), body,
+                    body * 0.6f);
+                tongue.localRotation = Quaternion.Euler(0f, 0f, side * -25f);
+            }
+
+            var light = new GameObject("Light").AddComponent<Light>();
+            light.transform.SetParent(pivot, false);
+            light.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+            light.type = LightType.Point;
+            light.color = spirit ? new Color(0.5f, 0.7f, 1f) : new Color(1f, 0.6f, 0.25f);
+            light.range = 7f * Mathf.Max(0.6f, size);
+            light.intensity = 2f * Mathf.Max(0.6f, size);
+            light.shadows = LightShadows.None;
+            pivot.gameObject.AddComponent<Visuals.FlameFlicker>().Bind(light);
         }
 
         private static void PointLight(Transform parent, Vector3 localPosition, Color color, float range, float intensity)

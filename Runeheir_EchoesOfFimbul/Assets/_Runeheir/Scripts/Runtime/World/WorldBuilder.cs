@@ -350,6 +350,7 @@ namespace Runeheir.WorldBuilding
             // Everything above was drawn around the world origin: move it (and the layout's points) to the map's spot.
             origin.y = 0f;
             root.position = origin;
+            GrassField.Plant(layout, map.Theme, theme, root);
             layout.Translate(origin.x, origin.z);
             Physics.SyncTransforms();
             baker.EnsureBaked();
@@ -413,10 +414,159 @@ namespace Runeheir.WorldBuilding
                 camera.clearFlags = CameraClearFlags.SolidColor;
                 camera.backgroundColor = theme.Fog;
             }
+
+            PostEffects.Apply(camera, theme.SunColor, theme.Enclosed ? 0.8f : 0.35f);
         }
 
         // ---------------------------------------------------------------- ground
         private static void BuildGround(MapLayout layout, WorldTheme theme, Transform root)
+        {
+            var terrain = RuntimeMaterials.Terrain();
+            if (terrain != null)
+            {
+                BuildBlendedGround(layout, theme, root, terrain);
+                return;
+            }
+
+            BuildFlatGround(layout, theme, root);
+        }
+
+        private const int GroundKinds = 5; // CellTag.Ground .. CellTag.Snow
+
+        /// <summary>
+        /// Art Pass 3: the ground as one fine mesh (about a meter between vertices) whose vertex colors blend the cells'
+        /// kinds. Each kind's share at a vertex is smoothed over the neighbouring cells, the sample point is warped by
+        /// noise so edges wander like worn grass, and the share is sharpened again so paths keep a clear but ragged edge.
+        /// Grass and snow get broad lighter and darker patches. Runeheir/Terrain adds grain and flecks on top.
+        /// </summary>
+        private static void BuildBlendedGround(MapLayout layout, WorldTheme theme, Transform root, Material material)
+        {
+            float s = layout.CellSize;
+            int sub = Mathf.Max(1, Mathf.CeilToInt(s / 1.1f));
+            float step = s / sub;
+            int columns = layout.Width * sub + 1;
+            int rows = layout.Height * sub + 1;
+            float seed = layout.Map.Seed % 997 * 0.37f;
+
+            var kindColor = new Color[GroundKinds, 2];
+            for (int kind = 0; kind < GroundKinds; kind++)
+            {
+                kindColor[kind, 0] = theme.ColorOf((CellTag)kind, false);
+                kindColor[kind, 1] = theme.ColorOf((CellTag)kind, true);
+            }
+
+            var vertices = new Vector3[columns * rows];
+            var colors = new Color32[columns * rows];
+            var normals = new Vector3[columns * rows];
+            var share = new float[GroundKinds];
+            for (int gz = 0; gz < rows; gz++)
+            {
+                for (int gx = 0; gx < columns; gx++)
+                {
+                    float wx = layout.OriginX + gx * step;
+                    float wz = layout.OriginZ + gz * step;
+                    int i = gz * columns + gx;
+                    vertices[i] = new Vector3(wx, 0f, wz);
+                    normals[i] = Vector3.up;
+
+                    // Where the kinds meet, a warped sample point makes the edge wander.
+                    float warpX = (Mathf.PerlinNoise(wx * 0.21f + seed, wz * 0.21f) - 0.5f) * s * 0.9f;
+                    float warpZ = (Mathf.PerlinNoise(wx * 0.21f, wz * 0.21f + seed + 31.7f) - 0.5f) * s * 0.9f;
+                    float cx = (wx + warpX - layout.OriginX) / s - 0.5f;
+                    float cz = (wz + warpZ - layout.OriginZ) / s - 0.5f;
+                    int x0 = Mathf.FloorToInt(cx);
+                    int z0 = Mathf.FloorToInt(cz);
+                    float fx = cx - x0;
+                    float fz = cz - z0;
+                    System.Array.Clear(share, 0, GroundKinds);
+                    AddShare(share, layout, x0, z0, (1f - fx) * (1f - fz));
+                    AddShare(share, layout, x0 + 1, z0, fx * (1f - fz));
+                    AddShare(share, layout, x0, z0 + 1, (1f - fx) * fz);
+                    AddShare(share, layout, x0 + 1, z0 + 1, fx * fz);
+
+                    // Broad patches inside each kind (meadow greens, snow drifts).
+                    float patch = Mathf.PerlinNoise(wx * 0.045f + seed, wz * 0.045f - seed) * 0.7f + Mathf.PerlinNoise(wx * 0.13f - seed, wz * 0.13f) * 0.3f;
+                    float alt = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.38f, 0.62f, patch));
+
+                    Color color = Color.Lerp(kindColor[0, 0], kindColor[0, 1], alt);
+                    float paving = 0f;
+                    for (int kind = 1; kind < GroundKinds; kind++)
+                    {
+                        if (share[kind] <= 0f)
+                        {
+                            continue;
+                        }
+
+                        float weight = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.4f, 0.6f, share[kind]));
+                        var kindShade = Color.Lerp(kindColor[kind, 0], kindColor[kind, 1], alt);
+                        color = Color.Lerp(color, kindShade, weight);
+                        if (kind == (int)CellTag.Paving)
+                        {
+                            paving = weight;
+                        }
+                    }
+
+                    // A whisper of hue drift so large fields never read as one flat swatch.
+                    float drift = (Mathf.PerlinNoise(wx * 0.31f - seed, wz * 0.31f + seed) - 0.5f) * 0.06f;
+                    color.r = Mathf.Clamp01(color.r * (1f + drift));
+                    color.g = Mathf.Clamp01(color.g * (1f + drift * 0.5f));
+                    color.b = Mathf.Clamp01(color.b * (1f - drift * 0.5f));
+                    // Vertex colors reach the shader as they are: the project renders in linear space, so convert.
+                    colors[i] = QualitySettings.activeColorSpace == ColorSpace.Linear ? color.linear : color;
+                    colors[i].a = (byte)Mathf.RoundToInt(paving * 255f); // Runeheir/Terrain lays flagstones where this is high
+                }
+            }
+
+            var triangles = new List<int>(layout.Width * layout.Height * sub * sub * 6);
+            for (int z = 0; z < layout.Height; z++)
+            {
+                for (int x = 0; x < layout.Width; x++)
+                {
+                    if (!layout.IsWalkable(x, z))
+                    {
+                        continue;
+                    }
+
+                    for (int sz = 0; sz < sub; sz++)
+                    {
+                        for (int sx = 0; sx < sub; sx++)
+                        {
+                            int a = (z * sub + sz) * columns + x * sub + sx;
+                            int b = a + columns;
+                            triangles.Add(a);
+                            triangles.Add(b);
+                            triangles.Add(b + 1);
+                            triangles.Add(a);
+                            triangles.Add(b + 1);
+                            triangles.Add(a + 1);
+                        }
+                    }
+                }
+            }
+
+            var mesh = new Mesh { name = "Ground", indexFormat = IndexFormat.UInt32 };
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
+            mesh.SetColors(colors);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateBounds();
+            var go = new GameObject("Ground");
+            go.transform.SetParent(root, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        }
+
+        /// <summary>A cell's kind counts toward the share at a point, by its bilinear weight (unwalkable cells count as plain ground).</summary>
+        private static void AddShare(float[] share, MapLayout layout, int x, int z, float weight)
+        {
+            int kind = layout.IsWalkable(x, z) ? (int)layout.TagAt(x, z) : 0;
+            share[Mathf.Clamp(kind, 0, GroundKinds - 1)] += weight;
+        }
+
+        private static void BuildFlatGround(MapLayout layout, WorldTheme theme, Transform root)
         {
             // One submesh per (tag, shade): cells of a kind share a material, and a noise field gives meadows and
             // snowfields some patches without per-cell materials.

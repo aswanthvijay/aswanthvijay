@@ -29,9 +29,65 @@ namespace Runeheir.Visuals
         /// <summary>True when the toon shader is available and the active pipeline is URP.</summary>
         public static bool ToonAvailable => ToonShader != null;
 
+        public const string TerrainShaderName = "Runeheir/Terrain";
+
+        private static Material s_terrain;
+        private static Shader s_terrainShader;
+        private static bool s_terrainResolved;
+
+        /// <summary>
+        /// Art Pass 3: the ground's material (<c>Runeheir/Terrain</c>: vertex-colored ground kinds, world-space patches,
+        /// grain and flecks, toon lighting), or null where the shader can't run (then the ground falls back to flat colors).
+        /// </summary>
+        public static Material Terrain()
+        {
+            // A scene change can unload a material that only a static field holds: make it again when that happens.
+            if (s_terrain == null && (!s_terrainResolved || s_terrainShader != null))
+            {
+                s_terrainResolved = true;
+                var shader = ToonAvailable ? Shader.Find(TerrainShaderName) : null;
+                s_terrainShader = shader != null && shader.isSupported ? shader : null;
+                if (s_terrainShader != null)
+                {
+                    s_terrain = new Material(s_terrainShader) { name = "RH_Terrain" };
+                }
+            }
+
+            return s_terrain;
+        }
+
         public static Material Lit(Color color)
         {
             return Lit(color, CharacterOutline);
+        }
+
+        private static readonly Dictionary<(Color32, int), Material> MatteCache = new Dictionary<(Color32, int), Material>();
+
+        /// <summary>
+        /// Art Pass 3: the toon material for scenery (leaves, bark, stone): no glossy highlight (it made canopies look
+        /// like plastic balls) and a fainter rim, so foliage reads as soft painted masses.
+        /// </summary>
+        public static Material Matte(Color color, float outlineWidth)
+        {
+            var key = ((Color32)color, Mathf.RoundToInt(outlineWidth * 100f));
+            if (MatteCache.TryGetValue(key, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var material = new Material(Lit(color, outlineWidth)) { name = $"RH_Matte_{ColorUtility.ToHtmlStringRGBA(color)}" };
+            if (material.HasProperty("_SpecularColor"))
+            {
+                material.SetColor("_SpecularColor", new Color(1f, 1f, 1f, 0f));
+            }
+
+            if (material.HasProperty("_RimColor"))
+            {
+                material.SetColor("_RimColor", new Color(1f, 0.97f, 0.88f, 0.18f));
+            }
+
+            MatteCache[key] = material;
+            return material;
         }
 
         /// <param name="outlineWidth">Ink outline in pixels at 1080p (0 = none). Ignored without the toon shader.</param>
@@ -53,6 +109,10 @@ namespace Runeheir.Visuals
             if (toon != null)
             {
                 material.SetFloat("_OutlineWidth", outlineWidth);
+
+                // No outline means no ink pass at all: at zero width it would still paint the back faces black, which
+                // shows through thin sheets (tent canvas, petals) and two-sided parts.
+                material.SetShaderPassEnabled("SRPDefaultUnlit", outlineWidth > 0f);
             }
             else
             {

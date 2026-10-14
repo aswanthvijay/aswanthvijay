@@ -86,6 +86,11 @@ namespace Runeheir.World
         // Phase 8 castles.
         Throne = 39,
         Hearth = 40,
+
+        // Art Pass 3: undergrowth.
+        Bush = 41,
+        Flowers = 42,
+        Stump = 43,
     }
 
     /// <summary>Which props block movement and how much ground they cover (the runtime builder draws them to match).</summary>
@@ -104,6 +109,7 @@ namespace Runeheir.World
                 case PropKind.Pool:
                 case PropKind.Fern:
                 case PropKind.LavaPool:
+                case PropKind.Flowers:
                     return false;
                 default:
                     return true;
@@ -147,6 +153,8 @@ namespace Runeheir.World
                 case PropKind.Obelisk: return 0.9f;
                 case PropKind.Urn: return 0.5f;
                 case PropKind.Throne: return 1.6f;
+                case PropKind.Bush: return 0.6f;
+                case PropKind.Stump: return 0.45f;
                 case PropKind.Hearth: return 0.8f;
                 default: return 0.5f;
             }

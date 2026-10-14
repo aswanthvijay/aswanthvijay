@@ -36,6 +36,16 @@ namespace Runeheir.Social
         public int SiegeStartHour = 20;
         public int SiegeMinutes = 60;
 
+        /// <summary>
+        /// Phase 9, the realm guard (anti-cheat): every save and every hit is checked against what the realm handed out.
+        /// Progress and wealth are checked while <see cref="AllowGmCommands"/> is off (@commands change characters
+        /// legitimately); the host's own character is trusted.
+        /// </summary>
+        public bool Guard = true;
+
+        /// <summary>Refused saves before a player is sent back to the login screen.</summary>
+        public int GuardStrikes = 3;
+
         public void Sanitize()
         {
             Name = ChatRules.Sanitize(string.IsNullOrWhiteSpace(Name) ? "Runeheir Alpha" : Name, MaxNameLength);
@@ -49,6 +59,7 @@ namespace Runeheir.Social
             SiegeDays = (SiegeDays ?? string.Empty).Trim();
             SiegeStartHour = Math.Max(0, Math.Min(23, SiegeStartHour));
             SiegeMinutes = Math.Max(0, Math.Min(24 * 60, SiegeMinutes));
+            GuardStrikes = Math.Max(1, Math.Min(50, GuardStrikes));
         }
 
         public ServerRates Rates()

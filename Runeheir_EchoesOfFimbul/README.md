@@ -22,6 +22,9 @@ This folder is the Unity project. Guides: **[Phase 2 — Core Mechanics & Isomet
 - **Animation layer:** one-click Animator Controller for real models (ASPD-scaled attack, skill motions, stagger), plus a settings asset for your model and rates
 - **The XileRetro database (Phase 8):** everything XileRetro has, renamed for Norse myth with fresh descriptions: **1,904** weapons and armor pieces (Excalibur is Hofud), **595** cards, **2,500** potions, boxes, scrolls and goods, **589** monsters with their drops and skills (the Poring is the Slimling), **322** maps (Prontera is Vigrid Haven) with their warps, **75** pets, **41** mercenaries, and **626** costumes in four costume slots. XileRetro's own gear, cards and pets drop from bosses. Gear auto-casts, Perfect Dodge, an ammunition slot, EXP and drop bonuses
 - **New lands and sound (Phase 8):** desert, jungle, coast, volcano and sand-tomb maps with their own props and music; procedural Nordic-folk music and 44 sound effects; item pictograms for every item
+- **The world's look (Art Pass 3):** soft blended ground with worn paths and flagstone plazas, grass that sways in the wind, a modeled scenery kit (broadleafs, firs, birches, bushes, mossy rocks, tents, longhouses, the mead hall, stalls, the well and the Wanderer's statue) painted per land, and post-processing (bloom, grading, vignette). See **[Art Pass 3](Docs/Art_Environment.md)**
+- **Art direction samples:** the same forest camp rendered two candidate ways from CC0 scans: modern PBR (golden-hour light, HDRI sky, height-blended terrain, two-sided PBR foliage) and stylized anime (cel-shaded, painted terrain, cartoon fire). See **[Art Direction](Docs/Art_Direction.md)** (Runeheir ▸ Art ▸ Render Style Samples)
+- **The realm guard (Phase 9):** a realm checks every save and every hit against what it handed out: impossible characters, conjured items or EXP, dupes kept after a trade, and forged hits are refused; verdicts go to `realm_guard.log` (see the multiplayer guide)
 - **Companions and mounts (Phase 8):** eight Skald–Seiðkona **duets**; the Brewmaster's four **homunculi** (Líf, Bjarki, Valfugl, Gandr) woven from an Embryo; **Sleipnir's Foal** for the Berserker line, **Gullinbursti** for Guardians and the fjord horse for anyone (Hestr's Stable); Odin's raven **Huginn** on a Ranger's shoulder
 - **The War of the Realms (Phase 8):** Ragnarok's War of Emperium. Guilds storm five great halls on Iðavöllr (Bilskirnir, Breiðablik, Glaðsheimr, Sessrúmnir, Sökkvabekkr) at the realm's siege hours, break the **Jarlstone** to take a hall, and open its Castle Hoards
 - **Loot and gear (Phase 4):** 87 base items on a 10-slot paperdoll (Q), 35 Soul Cards compounded into 1–4 sockets, refining to +20 with safe limits, Rune of Preservation and shattering, Runic Fuller runewords, card extraction, worn gear drawn on the model (headgear, shields, capes, animated wings)
@@ -54,6 +57,7 @@ Packages/, ProjectSettings/
 Tools/CoreTests/     Run the Core tests without Unity: dotnet test Tools/CoreTests/Tests
 Tools/Blender/       The character builder (Blender 5.2): skeleton, body, hair, outfits → FBX in Resources/Characters
 Tools/ItemImport/    The XileRetro importer (Python): rAthena + client data → Norse-named Core/Items/Generated/*.g.cs and a coverage report
+Tools/ArtSamples/    fetch_polyhaven.py: the CC0 scans for the art direction samples (into the git-ignored ThirdParty/PolyHaven)
 Docs/Phase2_SetupGuide.md … Docs/Phase8_XileRetro.md, Docs/Art_Characters.md
 ```
 

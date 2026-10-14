@@ -44,6 +44,22 @@ namespace Runeheir.Net
 
         public bool IsLocal => Connection is LocalConnectionToClient;
 
+        /// <summary>Phase 9: what the realm handed this character since its last accepted save.</summary>
+        public readonly GuardLedger Ledger = new GuardLedger();
+
+        /// <summary>Refused saves this session, and the last reason.</summary>
+        public int Strikes;
+
+        public string LastVerdict;
+
+        /// <summary>The most one of this character's hits could deal (0 = not worked out yet).</summary>
+        public int DamageCeiling;
+
+        public double NextHitWarning;
+
+        /// <summary>When a player with too many refused saves is disconnected (-1 = never).</summary>
+        public float KickAt = -1f;
+
         /// <summary>The connection is going away: nothing more is sent to it.</summary>
         public bool Disconnected;
 
@@ -183,6 +199,7 @@ namespace Runeheir.Net
             _nextRefresh = Time.unscaledTime + 1f;
             RefreshSocial();
             TickSieges();
+            TickGuard();
         }
 
         // ================================================================ maps
@@ -411,6 +428,13 @@ namespace Runeheir.Net
                             break;
                         }
 
+                        string refused = await GuardSave(session, record, null, "save");
+                        if (refused != null)
+                        {
+                            reply.Error = refused;
+                            break;
+                        }
+
                         var result = await _accounts.SaveCharacterAsync(session.Username, record);
                         reply.Ok = result.Success;
                         reply.Error = result.Error;
@@ -451,9 +475,22 @@ namespace Runeheir.Net
                             break;
                         }
 
-                        var result = await _accounts.SaveCharacterAndStorageAsync(session.Username, record, storage.Items ?? new List<Items.ItemStack>());
+                        var items = storage.Items ?? new List<Items.ItemStack>();
+                        string refused = await GuardSave(session, record, items, "storage");
+                        if (refused != null)
+                        {
+                            reply.Error = refused;
+                            break;
+                        }
+
+                        var result = await _accounts.SaveCharacterAndStorageAsync(session.Username, record, items);
                         reply.Ok = result.Success;
                         reply.Error = result.Error;
+                        if (result.Success && Alive(session) && session.InWorld && string.Equals(record.Name, session.CharacterName, StringComparison.Ordinal))
+                        {
+                            session.Record = record;
+                        }
+
                         break;
                     }
 
@@ -504,6 +541,26 @@ namespace Runeheir.Net
             }
 
             record.Slot = request.Slot;
+            if (!string.Equals(session.CharacterName, record.Name, StringComparison.Ordinal))
+            {
+                // A different character than the last one in play: a fresh ledger.
+                session.Ledger.Clear();
+                session.DamageCeiling = 0;
+                session.Record = null;
+            }
+
+            string refused = await GuardSave(session, record, null, "enter");
+            if (!Alive(session))
+            {
+                return;
+            }
+
+            if (refused != null)
+            {
+                connection.Send(new WarpReply { Ok = false, Error = refused });
+                return;
+            }
+
             var saved = await _accounts.SaveCharacterAsync(session.Username, record);
             if (!Alive(session))
             {
@@ -586,6 +643,18 @@ namespace Runeheir.Net
 
             record.Slot = session.Slot;
             record.MapId = map.Id;
+            string refused = await GuardSave(session, record, null, "warp");
+            if (!Alive(session))
+            {
+                return;
+            }
+
+            if (refused != null)
+            {
+                connection.Send(new WarpReply { Ok = false, Error = refused });
+                return;
+            }
+
             var saved = await _accounts.SaveCharacterAsync(session.Username, record);
             if (!Alive(session))
             {
@@ -735,6 +804,12 @@ namespace Runeheir.Net
             if (text.StartsWith("@siege", StringComparison.OrdinalIgnoreCase))
             {
                 SiegeCommand(session, text.Substring(6));
+                return;
+            }
+
+            if (text.StartsWith("@guard", StringComparison.OrdinalIgnoreCase))
+            {
+                GuardCommand(session);
                 return;
             }
 

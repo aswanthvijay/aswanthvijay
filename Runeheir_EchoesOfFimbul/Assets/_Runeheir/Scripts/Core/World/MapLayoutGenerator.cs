@@ -443,7 +443,35 @@ namespace Runeheir.World
                     break;
             }
 
+            Undergrowth(layout, random, map.Theme);
             return layout;
+        }
+
+        /// <summary>
+        /// Art Pass 3: what grows between the trees: bushes and stumps (which block, like small rocks) and clumps of
+        /// wildflowers and ferns (which you walk through). Green lands get the most; snow, sand and ash the least.
+        /// </summary>
+        private static void Undergrowth(MapLayout layout, Random random, MapTheme theme)
+        {
+            float area = layout.Width * layout.CellSize * layout.Height * layout.CellSize / (160f * 160f);
+            int Count(int perField) => Math.Max(1, (int)(perField * area));
+            switch (theme)
+            {
+                case MapTheme.Desert:
+                case MapTheme.Volcano:
+                    return;
+                case MapTheme.Tundra:
+                    Scatter(layout, random, Count(18), r => r.Next(3) == 0 ? PropKind.Stump : PropKind.Bush, 9f, 0.7f, 1.2f);
+                    return;
+                case MapTheme.Fjord:
+                    Scatter(layout, random, Count(35), r => r.Next(4) == 0 ? PropKind.Stump : PropKind.Bush, 7f, 0.7f, 1.3f);
+                    Scatter(layout, random, Count(30), r => r.Next(2) == 0 ? PropKind.Fern : PropKind.Flowers, 6f, 0.8f, 1.3f);
+                    return;
+                default:
+                    Scatter(layout, random, Count(55), r => r.Next(5) == 0 ? PropKind.Stump : PropKind.Bush, 6f, 0.7f, 1.4f);
+                    Scatter(layout, random, Count(90), r => r.Next(3) == 0 ? PropKind.Fern : PropKind.Flowers, 4.5f, 0.8f, 1.4f);
+                    return;
+            }
         }
 
         /// <summary>
